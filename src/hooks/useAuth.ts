@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isConfigured } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 
 export function useAuth() {
@@ -7,6 +7,11 @@ export function useAuth() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!isConfigured || !supabase) {
+      setLoading(false)
+      return
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser({
@@ -37,6 +42,9 @@ export function useAuth() {
   }, [setUser, setLoading])
 
   const signInWithGoogle = async () => {
+    if (!isConfigured || !supabase) {
+      throw new Error('Supabase not configured')
+    }
     setError(null)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -49,6 +57,9 @@ export function useAuth() {
   }
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!isConfigured || !supabase) {
+      throw new Error('Supabase not configured')
+    }
     setError(null)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
@@ -58,6 +69,9 @@ export function useAuth() {
   }
 
   const signUpWithEmail = async (email: string, password: string) => {
+    if (!isConfigured || !supabase) {
+      throw new Error('Supabase not configured')
+    }
     setError(null)
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
@@ -68,6 +82,9 @@ export function useAuth() {
   }
 
   const signOut = async () => {
+    if (!isConfigured || !supabase) {
+      throw new Error('Supabase not configured')
+    }
     setError(null)
     const { error } = await supabase.auth.signOut()
     if (error) {
@@ -77,6 +94,9 @@ export function useAuth() {
   }
 
   const uploadAvatar = async (file: File) => {
+    if (!isConfigured || !supabase) {
+      throw new Error('Supabase not configured')
+    }
     if (!user) throw new Error('Пользователь не авторизован')
     
     const extension = file.name.split('.').pop()
@@ -97,6 +117,9 @@ export function useAuth() {
   }
 
   const updateProfile = async (updates: Record<string, any>) => {
+    if (!isConfigured || !supabase) {
+      throw new Error('Supabase not configured')
+    }
     const { data, error } = await supabase.auth.updateUser({
       data: updates
     })

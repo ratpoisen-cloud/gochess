@@ -171,10 +171,15 @@ npm run deploy       # Деплой на GitHub Pages
 ### Supabase MCP
 - **URL:** `https://mcp.supabase.com/mcp?project_ref=qrziisfzaapbskhbydcv`
 - **Доступ:** Full (чтение + запись)
-- **Аутентификация:** OAuth (автоматически через opencode)
-- **Команда для auth:** `opencode mcp auth supabase`
+- **Аутентификация:** API Key через переменную окружения `SUPABASE_PUBLISHABLE_KEY`
+- **Конфиг:** `opencode.json` в корне проекта + `.env` с ключом
 - **Проверка:** `opencode mcp list`
-- **Конфиг:** `opencode.json` в корне проекта
+
+**Настройка:**
+1. Ключ хранится в `.env` файле (не коммитить в Git!)
+2. OpenCode автоматически подставляет ключ из `{env:SUPABASE_PUBLISHABLE_KEY}`
+3. OAuth отключён (`"oauth": false`), используется только API Key
+4. Если `.env` не читается — установить глобально: `setx SUPABASE_PUBLISHABLE_KEY "key"`
 
 Используется для:
 - Управления таблицами и схемами БД

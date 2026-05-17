@@ -4,7 +4,11 @@
     "supabase": {
       "type": "remote",
       "url": "https://mcp.supabase.com/mcp?project_ref=qrziisfzaapbskhbydcv&features=database,development,docs,debugging,functions,storage",
-      "enabled": true
+      "enabled": true,
+      "oauth": false,
+      "headers": {
+        "Authorization": "Bearer {env:SUPABASE_PUBLISHABLE_KEY}"
+      }
     }
   }
 }

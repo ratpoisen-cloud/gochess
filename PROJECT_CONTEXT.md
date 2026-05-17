@@ -165,3 +165,32 @@ npm run deploy       # Деплой на GitHub Pages
 - `src/stores/gameStore.ts` — логика шахмат
 - `src/index.css` — CSS-переменные
 - `vite.config.ts` — base path для GitHub Pages
+
+## MCP Серверы
+
+### Supabase MCP
+- **URL:** `https://mcp.supabase.com/mcp?project_ref=qrziisfzaapbskhbydcv`
+- **Доступ:** Full (чтение + запись)
+- **Аутентификация:** OAuth (автоматически через opencode)
+- **Команда для auth:** `opencode mcp auth supabase`
+- **Проверка:** `opencode mcp list`
+- **Конфиг:** `opencode.json` в корне проекта
+
+Используется для:
+- Управления таблицами и схемами БД
+- Создания и применения миграций
+- Настройки RLS политик
+- Генерации TypeScript типов из схемы
+- Дебага через логи и advisors
+
+### Доступные инструменты
+- `supabase_list_tables` — список таблиц
+- `supabase_execute_sql` — SQL запросы (SELECT, INSERT, UPDATE)
+- `supabase_apply_migration` — DDL изменения (CREATE TABLE, ALTER, RLS)
+- `supabase_list_migrations` — список миграций
+- `supabase_generate_typescript_types` — генерация TS типов
+- `supabase_search_docs` — поиск в документации
+- `supabase_get_logs` — логи сервисов
+- `supabase_get_advisors` — советы по безопасности
+- `supabase_get_project_url` — API URL проекта
+- `supabase_get_publishable_keys` — anon/publishable ключи

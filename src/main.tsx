@@ -5,7 +5,7 @@ import { ToastProvider } from './components/Toast'
 import App from './App.tsx'
 import './index.css'
 
-const basename = import.meta.env.BASE_URL || '/'
+const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
 
 // Restore SPA route after 404.html redirect on GitHub Pages
 const savedPath = sessionStorage.getItem('gochess-redirect')

@@ -1,27 +1,33 @@
-import { useState, useEffect, RefObject } from 'react'
+import { useState, useLayoutEffect, useRef, RefObject } from 'react'
 
 export function useBoardWidth(ref: RefObject<HTMLElement>) {
-  const [boardWidth, setBoardWidth] = useState(0)
+  const [boardWidth, setBoardWidth] = useState(760)
+  const prevWidthRef = useRef(760)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = ref.current
-    if (!element) return
+    if (!element) {
+      setBoardWidth(760)
+      return
+    }
 
     const updateWidth = () => {
       const width = element.getBoundingClientRect().width
-      if (width > 0) {
+      if (width > 0 && width !== prevWidthRef.current) {
+        prevWidthRef.current = width
         setBoardWidth(width)
       }
     }
 
-    // Initial check
-    updateWidth()
+    // Immediate measurement
+    requestAnimationFrame(updateWidth)
 
     // Use ResizeObserver for responsive changes
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const width = entry.contentRect.width
-        if (width > 0) {
+        if (width > 0 && width !== prevWidthRef.current) {
+          prevWidthRef.current = width
           setBoardWidth(width)
         }
       }

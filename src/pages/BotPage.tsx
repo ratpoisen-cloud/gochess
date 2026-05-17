@@ -91,7 +91,7 @@ export default function BotPage() {
 
       <main className="max-w-[1400px] mx-auto px-[var(--space-20)] py-[var(--space-24)] flex-1">
         <div className="flex flex-col game:flex-row gap-[var(--game-layout-gap)] items-start justify-center">
-          <div className="flex-1 max-w-[var(--game-main-column-width)] mx-auto game:mx-0 w-full">
+          <div className="flex-1 min-w-0 max-w-[var(--game-main-column-width)] mx-auto game:mx-0 w-full">
             <div className="mb-[var(--space-16)] text-center game:text-left">
               <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status]}`}>
                 {statusText}
@@ -103,6 +103,7 @@ export default function BotPage() {
             >
               {boardWidth > 0 && (
                 <ChessBoard
+                  key={boardWidth}
                   game={game}
                   lastMove={lastMove}
                   checkSquare={checkSquare}

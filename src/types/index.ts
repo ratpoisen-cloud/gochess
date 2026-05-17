@@ -11,6 +11,7 @@ export interface User {
   displayName: string
   email: string
   photoURL: string | null
+  customAvatarURL?: string | null
 }
 
 export interface GameData {

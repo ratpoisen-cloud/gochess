@@ -7,7 +7,7 @@
       "enabled": true,
       "oauth": false,
       "headers": {
-        "Authorization": "Bearer {env:SUPABASE_PUBLISHABLE_KEY}"
+        "Authorization": "Bearer sb_publishable_885modjYD97Ds0KxgqOyGg_x22rqAls"
       }
     }
   }

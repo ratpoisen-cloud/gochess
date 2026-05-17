@@ -100,8 +100,17 @@ export const useGameStore = create<GameState>()(
         const { game, selectedSquare, makeMove } = get()
         const piece = game.get(square as any)
 
+        if (selectedSquare === square) {
+          set({ selectedSquare: null, legalMoves: [] })
+          return
+        }
+
         if (selectedSquare) {
-          if (makeMove(selectedSquare, square)) return
+          const isLegalMove = get().legalMoves.includes(square)
+          if (isLegalMove) {
+            if (makeMove(selectedSquare, square)) return
+          }
+          
           if (piece && piece.color === game.turn()) {
             const moves = game.moves({ verbose: true }) as Move[]
             const filtered = moves.filter((m) => m.from === square)

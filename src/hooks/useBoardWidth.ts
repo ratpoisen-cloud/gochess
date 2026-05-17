@@ -7,19 +7,35 @@ export function useBoardWidth(ref: RefObject<HTMLElement>) {
     const element = ref.current
     if (!element) return
 
-    setBoardWidth(element.clientWidth)
+    const updateWidth = () => {
+      const width = element.getBoundingClientRect().width
+      if (width > 0) {
+        setBoardWidth(width)
+      }
+    }
 
+    // Initial check
+    updateWidth()
+
+    // Use ResizeObserver for responsive changes
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (entry.contentRect.width > 0) {
-          setBoardWidth(entry.contentRect.width)
+        const width = entry.contentRect.width
+        if (width > 0) {
+          setBoardWidth(width)
         }
       }
     })
 
     observer.observe(element)
 
-    return () => observer.disconnect()
+    // Fallback for some browsers or cases where ResizeObserver might be delayed
+    window.addEventListener('resize', updateWidth)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateWidth)
+    }
   }, [])
 
   return boardWidth

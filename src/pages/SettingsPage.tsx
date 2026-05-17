@@ -1,5 +1,9 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
+import { useAuth } from '@/hooks/useAuth'
+import { useToast } from '@/components/Toast'
+import Button from '@/components/Button'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -47,17 +51,43 @@ function PiecePreview({ pieceSetId }: { pieceSetId: string }) {
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { selectedTheme, selectedPieceSet, setSelectedTheme, setSelectedPieceSet } = useBoardStore()
+  const { user, updateProfile } = useAuth()
+  const { addToast } = useToast()
+  
+  const [displayName, setDisplayName] = useState(user?.displayName || '')
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.displayName)
+    }
+  }, [user])
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!displayName.trim()) {
+      addToast('Имя не может быть пустым', 'warning')
+      return
+    }
+
+    setIsUpdating(true)
+    try {
+      await updateProfile({ full_name: displayName })
+      addToast('Профиль обновлён', 'success')
+    } catch (err: any) {
+      addToast('Ошибка обновления: ' + (err.message || err), 'error')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
 
   return (
     <div className="min-h-[100dvh] flex flex-col">
       <header className="border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] px-[var(--space-20)] py-[var(--space-16)]">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="px-[14px] py-[8px] bg-[color-mix(in_srgb,var(--surface-elevated)_76%,var(--surface))] text-text border border-[color-mix(in_srgb,var(--accent)_14%,var(--border))] rounded-[var(--btn-radius)] text-[var(--font-size-sm)] cursor-pointer hover:translate-y-[-2px] transition-transform duration-[0.14s] ease-[steps(2,end)]"
-          >
+          <Button variant="outline" size="sm" onClick={() => navigate('/')}>
             ← В лобби
-          </button>
+          </Button>
           <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em]">
             Настройки
           </h1>
@@ -66,7 +96,31 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-[var(--space-20)] py-[var(--space-32)] flex-1">
-        <section className="mb-[var(--space-32)]">
+        {user && (
+          <section className="mb-[var(--space-40)]">
+            <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">
+              Профиль
+            </h2>
+            <form onSubmit={handleUpdateProfile} className="max-w-[400px] space-y-[var(--space-16)] bg-[var(--surface-elevated)] p-[var(--space-24)] rounded-[var(--radius-20)] border border-[var(--border)]">
+              <div className="space-y-[var(--space-8)]">
+                <label className="text-[var(--font-size-xs)] text-text-secondary font-medium">
+                  Отображаемое имя
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full bg-[var(--move-list-bg)] border border-[color-mix(in_srgb,var(--border)_60%,transparent)] rounded-[var(--radius-12)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
+                />
+              </div>
+              <Button type="submit" size="sm" disabled={isUpdating || displayName === user.displayName}>
+                {isUpdating ? 'Сохранение...' : 'Сохранить изменения'}
+              </Button>
+            </form>
+          </section>
+        )}
+
+        <section className="mb-[var(--space-40)]">
           <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">
             Тема доски
           </h2>

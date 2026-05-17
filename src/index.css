@@ -126,6 +126,80 @@ option {
   display: none !important;
 }
 
+/* Board Highlights Replication */
+[data-square] {
+  position: relative;
+  overflow: visible;
+}
+
+.highlight-possible::after {
+  content: '';
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  background: var(--board-highlight-possible);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 8px var(--board-highlight-possible-shadow);
+  z-index: 2;
+  animation: move-indicator-in 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.highlight-possible:hover::after {
+  transform: translate(-50%, -50%) scale(1.25);
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--shadow-accent);
+}
+
+.highlight-capture::after {
+  content: '';
+  position: absolute;
+  width: 85%;
+  height: 85%;
+  border: 4px solid var(--board-highlight-capture);
+  border-radius: 12%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 12px var(--board-highlight-capture-shadow);
+  z-index: 2;
+  animation: move-indicator-in 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.highlight-capture:hover::after {
+  transform: translate(-50%, -50%) scale(1.05);
+  border-color: var(--danger);
+}
+
+@keyframes move-indicator-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Dragging piece effect */
+[data-board-dragging="true"] {
+  cursor: grabbing !important;
+}
+
+.dragging-piece {
+  filter: drop-shadow(0 14px 28px rgba(0,0,0,0.6));
+  transform: scale(1.15) translateY(-10px);
+  transition: transform 0.12s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  z-index: 1000;
+}
+
 @keyframes modalOverlayIn {
   from { opacity: 0; }
   to { opacity: 1; }

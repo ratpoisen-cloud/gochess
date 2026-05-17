@@ -1,4 +1,9 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
+import AuthModal from '@/components/AuthModal'
+import UserMenu from '@/components/UserMenu'
+import Button from '@/components/Button'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -49,21 +54,29 @@ function HubTile({ to, icon, title, description, variant = 'secondary' }: HubTil
 }
 
 export default function LobbyPage() {
+  const { user } = useAuth()
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+
   return (
     <div className="min-h-[100dvh] flex flex-col">
       <header className="border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] px-[var(--space-20)] py-[var(--space-16)]">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-          <img
-            src={`${BASE}logo/gochess_wordmark_dark.svg`}
-            alt="GoChess"
-            className="h-[32px] w-auto"
-          />
-          <Link
-            to="/settings"
-            className="text-text-secondary hover:text-accent transition-colors duration-[0.14s] ease-[steps(2,end)] text-[var(--font-size-sm)]"
-          >
-            ⚙️ Настройки
-          </Link>
+          <div className="flex items-center gap-[var(--space-12)]">
+            <img
+              src={`${BASE}logo/gochess_wordmark_dark.svg`}
+              alt="GoChess"
+              className="h-[32px] w-auto"
+            />
+          </div>
+          <div className="flex items-center gap-[var(--space-16)]">
+            {user ? (
+              <UserMenu />
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setIsAuthModalOpen(true)}>
+                Войти
+              </Button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -112,6 +125,8 @@ export default function LobbyPage() {
           </div>
         </div>
       </main>
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   )
 }

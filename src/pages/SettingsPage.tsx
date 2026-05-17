@@ -78,11 +78,10 @@ export default function SettingsPage() {
                   key={theme.id}
                   onClick={() => setSelectedTheme(theme.id)}
                   className={`
-                    flex items-center gap-[var(--space-16)] p-[var(--space-16)] rounded-[var(--radius-16)]
+                    flex flex-col items-center gap-[var(--space-12)] p-[var(--space-20)] min-h-[120px] justify-center rounded-[var(--radius-16)]
                     border transition-[border-color,box-shadow,transform] duration-[0.14s] ease-[steps(2,end)]
                     hover:translate-y-[-2px] hover:shadow-[0_8px_16px_rgba(0,0,0,0.2)]
                     active:translate-y-[1px] active:scale-[0.985]
-                    text-left
                     ${isActive
                       ? 'border-[var(--accent)] shadow-[0_0_0_2px_var(--accent-soft)]'
                       : 'border-[color-mix(in_srgb,var(--border)_80%,transparent)] hover:border-[color-mix(in_srgb,var(--accent)_40%,var(--border))]'
@@ -95,7 +94,7 @@ export default function SettingsPage() {
                   }}
                 >
                   <ThemePreview white={theme.whiteSquare} black={theme.blackSquare} />
-                  <span className="text-[var(--font-size-sm)] text-text font-medium">{theme.label}</span>
+                  <span className="text-[var(--font-size-sm)] text-text font-medium text-center">{theme.label}</span>
                 </button>
               )
             })}

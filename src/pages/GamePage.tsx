@@ -26,24 +26,25 @@ export default function GamePage() {
     resetGame,
   } = useGameStore()
 
-  const { getTheme, getPieceUrl } = useBoardStore()
+  const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
 
   const customPieces = useMemo(() => {
-    const pieces: Record<string, React.ReactNode> = {}
+    const pieces: Record<string, () => React.ReactNode> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
     codes.forEach((code) => {
-      pieces[code] = (
+      pieces[code] = () => (
         <img
           src={getPieceUrl(code)}
           alt={code}
           style={{ width: '100%', height: '100%', objectFit: 'contain' }}
           draggable={false}
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
         />
       )
     })
     return pieces
-  }, [getPieceUrl])
+  }, [getPieceUrl, selectedPieceSet])
 
   const { activeReactions, addReaction, canSendReaction, clearExpired } = useReactionStore()
   const { addToast } = useToast()
@@ -122,16 +123,14 @@ export default function GamePage() {
 
     if (dragSquare) {
       const moves = game.moves({ square: dragSquare as any, verbose: true }) as any[]
-      styles[dragSquare] = { backgroundColor: theme.highlightSelected }
+      styles[dragSquare] = { boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}` }
       moves.forEach((move) => {
         if (move.captured) {
-          styles[move.to] = {
-            background: `radial-gradient(circle, transparent 55%, ${theme.highlightCapture} 55%, ${theme.highlightCapture} 70%, transparent 70%)`,
-          }
+          styles[move.to] = { boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}` }
         } else {
           styles[move.to] = {
-            background: `radial-gradient(circle, ${theme.highlightPossible} 25%, transparent 25%)`,
-            boxShadow: `0 0 0 2px ${theme.highlightPossibleShadow}`,
+            background: `radial-gradient(circle, ${theme.highlightPossible} 28%, transparent 28%)`,
+            boxShadow: `0 0 8px ${theme.highlightPossibleShadow}`,
           }
         }
       })
@@ -144,8 +143,8 @@ export default function GamePage() {
     const styles: Record<string, React.CSSProperties> = {}
 
     if (lastMove && !dragSquare) {
-      styles[lastMove.from] = { backgroundColor: `${theme.highlightPossible}40` }
-      styles[lastMove.to] = { backgroundColor: `${theme.highlightPossible}40` }
+      styles[lastMove.from] = { boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}` }
+      styles[lastMove.to] = { boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}` }
     }
 
     if (checkSquare) {
@@ -155,17 +154,15 @@ export default function GamePage() {
     }
 
     if (selectedSquare && !dragSquare) {
-      styles[selectedSquare] = { backgroundColor: theme.highlightSelected }
+      styles[selectedSquare] = { boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}` }
       legalMoves.forEach((sq) => {
         const isCapture = game.get(sq as any) !== null
         if (isCapture) {
-          styles[sq] = {
-            background: `radial-gradient(circle, transparent 55%, ${theme.highlightCapture} 55%, ${theme.highlightCapture} 70%, transparent 70%)`,
-          }
+          styles[sq] = { boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}` }
         } else {
           styles[sq] = {
-            background: `radial-gradient(circle, ${theme.highlightPossible} 25%, transparent 25%)`,
-            boxShadow: `0 0 0 2px ${theme.highlightPossibleShadow}`,
+            background: `radial-gradient(circle, ${theme.highlightPossible} 28%, transparent 28%)`,
+            boxShadow: `0 0 8px ${theme.highlightPossibleShadow}`,
           }
         }
       })

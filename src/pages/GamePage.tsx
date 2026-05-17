@@ -176,7 +176,7 @@ export default function GamePage() {
     playing: currentTurn === 'w' ? 'text-[var(--accent)]' : 'text-text',
   }
 
-  const [boardWidth, setBoardWidth] = useState(0)
+  const [boardWidth, setBoardWidth] = useState(760)
   const boardContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -213,17 +213,19 @@ export default function GamePage() {
               </h2>
             </div>
             <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto relative" onContextMenu={handleContextMenu}>
-              <Chessboard
-                position={game.fen()}
-                onPieceDrop={onDrop}
-                onSquareClick={onSquareClick}
-                boardOrientation="white"
-                boardWidth={boardWidth}
-                customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
-                customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
-                customSquareStyles={customSquareStyles}
-                customPieces={customPieces}
-              />
+              {boardWidth > 0 && (
+                <Chessboard
+                  position={game.fen()}
+                  onPieceDrop={onDrop}
+                  onSquareClick={onSquareClick}
+                  boardOrientation="white"
+                  boardWidth={boardWidth}
+                  customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
+                  customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
+                  customSquareStyles={customSquareStyles}
+                  customPieces={customPieces}
+                />
+              )}
 
               {activeReactions
                 .filter((r) => r.expiresAt > Date.now())

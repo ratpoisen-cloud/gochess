@@ -13,7 +13,7 @@ export default function BotPage() {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
 
-  const [boardWidth, setBoardWidth] = useState(0)
+  const [boardWidth, setBoardWidth] = useState(760)
   const boardContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -164,17 +164,19 @@ export default function BotPage() {
               </h2>
             </div>
             <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto">
-              <Chessboard
-                position={game.fen()}
-                onPieceDrop={onDrop}
-                onSquareClick={onSquareClick}
-                boardOrientation="white"
-                boardWidth={boardWidth}
-                customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
-                customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
-                customSquareStyles={customSquareStyles}
-                customPieces={customPieces}
-              />
+              {boardWidth > 0 && (
+                <Chessboard
+                  position={game.fen()}
+                  onPieceDrop={onDrop}
+                  onSquareClick={onSquareClick}
+                  boardOrientation="white"
+                  boardWidth={boardWidth}
+                  customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
+                  customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
+                  customSquareStyles={customSquareStyles}
+                  customPieces={customPieces}
+                />
+              )}
             </div>
           </div>
 

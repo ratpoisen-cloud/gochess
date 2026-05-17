@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
-import Button from '@/components/Button'
+
+const BASE = import.meta.env.BASE_URL || '/'
 
 function ThemePreview({ white, black }: { white: string; black: string }) {
   return (
@@ -32,7 +33,7 @@ function PiecePreview({ pieceSetId }: { pieceSetId: string }) {
           }}
         >
           <img
-            src={`/pieces/${pieceSetId}/${color}${type}.svg`}
+            src={`${BASE}pieces/${pieceSetId}/${color}${type}.svg`}
             alt={`${color}${type}`}
             className="w-[28px] h-[28px]"
             draggable={false}
@@ -51,9 +52,12 @@ export default function SettingsPage() {
     <div className="min-h-[100dvh] flex flex-col">
       <header className="border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] px-[var(--space-20)] py-[var(--space-16)]">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-          <Button variant="outline" size="sm" onClick={() => navigate('/')}>
+          <button
+            onClick={() => navigate('/')}
+            className="px-[14px] py-[8px] bg-[color-mix(in_srgb,var(--surface-elevated)_76%,var(--surface))] text-text border border-[color-mix(in_srgb,var(--accent)_14%,var(--border))] rounded-[var(--btn-radius)] text-[var(--font-size-sm)] cursor-pointer hover:translate-y-[-2px] transition-transform duration-[0.14s] ease-[steps(2,end)]"
+          >
             ← В лобби
-          </Button>
+          </button>
           <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em]">
             Настройки
           </h1>
@@ -62,7 +66,6 @@ export default function SettingsPage() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-[var(--space-20)] py-[var(--space-32)] flex-1">
-        {/* Board Themes */}
         <section className="mb-[var(--space-32)]">
           <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">
             Тема доски
@@ -99,7 +102,6 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        {/* Piece Sets */}
         <section>
           <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">
             Набор фигур

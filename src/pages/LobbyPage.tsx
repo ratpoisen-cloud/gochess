@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import Card from '@/components/Card'
+
+const BASE = import.meta.env.BASE_URL || '/'
 
 interface HubTileProps {
   to: string
@@ -53,7 +54,7 @@ export default function LobbyPage() {
       <header className="border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] px-[var(--space-20)] py-[var(--space-16)]">
         <div className="max-w-[1400px] mx-auto flex items-center justify-between">
           <img
-            src="/logo/gochess_wordmark_dark.svg"
+            src={`${BASE}logo/gochess_wordmark_dark.svg`}
             alt="GoChess"
             className="h-[32px] w-auto"
           />
@@ -91,24 +92,24 @@ export default function LobbyPage() {
             description="Пригласи друга по ссылке"
             variant="primary"
           />
-          <Card className="text-center opacity-60">
+          <div className="group p-[18px_16px] rounded-[var(--radius-20)] border border-[color-mix(in_srgb,var(--border)_80%,transparent)] text-center opacity-60" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 55%, var(--card)), color-mix(in srgb, var(--card) 94%, #151915))' }}>
             <div className="text-[2rem] mb-[var(--space-12)]">🎮</div>
             <h3 className="text-[0.78rem] font-semibold mb-[var(--space-8)]">Партии</h3>
             <p className="text-text-secondary text-[var(--font-size-xs)]">Скоро</p>
-          </Card>
-          <Card className="text-center opacity-60">
+          </div>
+          <div className="group p-[18px_16px] rounded-[var(--radius-20)] border border-[color-mix(in_srgb,var(--border)_80%,transparent)] text-center opacity-60" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 55%, var(--card)), color-mix(in srgb, var(--card) 94%, #151915))' }}>
             <div className="text-[2rem] mb-[var(--space-12)]">👥</div>
             <h3 className="text-[0.78rem] font-semibold mb-[var(--space-8)]">Игроки</h3>
             <p className="text-text-secondary text-[var(--font-size-xs)]">Скоро</p>
-          </Card>
+          </div>
         </div>
 
         <div className="mt-[var(--space-32)] text-center">
-          <Card padding="sm" className="inline-block">
+          <div className="inline-block p-[var(--space-16)] rounded-[var(--radius-16)] border border-[color-mix(in_srgb,var(--border)_80%,transparent)]" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--surface-elevated) 55%, var(--card)), color-mix(in srgb, var(--card) 94%, #151915))' }}>
             <p className="text-text-secondary text-[var(--font-size-xs)]">
               Проект инициализирован: React + Vite + Tailwind CSS
             </p>
-          </Card>
+          </div>
         </div>
       </main>
     </div>

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+const BASE = import.meta.env.BASE_URL || '/'
+
 export interface BoardTheme {
   id: string
   label: string
@@ -92,22 +94,22 @@ export const PIECE_SETS: Record<string, PieceSet> = {
   alpha: {
     id: 'alpha',
     label: 'Alpha',
-    path: '/pieces/alpha/{piece}.svg',
+    path: `${BASE}pieces/alpha/{piece}.svg`,
   },
   chessnut: {
     id: 'chessnut',
     label: 'Chessnut',
-    path: '/pieces/chessnut/{piece}.svg',
+    path: `${BASE}pieces/chessnut/{piece}.svg`,
   },
   pixel: {
     id: 'pixel',
     label: 'Pixel',
-    path: '/pieces/pixel/{piece}.svg',
+    path: `${BASE}pieces/pixel/{piece}.svg`,
   },
   tatiana: {
     id: 'tatiana',
     label: 'Tatiana',
-    path: '/pieces/tatiana/{piece}.svg',
+    path: `${BASE}pieces/tatiana/{piece}.svg`,
   },
 }
 

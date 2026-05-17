@@ -1,8 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { Chessboard } from 'react-chessboard'
+import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
-import { useBoardStore } from '@/stores/boardStore'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import type { BotLevel } from '@/types'
@@ -10,11 +9,14 @@ import type { BotLevel } from '@/types'
 export default function BotPage() {
   const navigate = useNavigate()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, makeMove, selectSquare, resetGame } = useGameStore()
-  const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
-  const theme = getTheme()
 
   const [boardWidth, setBoardWidth] = useState(760)
   const boardContainerRef = useRef<HTMLDivElement>(null)
+  const gameRef = useRef(game)
+
+  useEffect(() => {
+    gameRef.current = game
+  }, [game])
 
   useEffect(() => {
     const updateWidth = () => {
@@ -27,23 +29,6 @@ export default function BotPage() {
     return () => window.removeEventListener('resize', updateWidth)
   }, [])
 
-  const customPieces = useMemo(() => {
-    const pieces: Record<string, (args: { isDragging: boolean; squareWidth: number }) => React.ReactElement> = {}
-    const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
-    codes.forEach((code) => {
-      pieces[code] = () => (
-        <img
-          src={getPieceUrl(code)}
-          alt={code}
-          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-          draggable={false}
-          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-        />
-      )
-    })
-    return pieces
-  }, [getPieceUrl, selectedPieceSet])
-
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
 
@@ -51,13 +36,14 @@ export default function BotPage() {
     resetGame()
   }, [resetGame])
 
-  const onDrop = (sourceSquare: string, targetSquare: string) => {
+  const onDrop = useCallback((sourceSquare: string, targetSquare: string) => {
     const success = makeMove(sourceSquare, targetSquare)
     if (success) {
       setTimeout(() => {
         setIsBotThinking(true)
-        const moves = game.moves({ verbose: true })
-        if (moves.length > 0 && !game.isGameOver()) {
+        const currentGame = gameRef.current
+        const moves = currentGame.moves({ verbose: true })
+        if (moves.length > 0 && !currentGame.isGameOver()) {
           const randomMove = moves[Math.floor(Math.random() * moves.length)]
           makeMove(randomMove.from, randomMove.to, randomMove.promotion)
         }
@@ -65,58 +51,11 @@ export default function BotPage() {
       }, 500)
     }
     return success
-  }
+  }, [makeMove])
 
   const onSquareClick = (square: string) => {
     selectSquare(square)
   }
-
-  const customSquareStyles = useMemo(() => {
-    const styles: Record<string, React.CSSProperties> = {}
-
-    if (lastMove) {
-      styles[lastMove.from] = {
-        boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}`,
-        borderRadius: '4px',
-      }
-      styles[lastMove.to] = {
-        boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}`,
-        borderRadius: '4px',
-      }
-    }
-
-    if (checkSquare) {
-      styles[checkSquare] = {
-        boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}, 0 0 16px ${theme.highlightCaptureShadow}`,
-        borderRadius: '4px',
-      }
-    }
-
-    if (selectedSquare) {
-      styles[selectedSquare] = {
-        boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}`,
-      }
-      legalMoves.forEach((sq) => {
-        const isCapture = game.get(sq as any) !== null
-        if (isCapture) {
-          styles[sq] = {
-            boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}`,
-            background: `linear-gradient(to bottom, transparent 0%, transparent 100%), radial-gradient(circle, ${theme.highlightCapture} 25%, transparent 25%)`,
-            backgroundSize: '100% 100%, 85% 85%',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }
-        } else {
-          styles[sq] = {
-            background: `radial-gradient(circle, ${theme.highlightPossible} 28%, transparent 28%)`,
-            boxShadow: `0 0 8px ${theme.highlightPossibleShadow}`,
-          }
-        }
-      })
-    }
-
-    return styles
-  }, [lastMove, checkSquare, selectedSquare, legalMoves, game, theme])
 
   const statusText = status === 'checkmate' ? 'Мат!'
     : status === 'stalemate' ? 'Пат — ничья'
@@ -165,16 +104,15 @@ export default function BotPage() {
             </div>
             <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto">
               {boardWidth > 0 && (
-                <Chessboard
-                  position={game.fen()}
-                  onPieceDrop={onDrop}
+                <ChessBoard
+                  game={game}
+                  lastMove={lastMove}
+                  checkSquare={checkSquare}
+                  selectedSquare={selectedSquare}
+                  legalMoves={legalMoves}
+                  onDrop={onDrop}
                   onSquareClick={onSquareClick}
-                  boardOrientation="white"
                   boardWidth={boardWidth}
-                  customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
-                  customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
-                  customSquareStyles={customSquareStyles}
-                  customPieces={customPieces}
                 />
               )}
             </div>

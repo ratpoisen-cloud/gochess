@@ -42,7 +42,17 @@
 
   --highlight-my-turn: color-mix(in srgb, var(--success) 34%, transparent);
   --shadow-accent: color-mix(in srgb, var(--accent) 20%, transparent);
+  
+  /* Board Highlights from Old Project */
   --board-last-move-outline: rgba(100, 180, 255, 0.6);
+  --board-check-outline: rgba(220, 60, 60, 0.95);
+  --board-check-glow: rgba(220, 60, 60, 0.75);
+  --board-highlight-selected: rgba(163, 193, 143, 0.85);
+  --board-highlight-possible: rgba(163, 193, 143, 0.9);
+  --board-highlight-possible-shadow: rgba(163, 193, 143, 0.5);
+  --board-highlight-capture: rgba(193, 90, 90, 0.9);
+  --board-highlight-capture-shadow: rgba(193, 90, 90, 0.5);
+  --board-highlight-drag-bg: rgba(163, 193, 143, 0.2);
 
   --space-4: 4px;
   --space-8: 8px;

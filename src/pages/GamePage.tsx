@@ -30,7 +30,7 @@ export default function GamePage() {
   const theme = getTheme()
 
   const customPieces = useMemo(() => {
-    const pieces: Record<string, () => React.ReactNode> = {}
+    const pieces: Record<string, (args: { isDragging: boolean; squareWidth: number }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
     codes.forEach((code) => {
       pieces[code] = () => (
@@ -49,10 +49,8 @@ export default function GamePage() {
   const { activeReactions, addReaction, canSendReaction, clearExpired } = useReactionStore()
   const { addToast } = useToast()
 
-  const [dragSquare, setDragSquare] = useState<string | null>(null)
   const [reactionPickerSquare, setReactionPickerSquare] = useState<string | null>(null)
   const [boardRect, setBoardRect] = useState<DOMRect | null>(null)
-  const boardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     resetGame()
@@ -67,8 +65,8 @@ export default function GamePage() {
 
   useEffect(() => {
     const updateRect = () => {
-      if (boardRef.current) {
-        setBoardRect(boardRef.current.getBoundingClientRect())
+      if (boardContainerRef.current) {
+        setBoardRect(boardContainerRef.current.getBoundingClientRect())
       }
     }
     updateRect()
@@ -77,7 +75,6 @@ export default function GamePage() {
   }, [])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
-    setDragSquare(null)
     return makeMove(sourceSquare, targetSquare)
   }
 
@@ -118,47 +115,41 @@ export default function GamePage() {
     }
   }, [])
 
-  const dragHighlights = useMemo(() => {
-    const styles: Record<string, React.CSSProperties> = {}
-
-    if (dragSquare) {
-      const moves = game.moves({ square: dragSquare as any, verbose: true }) as any[]
-      styles[dragSquare] = { boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}` }
-      moves.forEach((move) => {
-        if (move.captured) {
-          styles[move.to] = { boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}` }
-        } else {
-          styles[move.to] = {
-            background: `radial-gradient(circle, ${theme.highlightPossible} 28%, transparent 28%)`,
-            boxShadow: `0 0 8px ${theme.highlightPossibleShadow}`,
-          }
-        }
-      })
-    }
-
-    return styles
-  }, [dragSquare, game, theme])
-
   const customSquareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {}
 
-    if (lastMove && !dragSquare) {
-      styles[lastMove.from] = { boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}` }
-      styles[lastMove.to] = { boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}` }
+    if (lastMove) {
+      styles[lastMove.from] = {
+        boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}`,
+        borderRadius: '4px',
+      }
+      styles[lastMove.to] = {
+        boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}`,
+        borderRadius: '4px',
+      }
     }
 
     if (checkSquare) {
       styles[checkSquare] = {
-        background: `radial-gradient(circle, ${theme.highlightCapture} 0%, transparent 70%)`,
+        boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}, 0 0 16px ${theme.highlightCaptureShadow}`,
+        borderRadius: '4px',
       }
     }
 
-    if (selectedSquare && !dragSquare) {
-      styles[selectedSquare] = { boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}` }
+    if (selectedSquare) {
+      styles[selectedSquare] = {
+        boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}`,
+      }
       legalMoves.forEach((sq) => {
         const isCapture = game.get(sq as any) !== null
         if (isCapture) {
-          styles[sq] = { boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}` }
+          styles[sq] = {
+            boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}`,
+            background: `linear-gradient(to bottom, transparent 0%, transparent 100%), radial-gradient(circle, ${theme.highlightCapture} 25%, transparent 25%)`,
+            backgroundSize: '100% 100%, 85% 85%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }
         } else {
           styles[sq] = {
             background: `radial-gradient(circle, ${theme.highlightPossible} 28%, transparent 28%)`,
@@ -168,8 +159,8 @@ export default function GamePage() {
       })
     }
 
-    return { ...styles, ...dragHighlights }
-  }, [lastMove, checkSquare, selectedSquare, legalMoves, dragHighlights, dragSquare, game, theme])
+    return styles
+  }, [lastMove, checkSquare, selectedSquare, legalMoves, game, theme])
 
   const statusText = status === 'checkmate' ? 'Мат!'
     : status === 'stalemate' ? 'Пат — ничья'
@@ -184,6 +175,20 @@ export default function GamePage() {
     check: 'text-[var(--danger)]',
     playing: currentTurn === 'w' ? 'text-[var(--accent)]' : 'text-text',
   }
+
+  const [boardWidth, setBoardWidth] = useState(0)
+  const boardContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (boardContainerRef.current) {
+        setBoardWidth(boardContainerRef.current.clientWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [])
 
   return (
     <div className="min-h-[100dvh] flex flex-col">
@@ -200,19 +205,20 @@ export default function GamePage() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-[var(--space-20)] py-[var(--space-24)] flex-1">
-        <div className="flex flex-col lg:flex-row gap-[var(--game-layout-gap)] items-start justify-center">
-          <div className="flex-1 max-w-[var(--game-main-column-width)] mx-auto lg:mx-0 w-full">
-            <div className="mb-[var(--space-16)] text-center lg:text-left">
+        <div className="flex flex-col game:flex-row gap-[var(--game-layout-gap)] items-start justify-center">
+          <div className="flex-1 max-w-[var(--game-main-column-width)] mx-auto game:mx-0 w-full">
+            <div className="mb-[var(--space-16)] text-center game:text-left">
               <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status]}`}>
                 {statusText}
               </h2>
             </div>
-            <div ref={boardRef} className="w-full max-w-[min(100%,760px)] mx-auto relative" onContextMenu={handleContextMenu}>
+            <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto relative" onContextMenu={handleContextMenu}>
               <Chessboard
                 position={game.fen()}
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
                 boardOrientation="white"
+                boardWidth={boardWidth}
                 customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
                 customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
                 customSquareStyles={customSquareStyles}
@@ -259,7 +265,7 @@ export default function GamePage() {
             )}
           </div>
 
-          <div className="w-full lg:w-[var(--game-side-column-width)]">
+          <div className="w-full game:w-[var(--game-side-column-width)]">
             <Card padding="sm" className="mb-[var(--space-14)]">
               <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
                 История ходов

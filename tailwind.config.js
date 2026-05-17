@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'game': '900px',
+      },
       fontFamily: {
         pixel: ["'Press Start 2P'", 'monospace'],
       },

@@ -42,6 +42,7 @@
 
   --highlight-my-turn: color-mix(in srgb, var(--success) 34%, transparent);
   --shadow-accent: color-mix(in srgb, var(--accent) 20%, transparent);
+  --board-last-move-outline: rgba(100, 180, 255, 0.6);
 
   --space-4: 4px;
   --space-8: 8px;

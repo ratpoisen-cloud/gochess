@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Chessboard } from 'react-chessboard'
 import { useGameStore } from '@/stores/gameStore'
 import { useBoardStore } from '@/stores/boardStore'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import type { BotLevel } from '@/types'
@@ -13,8 +13,22 @@ export default function BotPage() {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
 
+  const [boardWidth, setBoardWidth] = useState(0)
+  const boardContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (boardContainerRef.current) {
+        setBoardWidth(boardContainerRef.current.clientWidth)
+      }
+    }
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [])
+
   const customPieces = useMemo(() => {
-    const pieces: Record<string, () => React.ReactNode> = {}
+    const pieces: Record<string, (args: { isDragging: boolean; squareWidth: number }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
     codes.forEach((code) => {
       pieces[code] = () => (
@@ -61,22 +75,37 @@ export default function BotPage() {
     const styles: Record<string, React.CSSProperties> = {}
 
     if (lastMove) {
-      styles[lastMove.from] = { boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}` }
-      styles[lastMove.to] = { boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}` }
+      styles[lastMove.from] = {
+        boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}`,
+        borderRadius: '4px',
+      }
+      styles[lastMove.to] = {
+        boxShadow: `inset 0 0 0 4px ${theme.highlightPossible}`,
+        borderRadius: '4px',
+      }
     }
 
     if (checkSquare) {
       styles[checkSquare] = {
-        background: `radial-gradient(circle, ${theme.highlightCapture} 0%, transparent 70%)`,
+        boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}, 0 0 16px ${theme.highlightCaptureShadow}`,
+        borderRadius: '4px',
       }
     }
 
     if (selectedSquare) {
-      styles[selectedSquare] = { boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}` }
+      styles[selectedSquare] = {
+        boxShadow: `inset 0 0 0 4px ${theme.highlightSelected}`,
+      }
       legalMoves.forEach((sq) => {
         const isCapture = game.get(sq as any) !== null
         if (isCapture) {
-          styles[sq] = { boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}` }
+          styles[sq] = {
+            boxShadow: `inset 0 0 0 4px ${theme.highlightCapture}`,
+            background: `linear-gradient(to bottom, transparent 0%, transparent 100%), radial-gradient(circle, ${theme.highlightCapture} 25%, transparent 25%)`,
+            backgroundSize: '100% 100%, 85% 85%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }
         } else {
           styles[sq] = {
             background: `radial-gradient(circle, ${theme.highlightPossible} 28%, transparent 28%)`,
@@ -127,19 +156,20 @@ export default function BotPage() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-[var(--space-20)] py-[var(--space-24)] flex-1">
-        <div className="flex flex-col lg:flex-row gap-[var(--game-layout-gap)] items-start justify-center">
-          <div className="flex-1 max-w-[var(--game-main-column-width)] mx-auto lg:mx-0 w-full">
-            <div className="mb-[var(--space-16)] text-center lg:text-left">
+        <div className="flex flex-col game:flex-row gap-[var(--game-layout-gap)] items-start justify-center">
+          <div className="flex-1 max-w-[var(--game-main-column-width)] mx-auto game:mx-0 w-full">
+            <div className="mb-[var(--space-16)] text-center game:text-left">
               <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status]}`}>
                 {statusText}
               </h2>
             </div>
-            <div className="w-full max-w-[min(100%,760px)] mx-auto">
+            <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto">
               <Chessboard
                 position={game.fen()}
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
                 boardOrientation="white"
+                boardWidth={boardWidth}
                 customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
                 customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
                 customSquareStyles={customSquareStyles}
@@ -148,7 +178,7 @@ export default function BotPage() {
             </div>
           </div>
 
-          <div className="w-full lg:w-[var(--game-side-column-width)]">
+          <div className="w-full game:w-[var(--game-side-column-width)]">
             <Card padding="sm">
               <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
                 История ходов

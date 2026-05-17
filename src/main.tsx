@@ -11,9 +11,10 @@ const basename = import.meta.env.BASE_URL || '/'
 const savedPath = sessionStorage.getItem('gochess-redirect')
 if (savedPath) {
   sessionStorage.removeItem('gochess-redirect')
-  const cleanPath = savedPath.replace(/^\/gochess/, '') || '/'
-  if (cleanPath !== '/' && cleanPath !== window.location.pathname) {
-    window.history.replaceState(null, '', basename + cleanPath)
+  const cleanPath = savedPath.replace(new RegExp(`^${basename}`), '')
+  const expectedPath = basename + (cleanPath || '')
+  if (cleanPath !== undefined && window.location.pathname !== expectedPath) {
+    window.history.replaceState(null, '', expectedPath)
   }
 }
 

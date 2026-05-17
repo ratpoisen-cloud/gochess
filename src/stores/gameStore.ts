@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { Chess, type Move } from 'chess.js'
 import type { GameStatus, Color } from '@/types'
 
@@ -40,105 +41,151 @@ const getCheckSquare = (game: Chess): string | null => {
   return null
 }
 
-export const useGameStore = create<GameState>((set, get) => ({
-  game: new Chess(),
-  status: 'playing',
-  currentTurn: 'w',
-  selectedSquare: null,
-  legalMoves: [],
-  moveHistory: [],
-  isMyTurn: true,
-  playerColor: null,
-  isGameOver: false,
-  lastMove: null,
-  checkSquare: null,
-
-  initGame: () => {
-    set({
+export const useGameStore = create<GameState>()(
+  persist(
+    (set, get) => ({
       game: new Chess(),
       status: 'playing',
       currentTurn: 'w',
       selectedSquare: null,
       legalMoves: [],
       moveHistory: [],
+      isMyTurn: true,
+      playerColor: null,
       isGameOver: false,
       lastMove: null,
       checkSquare: null,
-    })
-  },
 
-  makeMove: (from, to, promotion) => {
-    const { game } = get()
-    try {
-      const result = game.move({ from, to, promotion })
-      if (!result) return false
-
-      set({
-        status: game.isCheckmate() ? 'checkmate'
-          : game.isStalemate() ? 'stalemate'
-          : game.isDraw() ? 'draw'
-          : game.inCheck() ? 'check'
-          : 'playing',
-        currentTurn: game.turn() as Color,
-        selectedSquare: null,
-        legalMoves: [],
-        moveHistory: game.history(),
-        isGameOver: game.isGameOver(),
-        lastMove: { from, to },
-        checkSquare: getCheckSquare(game),
-      })
-      return true
-    } catch {
-      return false
-    }
-  },
-
-  selectSquare: (square) => {
-    const { game, selectedSquare, makeMove } = get()
-    const piece = game.get(square as any)
-
-    if (selectedSquare) {
-      if (makeMove(selectedSquare, square)) return
-      if (piece && piece.color === game.turn()) {
-        const moves = game.moves({ verbose: true }) as Move[]
-        const filtered = moves.filter((m) => m.from === square)
+      initGame: () => {
         set({
-          selectedSquare: square,
-          legalMoves: filtered.map((m) => m.to),
+          game: new Chess(),
+          status: 'playing',
+          currentTurn: 'w',
+          selectedSquare: null,
+          legalMoves: [],
+          moveHistory: [],
+          isGameOver: false,
+          lastMove: null,
+          checkSquare: null,
         })
-        return
-      }
-      set({ selectedSquare: null, legalMoves: [] })
-      return
+      },
+
+      makeMove: (from, to, promotion) => {
+        const { game } = get()
+        try {
+          const result = game.move({ from, to, promotion })
+          if (!result) return false
+
+          set({
+            status: game.isCheckmate() ? 'checkmate'
+              : game.isStalemate() ? 'stalemate'
+              : game.isDraw() ? 'draw'
+              : game.inCheck() ? 'check'
+              : 'playing',
+            currentTurn: game.turn() as Color,
+            selectedSquare: null,
+            legalMoves: [],
+            moveHistory: game.history(),
+            isGameOver: game.isGameOver(),
+            lastMove: { from, to },
+            checkSquare: getCheckSquare(game),
+          })
+          return true
+        } catch {
+          return false
+        }
+      },
+
+      selectSquare: (square) => {
+        const { game, selectedSquare, makeMove } = get()
+        const piece = game.get(square as any)
+
+        if (selectedSquare) {
+          if (makeMove(selectedSquare, square)) return
+          if (piece && piece.color === game.turn()) {
+            const moves = game.moves({ verbose: true }) as Move[]
+            const filtered = moves.filter((m) => m.from === square)
+            set({
+              selectedSquare: square,
+              legalMoves: filtered.map((m) => m.to),
+            })
+            return
+          }
+          set({ selectedSquare: null, legalMoves: [] })
+          return
+        }
+
+        if (piece && piece.color === game.turn()) {
+          const moves = game.moves({ verbose: true }) as Move[]
+          const filtered = moves.filter((m) => m.from === square)
+          set({
+            selectedSquare: square,
+            legalMoves: filtered.map((m) => m.to),
+          })
+        }
+      },
+
+      undoMove: () => {
+        const { game } = get()
+        game.undo()
+        set({
+          status: game.isGameOver() ? 'checkmate' : 'playing',
+          currentTurn: game.turn() as Color,
+          moveHistory: game.history(),
+          isGameOver: game.isGameOver(),
+          lastMove: null,
+          checkSquare: getCheckSquare(game),
+        })
+      },
+
+      resetGame: () => {
+        get().initGame()
+      },
+
+      setStatus: (status) => set({ status }),
+      setPlayerColor: (color) => set({ playerColor: color }),
+    }),
+    {
+      name: 'gochess-game-store',
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name)
+          if (!str) return null
+          try {
+            const data = JSON.parse(str)
+            const chess = new Chess()
+            if (data.state.moveHistory && Array.isArray(data.state.moveHistory)) {
+              for (const m of data.state.moveHistory) {
+                try {
+                  chess.move(m)
+                } catch {
+                  break
+                }
+              }
+            }
+            return {
+              ...data,
+              state: {
+                ...data.state,
+                game: chess,
+              },
+            }
+          } catch {
+            localStorage.removeItem(name)
+            return null
+          }
+        },
+        setItem: (name, value) => {
+          // Serialize only the state, the game object will be handled by FEN/history during hydration
+          localStorage.setItem(name, JSON.stringify(value))
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      },
+      // @ts-expect-error - partialize excludes 'game' which is required by GameState type
+      partialize: (state) => {
+        const { game, ...rest } = state
+        return rest
+      },
     }
-
-    if (piece && piece.color === game.turn()) {
-      const moves = game.moves({ verbose: true }) as Move[]
-      const filtered = moves.filter((m) => m.from === square)
-      set({
-        selectedSquare: square,
-        legalMoves: filtered.map((m) => m.to),
-      })
-    }
-  },
-
-  undoMove: () => {
-    const { game } = get()
-    game.undo()
-    set({
-      status: game.isGameOver() ? 'checkmate' : 'playing',
-      currentTurn: game.turn() as Color,
-      moveHistory: game.history(),
-      isGameOver: game.isGameOver(),
-      lastMove: null,
-      checkSquare: getCheckSquare(game),
-    })
-  },
-
-  resetGame: () => {
-    get().initGame()
-  },
-
-  setStatus: (status) => set({ status }),
-  setPlayerColor: (color) => set({ playerColor: color }),
-}))
+  )
+)

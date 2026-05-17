@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import type { BotLevel } from '@/types'
@@ -10,31 +11,25 @@ export default function BotPage() {
   const navigate = useNavigate()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, makeMove, selectSquare, resetGame } = useGameStore()
 
-  const [boardWidth, setBoardWidth] = useState(760)
+  const [initialized, setInitialized] = useState(false)
+
+  useEffect(() => {
+    if (!initialized) {
+      resetGame()
+      setInitialized(true)
+    }
+  }, [])
+
   const boardContainerRef = useRef<HTMLDivElement>(null)
+  const boardWidth = useBoardWidth(boardContainerRef)
   const gameRef = useRef(game)
 
   useEffect(() => {
     gameRef.current = game
   }, [game])
 
-  useEffect(() => {
-    const updateWidth = () => {
-      if (boardContainerRef.current) {
-        setBoardWidth(boardContainerRef.current.clientWidth)
-      }
-    }
-    updateWidth()
-    window.addEventListener('resize', updateWidth)
-    return () => window.removeEventListener('resize', updateWidth)
-  }, [])
-
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
-
-  useEffect(() => {
-    resetGame()
-  }, [resetGame])
 
   const onDrop = useCallback((sourceSquare: string, targetSquare: string) => {
     const success = makeMove(sourceSquare, targetSquare)
@@ -102,7 +97,10 @@ export default function BotPage() {
                 {statusText}
               </h2>
             </div>
-            <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto">
+            <div
+              ref={boardContainerRef}
+              className="w-full max-w-[min(100%,760px)] mx-auto aspect-square"
+            >
               {boardWidth > 0 && (
                 <ChessBoard
                   game={game}

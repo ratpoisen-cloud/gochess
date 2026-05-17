@@ -4,6 +4,7 @@ import { useGameStore } from '@/stores/gameStore'
 import { useReactionStore } from '@/stores/reactionStore'
 import { useToast } from '@/components/Toast'
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
 import ReactionPicker from '@/components/ReactionPicker'
@@ -28,14 +29,19 @@ export default function GamePage() {
   const { activeReactions, addReaction, canSendReaction, clearExpired } = useReactionStore()
   const { addToast } = useToast()
 
-  const [boardWidth, setBoardWidth] = useState(760)
-  const boardContainerRef = useRef<HTMLDivElement>(null)
-  const [reactionPickerSquare, setReactionPickerSquare] = useState<string | null>(null)
-  const [boardRect, setBoardRect] = useState<DOMRect | null>(null)
+  const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
-    resetGame()
-  }, [roomId, resetGame])
+    if (!initialized) {
+      resetGame()
+      setInitialized(true)
+    }
+  }, [roomId])
+
+  const boardContainerRef = useRef<HTMLDivElement>(null)
+  const boardWidth = useBoardWidth(boardContainerRef)
+  const [reactionPickerSquare, setReactionPickerSquare] = useState<string | null>(null)
+  const [boardRect, setBoardRect] = useState<DOMRect | null>(null)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -110,17 +116,6 @@ export default function GamePage() {
     playing: currentTurn === 'w' ? 'text-[var(--accent)]' : 'text-text',
   }
 
-  useEffect(() => {
-    const updateWidth = () => {
-      if (boardContainerRef.current) {
-        setBoardWidth(boardContainerRef.current.clientWidth)
-      }
-    }
-    updateWidth()
-    window.addEventListener('resize', updateWidth)
-    return () => window.removeEventListener('resize', updateWidth)
-  }, [])
-
   return (
     <div className="min-h-[100dvh] flex flex-col">
       <header className="border-b border-[color-mix(in_srgb,var(--border)_60%,transparent)] px-[var(--space-20)] py-[var(--space-16)]">
@@ -143,7 +138,11 @@ export default function GamePage() {
                 {statusText}
               </h2>
             </div>
-            <div ref={boardContainerRef} className="w-full max-w-[min(100%,760px)] mx-auto relative" onContextMenu={handleContextMenu}>
+            <div
+              ref={boardContainerRef}
+              className="w-full max-w-[min(100%,760px)] mx-auto relative aspect-square"
+              onContextMenu={handleContextMenu}
+            >
               {boardWidth > 0 && (
                 <ChessBoard
                   game={game}

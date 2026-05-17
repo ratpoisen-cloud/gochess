@@ -2,9 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Chessboard } from 'react-chessboard'
 import { useGameStore } from '@/stores/gameStore'
 import { useBoardStore } from '@/stores/boardStore'
-import { useEffect, useMemo, useState } from 'react'
+import { useReactionStore } from '@/stores/reactionStore'
+import { useToast } from '@/components/Toast'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import Button from '@/components/Button'
 import Card from '@/components/Card'
+import ReactionPicker from '@/components/ReactionPicker'
 
 export default function GamePage() {
   const { roomId } = useParams<{ roomId: string }>()
@@ -27,15 +30,35 @@ export default function GamePage() {
   const theme = getTheme()
   const pieceUrls = getAllPieceUrls()
 
+  const { activeReactions, addReaction, canSendReaction, clearExpired } = useReactionStore()
+  const { addToast } = useToast()
+
   const [dragSquare, setDragSquare] = useState<string | null>(null)
+  const [reactionPickerSquare, setReactionPickerSquare] = useState<string | null>(null)
+  const [boardRect, setBoardRect] = useState<DOMRect | null>(null)
+  const boardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     resetGame()
   }, [roomId, resetGame])
 
-  const onDragStart = (sourceSquare: string) => {
-    setDragSquare(sourceSquare)
-  }
+  useEffect(() => {
+    const interval = setInterval(() => {
+      clearExpired()
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [clearExpired])
+
+  useEffect(() => {
+    const updateRect = () => {
+      if (boardRef.current) {
+        setBoardRect(boardRef.current.getBoundingClientRect())
+      }
+    }
+    updateRect()
+    window.addEventListener('resize', updateRect)
+    return () => window.removeEventListener('resize', updateRect)
+  }, [])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     setDragSquare(null)
@@ -46,11 +69,44 @@ export default function GamePage() {
     selectSquare(square)
   }
 
+  const handleReactionSelect = useCallback((square: string, emoji: string) => {
+    const cycleKey = `${currentTurn}_${moveHistory.length}`
+    const existing = activeReactions.find(
+      (r) => r.square === square && r.expiresAt > Date.now()
+    )
+
+    if (existing) {
+      addToast('На этой клетке уже есть реакция', 'warning')
+      setReactionPickerSquare(null)
+      return
+    }
+
+    if (!canSendReaction(cycleKey)) {
+      addToast('Лимит реакций: до 5 за текущий ходовой цикл', 'warning')
+      setReactionPickerSquare(null)
+      return
+    }
+
+    addReaction(square, emoji, currentTurn)
+    setReactionPickerSquare(null)
+  }, [currentTurn, moveHistory.length, activeReactions, canSendReaction, addReaction, addToast])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const squareEl = (e.target as HTMLElement).closest('[data-square]')
+    if (squareEl) {
+      const square = squareEl.getAttribute('data-square')
+      if (square) {
+        setReactionPickerSquare(square)
+      }
+    }
+  }, [])
+
   const dragHighlights = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {}
 
     if (dragSquare) {
-      const moves = game.moves({ square: dragSquare, verbose: true })
+      const moves = game.moves({ square: dragSquare as any, verbose: true }) as any[]
       styles[dragSquare] = { backgroundColor: theme.highlightSelected }
       moves.forEach((move) => {
         if (move.captured) {
@@ -139,10 +195,9 @@ export default function GamePage() {
                 {statusText}
               </h2>
             </div>
-            <div className="w-full max-w-[min(100%,760px)] mx-auto">
+            <div ref={boardRef} className="w-full max-w-[min(100%,760px)] mx-auto relative" onContextMenu={handleContextMenu}>
               <Chessboard
                 position={game.fen()}
-                onPieceDragStart={onDragStart}
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
                 boardOrientation="white"
@@ -151,7 +206,45 @@ export default function GamePage() {
                 customSquareStyles={customSquareStyles}
                 customPieces={pieceUrls}
               />
+
+              {activeReactions
+                .filter((r) => r.expiresAt > Date.now())
+                .map((reaction) => {
+                  const files = 'abcdefgh'
+                  const fileIndex = files.indexOf(reaction.square[0])
+                  const rank = parseInt(reaction.square[1], 10)
+                  const timeLeft = reaction.expiresAt - Date.now()
+                  const opacity = Math.min(1, timeLeft / 2000)
+
+                  return (
+                    <div
+                      key={reaction.id}
+                      className="absolute pointer-events-none flex items-center justify-center"
+                      style={{
+                        left: `${(fileIndex / 8) * 100}%`,
+                        top: `${((8 - rank) / 8) * 100}%`,
+                        width: `${100 / 8}%`,
+                        height: `${100 / 8}%`,
+                        opacity,
+                        transition: 'opacity 0.3s ease',
+                      }}
+                    >
+                      <span className="text-[24px] md:text-[32px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+                        {reaction.emoji}
+                      </span>
+                    </div>
+                  )
+                })}
             </div>
+
+            {reactionPickerSquare && (
+              <ReactionPicker
+                square={reactionPickerSquare}
+                onSelect={handleReactionSelect}
+                onClose={() => setReactionPickerSquare(null)}
+                boardRect={boardRect}
+              />
+            )}
           </div>
 
           <div className="w-full lg:w-[var(--game-side-column-width)]">
@@ -188,6 +281,9 @@ export default function GamePage() {
                   <span className="text-text font-mono text-[10px] break-all">
                     {game.fen().slice(0, 40)}...
                   </span>
+                </p>
+                <p className="text-text-secondary text-[10px]">
+                  Правый клик на клетке — добавить реакцию
                 </p>
               </div>
             </Card>

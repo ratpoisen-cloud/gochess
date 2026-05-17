@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoChess</title>
+    <link rel="icon" type="image/svg+xml" href="/GoChess/favicon.svg" />
+    <script>
+      const path = window.location.pathname
+      const search = window.location.search
+      const hash = window.location.hash
+      window.location.href = '/GoChess/' + path.replace(/^\/GoChess\/?/, '') + search + hash
+    </script>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+  </body>
+</html>

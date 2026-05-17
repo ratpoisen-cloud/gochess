@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
-import Card from '@/components/Card'
 import Button from '@/components/Button'
 
 function ThemePreview({ white, black }: { white: string; black: string }) {

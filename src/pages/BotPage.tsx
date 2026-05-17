@@ -16,18 +16,12 @@ export default function BotPage() {
 
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
-  const [dragSquare, setDragSquare] = useState<string | null>(null)
 
   useEffect(() => {
     resetGame()
   }, [resetGame])
 
-  const onDragStart = (sourceSquare: string) => {
-    setDragSquare(sourceSquare)
-  }
-
   const onDrop = (sourceSquare: string, targetSquare: string) => {
-    setDragSquare(null)
     const success = makeMove(sourceSquare, targetSquare)
     if (success) {
       setTimeout(() => {
@@ -47,33 +41,10 @@ export default function BotPage() {
     selectSquare(square)
   }
 
-  const dragHighlights = useMemo(() => {
-    const styles: Record<string, React.CSSProperties> = {}
-
-    if (dragSquare) {
-      const moves = game.moves({ square: dragSquare, verbose: true })
-      styles[dragSquare] = { backgroundColor: theme.highlightSelected }
-      moves.forEach((move) => {
-        if (move.captured) {
-          styles[move.to] = {
-            background: `radial-gradient(circle, transparent 55%, ${theme.highlightCapture} 55%, ${theme.highlightCapture} 70%, transparent 70%)`,
-          }
-        } else {
-          styles[move.to] = {
-            background: `radial-gradient(circle, ${theme.highlightPossible} 25%, transparent 25%)`,
-            boxShadow: `0 0 0 2px ${theme.highlightPossibleShadow}`,
-          }
-        }
-      })
-    }
-
-    return styles
-  }, [dragSquare, game, theme])
-
   const customSquareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {}
 
-    if (lastMove && !dragSquare) {
+    if (lastMove) {
       styles[lastMove.from] = { backgroundColor: `${theme.highlightPossible}40` }
       styles[lastMove.to] = { backgroundColor: `${theme.highlightPossible}40` }
     }
@@ -84,7 +55,7 @@ export default function BotPage() {
       }
     }
 
-    if (selectedSquare && !dragSquare) {
+    if (selectedSquare) {
       styles[selectedSquare] = { backgroundColor: theme.highlightSelected }
       legalMoves.forEach((sq) => {
         const isCapture = game.get(sq as any) !== null
@@ -101,8 +72,8 @@ export default function BotPage() {
       })
     }
 
-    return { ...styles, ...dragHighlights }
-  }, [lastMove, checkSquare, selectedSquare, legalMoves, dragHighlights, dragSquare, game, theme])
+    return styles
+  }, [lastMove, checkSquare, selectedSquare, legalMoves, game, theme])
 
   const statusText = status === 'checkmate' ? 'Мат!'
     : status === 'stalemate' ? 'Пат — ничья'
@@ -127,7 +98,7 @@ export default function BotPage() {
             ← В лобби
           </Button>
           <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em]">
-            Игра с ботом (Ичи)
+            Игра с ботом
           </h1>
           <select
             value={level}
@@ -152,7 +123,6 @@ export default function BotPage() {
             <div className="w-full max-w-[min(100%,760px)] mx-auto">
               <Chessboard
                 position={game.fen()}
-                onPieceDragStart={onDragStart}
                 onPieceDrop={onDrop}
                 onSquareClick={onSquareClick}
                 boardOrientation="white"

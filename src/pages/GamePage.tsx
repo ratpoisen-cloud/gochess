@@ -26,9 +26,24 @@ export default function GamePage() {
     resetGame,
   } = useGameStore()
 
-  const { getTheme, getAllPieceUrls } = useBoardStore()
+  const { getTheme, getPieceUrl } = useBoardStore()
   const theme = getTheme()
-  const pieceUrls = getAllPieceUrls()
+
+  const customPieces = useMemo(() => {
+    const pieces: Record<string, React.ReactNode> = {}
+    const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
+    codes.forEach((code) => {
+      pieces[code] = (
+        <img
+          src={getPieceUrl(code)}
+          alt={code}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          draggable={false}
+        />
+      )
+    })
+    return pieces
+  }, [getPieceUrl])
 
   const { activeReactions, addReaction, canSendReaction, clearExpired } = useReactionStore()
   const { addToast } = useToast()
@@ -204,7 +219,7 @@ export default function GamePage() {
                 customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
                 customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
                 customSquareStyles={customSquareStyles}
-                customPieces={pieceUrls}
+                customPieces={customPieces}
               />
 
               {activeReactions

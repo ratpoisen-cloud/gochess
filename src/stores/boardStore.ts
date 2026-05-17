@@ -113,8 +113,7 @@ export const PIECE_SETS: Record<string, PieceSet> = {
   },
 }
 
-const PIECE_CODES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'] as const
-type PieceCode = (typeof PIECE_CODES)[number]
+export const PIECE_CODES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'] as const
 
 interface BoardState {
   selectedTheme: string
@@ -122,8 +121,7 @@ interface BoardState {
   setSelectedTheme: (theme: string) => void
   setSelectedPieceSet: (pieceSet: string) => void
   getTheme: () => BoardTheme
-  getPieceUrl: (color: 'w' | 'b', type: 'K' | 'Q' | 'R' | 'B' | 'N' | 'P') => string
-  getAllPieceUrls: () => Record<string, { mountSquare: string; dropSquare: string; transformationSquare: string }>
+  getPieceUrl: (code: string) => string
 }
 
 export const useBoardStore = create<BoardState>()(
@@ -140,31 +138,10 @@ export const useBoardStore = create<BoardState>()(
         return BOARD_THEMES[selectedTheme] || BOARD_THEMES.chesscom
       },
 
-      getPieceUrl: (color, type) => {
+      getPieceUrl: (code) => {
         const { selectedPieceSet } = get()
         const pieceSet = PIECE_SETS[selectedPieceSet] || PIECE_SETS.tatiana
-        const code = `${color}${type}` as PieceCode
         return pieceSet.path.replace('{piece}', code)
-      },
-
-      getAllPieceUrls: () => {
-        const { getPieceUrl } = get()
-        const urls: Record<string, { mountSquare: string; dropSquare: string; transformationSquare: string }> = {}
-        const pieces: Array<{ color: 'w' | 'b'; type: 'K' | 'Q' | 'R' | 'B' | 'N' | 'P' }> = [
-          { color: 'w', type: 'K' }, { color: 'w', type: 'Q' }, { color: 'w', type: 'R' },
-          { color: 'w', type: 'B' }, { color: 'w', type: 'N' }, { color: 'w', type: 'P' },
-          { color: 'b', type: 'K' }, { color: 'b', type: 'Q' }, { color: 'b', type: 'R' },
-          { color: 'b', type: 'B' }, { color: 'b', type: 'N' }, { color: 'b', type: 'P' },
-        ]
-        pieces.forEach(({ color, type }) => {
-          const url = getPieceUrl(color, type)
-          urls[`${color}${type}`] = {
-            mountSquare: url,
-            dropSquare: url,
-            transformationSquare: url,
-          }
-        })
-        return urls
       },
     }),
     {

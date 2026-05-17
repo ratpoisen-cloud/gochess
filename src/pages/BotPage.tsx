@@ -10,9 +10,24 @@ import type { BotLevel } from '@/types'
 export default function BotPage() {
   const navigate = useNavigate()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, makeMove, selectSquare, resetGame } = useGameStore()
-  const { getTheme, getAllPieceUrls } = useBoardStore()
+  const { getTheme, getPieceUrl } = useBoardStore()
   const theme = getTheme()
-  const pieceUrls = getAllPieceUrls()
+
+  const customPieces = useMemo(() => {
+    const pieces: Record<string, React.ReactNode> = {}
+    const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
+    codes.forEach((code) => {
+      pieces[code] = (
+        <img
+          src={getPieceUrl(code)}
+          alt={code}
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+          draggable={false}
+        />
+      )
+    })
+    return pieces
+  }, [getPieceUrl])
 
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
@@ -129,7 +144,7 @@ export default function BotPage() {
                 customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
                 customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
                 customSquareStyles={customSquareStyles}
-                customPieces={pieceUrls}
+                customPieces={customPieces}
               />
             </div>
           </div>

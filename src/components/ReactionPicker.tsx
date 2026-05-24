@@ -14,7 +14,7 @@ export default function ReactionPicker({ onSelect, onClose }: ReactionPickerProp
           width: 'min(296px, calc(100vw - 32px))',
           backgroundColor: 'rgba(18, 20, 18, 0.96)',
           border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '14px',
+          borderRadius: 'var(--radius-14)',
         }}
       >
         {BOARD_EMOJI_FILES.map((file) => {

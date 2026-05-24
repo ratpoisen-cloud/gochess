@@ -46,6 +46,10 @@ export default function GamePage() {
   const [opponentJoined, setOpponentJoined] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false)
+  const [showDrawConfirm, setShowDrawConfirm] = useState(false)
+  const [showResignConfirm, setShowResignConfirm] = useState(false)
+
   const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
   const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
   const [rematchRequest, setRematchRequest] = useState<GameData['rematch_request']>(null)
@@ -729,13 +733,13 @@ export default function GamePage() {
                   </div>
                 ) : (
                   <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
-                    <Button variant="outline" size="sm" onClick={handleUndoRequest}>
+                    <Button variant="outline" size="sm" onClick={() => setShowUndoConfirm(true)}>
                       Отмена хода
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleDrawRequest}>
+                    <Button variant="outline" size="sm" onClick={() => setShowDrawConfirm(true)}>
                       Ничья
                     </Button>
-                    <Button variant="danger" size="sm" onClick={handleResign}>
+                    <Button variant="danger" size="sm" onClick={() => setShowResignConfirm(true)}>
                       Сдаться
                     </Button>
                   </div>
@@ -808,6 +812,39 @@ export default function GamePage() {
       )}
 
       {/* Request Modals */}
+      {showUndoConfirm && (
+        <RequestModal
+          isOpen={true}
+          title="Отмена хода"
+          description="Вы уверены, что хотите предложить отмену хода?"
+          acceptText="Предложить"
+          onAccept={() => { handleUndoRequest(); setShowUndoConfirm(false) }}
+          onReject={() => setShowUndoConfirm(false)}
+        />
+      )}
+
+      {showDrawConfirm && (
+        <RequestModal
+          isOpen={true}
+          title="Ничья"
+          description="Вы уверены, что хотите предложить ничью?"
+          acceptText="Предложить"
+          onAccept={() => { handleDrawRequest(); setShowDrawConfirm(false) }}
+          onReject={() => setShowDrawConfirm(false)}
+        />
+      )}
+
+      {showResignConfirm && (
+        <RequestModal
+          isOpen={true}
+          title="Сдаться"
+          description="Вы уверены, что хотите признать поражение?"
+          acceptText="Да, сдаться"
+          onAccept={() => { handleResign(); setShowResignConfirm(false) }}
+          onReject={() => setShowResignConfirm(false)}
+        />
+      )}
+
       {undoRequest && undoRequest.from_id !== user?.uid && (
         <RequestModal
           isOpen={true}

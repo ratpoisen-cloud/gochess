@@ -188,7 +188,7 @@ export default function LobbyPage() {
                     onClick={() => handleGameClick(g)}
                     className={`p-[var(--space-16)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 ${
                       isOnline && isActive 
-                        ? 'cursor-pointer hover:border-[rgba(255,255,255,0.15)] active:scale-[0.98]' 
+                        ? 'cursor-pointer active:scale-[0.98]' 
                         : ''
                     }`}
                   >

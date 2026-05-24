@@ -23,7 +23,7 @@
   --toast-info-bg: rgba(22, 22, 25, 0.96);
 
   --accent-brand: #7eb87e; /* Updated to logo green */
-  --accent: #e8e8d8; /* Milky White */
+  --accent: #e8e8d8; /* Milky White from Logo */
   --accent-hover: #ffffff;
   --accent-active: #b4b4a4;
   --accent-contrast: #000000;
@@ -31,7 +31,7 @@
   --accent-dark: #8c8c8c;
   --danger: #ff4444;
   --danger-hover: #ff6666;
-  --success: #e8e8d8; /* Change from green to milk-white */
+  --success: #e8e8d8; /* Milky White */
   --text: #e8e8d8; /* Milky White from Logo */
   --text-secondary: #b4b4a4;
   --border: rgba(232, 232, 216, 0.1);
@@ -41,8 +41,8 @@
   --draw-hover: #333333;
   --draw-hover-shadow: rgba(255, 255, 255, 0.1);
 
-  --highlight-my-turn: rgba(255, 255, 255, 0.15);
-  --shadow-accent: rgba(255, 255, 255, 0.1);
+  --highlight-my-turn: rgba(232, 232, 216, 0.15);
+  --shadow-accent: rgba(232, 232, 216, 0.1);
   
   /* Board Highlights Replication - Unified Style */
   --board-last-move-outline: rgba(64, 156, 255, 0.5);
@@ -276,8 +276,8 @@ option {
 }
 
 .pixel-tile:hover {
-  background: color-mix(in srgb, var(--bg) 92%, #ffffff);
   transform: translateY(-2px);
+  border: 1px solid rgba(232, 232, 216, 0.2);
 }
 
 .pixel-tile:active {
@@ -289,7 +289,7 @@ option {
 }
 
 .pixel-tile-primary:hover {
-  background: color-mix(in srgb, var(--bg) 88%, #ffffff);
+  border-color: rgba(232, 232, 216, 0.4);
 }
 
 .pixel-tile-disabled {

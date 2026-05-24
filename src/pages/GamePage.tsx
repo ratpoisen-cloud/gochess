@@ -783,39 +783,20 @@ export default function GamePage() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
-                      className="h-10 rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] text-[var(--accent-brand)] text-[8px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(126,184,126,0.05)] flex items-center justify-center"
+                      className="h-10 rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] text-[var(--accent-brand)] text-[9px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(126,184,126,0.05)] flex items-center justify-center"
                       style={{ fontFamily: 'var(--font-family-ui)' }}
                     >
                       телеграм
                     </button>
                     <button
                       onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
-                      className="h-10 rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] text-[var(--accent-brand)] text-[8px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(126,184,126,0.05)] flex items-center justify-center"
+                      className="h-10 rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] text-[var(--accent-brand)] text-[9px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(126,184,126,0.05)] flex items-center justify-center"
                       style={{ fontFamily: 'var(--font-family-ui)' }}
                     >
                       вконтакте
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (navigator.share) {
-                          navigator.share({
-                            title: 'GoChess',
-                            text: 'Сыграем в шахматы?',
-                            url: window.location.href,
-                          })
-                        }
-                      }}
-                      className="h-10 rounded-[var(--radius-8)] bg-[var(--accent-brand)] transition-all hover:scale-105 active:scale-95 overflow-hidden flex items-center justify-center"
-                      title="Поделиться"
-                    >
-                      <img 
-                        src={`${import.meta.env.BASE_URL || '/'}emojis/Emojis_48x48_87.png`} 
-                        alt="share" 
-                        className="w-8 h-8 object-contain brightness-[0.1] scale-125"
-                      />
                     </button>
                   </div>
                 </Card>

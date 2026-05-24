@@ -8,8 +8,9 @@ import SettingsDropdown from '@/components/SettingsDropdown'
 
 export default function LocalPage() {
   const navigate = useNavigate()
-  const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, makeMove, selectSquare, resetGame } = useGameStore()
+  const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
   const [initialized, setInitialized] = useState(false)
+  const savedRef = useRef(false)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef)
@@ -20,6 +21,16 @@ export default function LocalPage() {
       setInitialized(true)
     }
   }, [])
+
+  useEffect(() => {
+    if (isGameOver && !savedRef.current) {
+      savedRef.current = true
+      saveGame('local')
+    }
+    if (!isGameOver) {
+      savedRef.current = false
+    }
+  }, [isGameOver, saveGame])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     return makeMove(sourceSquare, targetSquare)

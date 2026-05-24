@@ -10,9 +10,10 @@ import type { BotLevel } from '@/types'
 
 export default function BotPage() {
   const navigate = useNavigate()
-  const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, makeMove, selectSquare, resetGame } = useGameStore()
+  const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
   const [initialized, setInitialized] = useState(false)
   const gameRef = useRef(game)
+  const savedRef = useRef(false)
   
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef)
@@ -24,12 +25,22 @@ export default function BotPage() {
     }
   }, [])
 
+  const [level, setLevel] = useState<BotLevel>('medium')
+  const [isBotThinking, setIsBotThinking] = useState(false)
+
   useEffect(() => {
     gameRef.current = game
   }, [game])
 
-  const [level, setLevel] = useState<BotLevel>('medium')
-  const [isBotThinking, setIsBotThinking] = useState(false)
+  useEffect(() => {
+    if (isGameOver && !savedRef.current) {
+      savedRef.current = true
+      saveGame('bot', level)
+    }
+    if (!isGameOver) {
+      savedRef.current = false
+    }
+  }, [isGameOver, saveGame, level])
 
   const onDrop = useCallback((sourceSquare: string, targetSquare: string) => {
     const success = makeMove(sourceSquare, targetSquare)

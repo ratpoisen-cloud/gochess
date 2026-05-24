@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
@@ -47,6 +48,23 @@ export default function LobbyPage() {
   const navigate = useNavigate()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [recentGames, setRecentGames] = useState<any[]>([])
+
+  useEffect(() => {
+    if (!user || !supabase) {
+      setRecentGames([])
+      return
+    }
+    supabase
+      .from('games')
+      .select('id, white_name, black_name, game_type, winner, message, created_at, pgn')
+      .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
+      .order('created_at', { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) setRecentGames(data)
+      })
+  }, [user])
 
   useEffect(() => {
     // Simulate initial app load for the cool splash screen effect
@@ -135,6 +153,35 @@ export default function LobbyPage() {
             </div>
           </div>
         </section>
+
+        {user && recentGames.length > 0 && (
+          <section className="mt-[var(--space-48)]">
+            <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-20)] uppercase tracking-widest text-center">
+              Последние партии
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[800px] mx-auto">
+              {recentGames.map((g) => (
+                <div key={g.id} className="p-[var(--space-16)] rounded-[var(--radius-8)] pixel-tile">
+                  <div className="flex items-center justify-between mb-[var(--space-8)]">
+                    <span className="text-[var(--font-size-xs)] text-text">
+                      {g.white_name} vs {g.black_name}
+                    </span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                      g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
+                    }`}>
+                      {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
+                    </span>
+                  </div>
+                  <div className="text-[9px] text-text-secondary flex items-center gap-[var(--space-12)]">
+                    <span>{g.game_type === 'bot' ? '🤖 Бот' : '🎮 Локальная'}</span>
+                    <span>{new Date(g.created_at).toLocaleDateString()}</span>
+                    {g.message && <span className="capitalize">{g.message}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
       </main>
 

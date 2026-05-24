@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 import { Chess, type Move } from 'chess.js'
 import type { GameStatus, Color } from '@/types'
 import { soundManager } from '@/lib/soundManager'
+import { supabase } from '@/lib/supabase'
+import { useAuthStore } from './authStore'
 
 interface GameState {
   game: Chess
@@ -24,6 +26,7 @@ interface GameState {
   resetGame: () => void
   setStatus: (status: GameStatus) => void
   setPlayerColor: (color: Color) => void
+  saveGame: (gameType: 'bot' | 'local', botLevel?: string) => Promise<void>
 }
 
 const getCheckSquare = (game: Chess): string | null => {
@@ -165,6 +168,58 @@ export const useGameStore = create<GameState>()(
 
       setStatus: (status) => set({ status }),
       setPlayerColor: (color) => set({ playerColor: color }),
+
+      saveGame: async (gameType, botLevel) => {
+        const { game, status } = get()
+        const user = useAuthStore.getState().user
+        if (!user || !supabase) return
+
+        const winner = status === 'checkmate'
+          ? (game.turn() === 'w' ? 'black' : 'white')
+          : status === 'stalemate' || status === 'draw' ? 'draw' : null
+
+        const message = status === 'checkmate' ? 'checkmate'
+          : status === 'stalemate' ? 'stalemate'
+          : status === 'draw' ? 'draw' : null
+
+        const moves = game.history({ verbose: true }) as Move[]
+
+        const { data: gameData, error: gameError } = await supabase
+          .from('games')
+          .insert({
+            white_player_id: gameType === 'bot' ? user.uid : user.uid,
+            white_name: user.displayName,
+            black_name: gameType === 'bot' ? 'Бот' : 'Чёрные',
+            game_type: gameType,
+            bot_level: botLevel,
+            pgn: game.pgn(),
+            fen: game.fen(),
+            game_state: 'game_over',
+            turn: game.turn(),
+            winner,
+            message,
+          })
+          .select('id')
+          .single()
+
+        if (gameError || !gameData) return
+
+        const moveRows = moves.map((m, i) => ({
+          game_id: gameData.id,
+          move_number: i + 1,
+          from_square: m.from,
+          to_square: m.to,
+          piece: m.piece,
+          captured: m.captured || null,
+          promotion: m.promotion || null,
+          san: m.san,
+          is_check: game.isCheck(),
+          is_checkmate: game.isCheckmate(),
+          fen_after: m.after,
+        }))
+
+        await supabase.from('moves').insert(moveRows)
+      },
     }),
     {
       name: 'gochess-game-store',

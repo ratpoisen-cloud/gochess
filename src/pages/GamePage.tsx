@@ -752,7 +752,7 @@ export default function GamePage() {
 
               {!opponentJoined && (
                 <Card padding="sm" className="animate-modal-pixel-in">
-                  <h3 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-widest mb-4">
+                  <h3 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-widest mb-[var(--space-16)]">
                     Пригласить друга
                   </h3>
                   

@@ -59,22 +59,22 @@ export default function LobbyPage() {
     }
     supabase
       .from('games')
-      .select('id, room_code, white_name, black_name, game_type, winner, message, created_at, pgn, game_state')
+      .select('*')
       .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
       .order('created_at', { ascending: false })
       .limit(10)
       .then(({ data }) => {
         if (data) setRecentGames(data)
       })
-  }, [user])
+    }, [user])
 
-  const handleGameClick = (game: any) => {
+    const handleGameClick = (game: any) => {
     if (game.game_type === 'online' && game.room_code) {
       navigate(`/game/${game.room_code}`)
     }
-  }
+    }
 
-  useEffect(() => {
+    useEffect(() => {
     // Simulate initial app load for the cool splash screen effect
     const timer = setTimeout(() => {
       setInitialLoading(false)
@@ -210,22 +210,13 @@ export default function LobbyPage() {
                       <span>{new Date(g.created_at).toLocaleDateString()}</span>
                       {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
                       {isOnline && isActive && (() => {
-                        const currentUid = user.uid
-                        const isWhite = g.white_player_id === currentUid
-                        const isBlack = g.black_player_id === currentUid
-                        const turn = String(g.turn || '').toLowerCase()
+                        const currentUid = user?.uid
+                        const whiteId = g.white_player_id
+                        const blackId = g.black_player_id
+                        const turn = (g.turn || 'w').toLowerCase()
                         
-                        // Debug log to help identify the issue
-                        console.log(`[Lobby] Game ${g.room_code}:`, {
-                          turn,
-                          isWhite,
-                          isBlack,
-                          currentUid,
-                          whiteId: g.white_player_id,
-                          blackId: g.black_player_id
-                        })
-
-                        const isMyTurn = (turn === 'w' && isWhite) || (turn === 'b' && isBlack)
+                        const isMyTurn = (turn === 'w' && currentUid === whiteId) || 
+                                         (turn === 'b' && currentUid === blackId)
                         
                         return (
                           <span className={`ml-auto font-bold ${

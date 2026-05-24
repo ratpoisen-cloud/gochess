@@ -83,118 +83,136 @@ export default function GamePage() {
   // Load game from Supabase
   useEffect(() => {
     if (!user || !supabase || !roomCode) {
-      console.log('[Game] Guard skipped:', { hasUser: !!user, hasSupabase: !!supabase, roomCode })
       return
     }
 
-    console.log('[Game] Loading room:', roomCode, 'user:', user.uid)
+    let cancelled = false
 
     const load = async () => {
-      if (!supabase) return
+      try {
+        console.log('[Game] Loading room:', roomCode, 'user:', user.uid)
+        console.log('[Game] SELECT games WHERE room_code =', roomCode)
 
-      console.log('[Game] SELECT games WHERE room_code =', roomCode)
-      const { data, error: fetchError } = await supabase
-        .from('games')
-        .select('*')
-        .eq('room_code', roomCode)
-        .single()
-
-      if (fetchError) {
-        console.error('[Game] SELECT error:', fetchError)
-        setError('Комната не найдена')
-        setLoading(false)
-        return
-      }
-
-      if (!data) {
-        console.error('[Game] SELECT returned no data (but no error)')
-        setError('Комната не найдена')
-        setLoading(false)
-        return
-      }
-
-      console.log('[Game] Room found:', data.id, 'white:', data.white_player_id?.slice(0, 8), 'black:', data.black_player_id?.slice(0, 8))
-
-      setGameId(data.id)
-
-      if (data.white_player_id === user.uid) {
-        setPlayerColor('w')
-        setOpponentName(data.black_name || '')
-        setOpponentJoined(!!data.black_player_id)
-        setIsMyTurn(data.turn === 'w')
-      } else if (data.black_player_id === user.uid) {
-        setPlayerColor('b')
-        setOpponentName(data.white_name || '')
-        setOpponentJoined(!!data.white_player_id)
-        setIsMyTurn(data.turn === 'b')
-      } else if (!data.black_player_id) {
-        const { error: joinError } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('games')
-          .update({
-            black_player_id: user.uid,
-            black_name: user.displayName,
-          })
-          .eq('id', data.id)
+          .select('*')
+          .eq('room_code', roomCode)
+          .maybeSingle()
 
-        if (joinError) {
-          setError('Не удалось присоединиться к игре')
-          setLoading(false)
+        if (fetchError || !data) {
+          console.error('[Game] SELECT error:', fetchError || 'no data')
+          if (!cancelled) {
+            setError(fetchError ? 'Комната не найдена' : 'Не удалось загрузить игру')
+            setLoading(false)
+          }
           return
         }
 
-        setPlayerColor('b')
-        setOpponentName(data.white_name || '')
-        setOpponentJoined(!!data.white_player_id)
-        setIsMyTurn(false)
-      } else if (!data.white_player_id) {
-        const { error: joinError } = await supabase
-          .from('games')
-          .update({
-            white_player_id: user.uid,
-            white_name: user.displayName,
-          })
-          .eq('id', data.id)
+        console.log('[Game] Room found:', data.id, 'white:', data.white_player_id?.slice(0, 8), 'black:', data.black_player_id?.slice(0, 8))
 
-        if (joinError) {
-          setError('Не удалось присоединиться к игре')
-          setLoading(false)
+        if (cancelled) return
+        setGameId(data.id)
+
+        if (data.white_player_id === user.uid) {
+          setPlayerColor('w')
+          setOpponentName(data.black_name || '')
+          setOpponentJoined(!!data.black_player_id)
+          setIsMyTurn(data.turn === 'w')
+        } else if (data.black_player_id === user.uid) {
+          setPlayerColor('b')
+          setOpponentName(data.white_name || '')
+          setOpponentJoined(!!data.white_player_id)
+          setIsMyTurn(data.turn === 'b')
+        } else if (!data.black_player_id) {
+          const { error: joinError } = await supabase
+            .from('games')
+            .update({
+              black_player_id: user.uid,
+              black_name: user.displayName,
+            })
+            .eq('id', data.id)
+
+          if (joinError) {
+            console.error('[Game] Join error:', joinError)
+            if (!cancelled) {
+              setError('Не удалось присоединиться к игре')
+              setLoading(false)
+            }
+            return
+          }
+
+          if (!cancelled) {
+            setPlayerColor('b')
+            setOpponentName(data.white_name || '')
+            setOpponentJoined(!!data.white_player_id)
+            setIsMyTurn(false)
+          }
+        } else if (!data.white_player_id) {
+          const { error: joinError } = await supabase
+            .from('games')
+            .update({
+              white_player_id: user.uid,
+              white_name: user.displayName,
+            })
+            .eq('id', data.id)
+
+          if (joinError) {
+            console.error('[Game] Join error:', joinError)
+            if (!cancelled) {
+              setError('Не удалось присоединиться к игре')
+              setLoading(false)
+            }
+            return
+          }
+
+          if (!cancelled) {
+            setPlayerColor('w')
+            setOpponentName(data.black_name || '')
+            setOpponentJoined(!!data.black_player_id)
+            setIsMyTurn(true)
+          }
+        } else {
+          if (!cancelled) {
+            setError('Комната уже заполнена')
+            setLoading(false)
+          }
           return
         }
 
-        setPlayerColor('w')
-        setOpponentName(data.black_name || '')
-        setOpponentJoined(!!data.black_player_id)
-        setIsMyTurn(true)
-      } else {
-        setError('Комната уже заполнена')
+        if (cancelled) return
+
+        const g = new Chess()
+        if (data.pgn) {
+          g.loadPgn(data.pgn)
+        }
+        lastPgnRef.current = g.pgn()
+        updateGameState(g)
         setLoading(false)
-        return
-      }
 
-      const g = new Chess()
-      if (data.pgn) {
-        g.loadPgn(data.pgn)
-      }
-      lastPgnRef.current = g.pgn()
-      updateGameState(g)
-      setLoading(false)
-
-      if (data.game_state === 'game_over') {
-        setGameOver(true)
-        setResultText(
-          data.message === 'resign'
-            ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
-            : data.message === 'draw' ? 'Ничья'
-            : data.winner === 'white' ? 'Белые победили'
-            : data.winner === 'black' ? 'Чёрные победили'
-            : 'Игра окончена'
-        )
+        if (data.game_state === 'game_over') {
+          setGameOver(true)
+          setResultText(
+            data.message === 'resign'
+              ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
+              : data.message === 'draw' ? 'Ничья'
+              : data.winner === 'white' ? 'Белые победили'
+              : data.winner === 'black' ? 'Чёрные победили'
+              : 'Игра окончена'
+          )
+        }
+      } catch (err) {
+        console.error('[Game] Load exception:', err)
+        if (!cancelled) {
+          setError('Ошибка загрузки игры')
+          setLoading(false)
+        }
       }
     }
 
     load()
 
     return () => {
+      cancelled = true
       if (channelRef.current) {
         supabase?.removeChannel(channelRef.current)
       }

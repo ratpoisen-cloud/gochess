@@ -12,6 +12,7 @@ import Card from '@/components/Card'
 import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
+import ReactionPicker from '@/components/ReactionPicker'
 import type { GameStatus } from '@/types'
 
 function generateId(): string {
@@ -477,13 +478,13 @@ export default function GamePage() {
     setShowReactionPicker(true)
   }
 
-  const handleEmojiSelect = async (emoji: string) => {
+  const handleEmojiSelect = async (emojiUrl: string) => {
     if (!gameId || !user || !supabase || !reactionSquare) return
 
     const reaction: Reaction = {
       id: generateId(),
       square: reactionSquare,
-      emoji,
+      emojiUrl,
       playerId: user.uid,
       createdAt: Date.now(),
     }
@@ -680,19 +681,13 @@ export default function GamePage() {
                     transform: 'translate(-50%, -120%)',
                   }}
                 >
-                  <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-2 shadow-lg">
-                    <div className="grid grid-cols-6 gap-1">
-                      {['😄', '😎', '🔥', '💀', '😱', '🥶', '💪', '😅', '😢', '👀', '🎉', '😤', '🤝', '♟️', '⭐', '❤️'].map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleEmojiSelect(emoji)}
-                          className="w-8 h-8 flex items-center justify-center text-base hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-colors"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <ReactionPicker
+                    onSelect={handleEmojiSelect}
+                    onClose={() => {
+                      setShowReactionPicker(false)
+                      setReactionSquare(null)
+                    }}
+                  />
                 </div>
               )}
 

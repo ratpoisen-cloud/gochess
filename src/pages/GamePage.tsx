@@ -133,9 +133,9 @@ export default function GamePage() {
             .eq('id', data.id)
 
           if (joinError) {
-            console.error('[Game] Join error:', joinError)
+            console.error('[Game] Join error:', JSON.stringify(joinError, null, 2), joinError)
             if (!cancelled) {
-              setError('Не удалось присоединиться к игре')
+              setError('Не удалось присоединиться к игре (join)')
               setLoading(false)
             }
             return
@@ -157,7 +157,7 @@ export default function GamePage() {
             .eq('id', data.id)
 
           if (joinError) {
-            console.error('[Game] Join error:', joinError)
+            console.error('[Game] Join error:', JSON.stringify(joinError, null, 2), joinError)
             if (!cancelled) {
               setError('Не удалось присоединиться к игре')
               setLoading(false)

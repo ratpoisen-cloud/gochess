@@ -34,35 +34,52 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
     }
 
     setCreating(true)
-    const code = generateRoomCode()
 
     const assignedColor = choice === 'random'
       ? (Math.random() < 0.5 ? 'w' : 'b')
       : choice
 
+    const code = generateRoomCode()
+    const roomData = {
+      room_code: code,
+      white_player_id: assignedColor === 'w' ? user.uid : null,
+      white_name: assignedColor === 'w' ? (user.displayName || 'Игрок') : '',
+      black_player_id: assignedColor === 'b' ? user.uid : null,
+      black_name: assignedColor === 'b' ? (user.displayName || 'Игрок') : '',
+      game_type: 'online',
+      pgn: '',
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      game_state: 'active',
+      turn: 'w',
+    }
+
+    console.log('[Room] Creating room with code:', code, 'color:', assignedColor)
+    console.log('[Room] user:', user.uid, user.displayName)
+
     try {
-      const { error } = await supabase.from('games').insert({
-        room_code: code,
-        white_player_id: assignedColor === 'w' ? user.uid : null,
-        white_name: assignedColor === 'w' ? user.displayName : '',
-        black_player_id: assignedColor === 'b' ? user.uid : null,
-        black_name: assignedColor === 'b' ? user.displayName : '',
-        game_type: 'online',
-        pgn: '',
-        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        game_state: 'active',
-        turn: 'w',
-      })
+      const { error } = await supabase.from('games').insert(roomData)
 
       if (error) {
-        addToast('Ошибка создания комнаты', 'error')
+        console.error('[Room] INSERT error:', error)
+        addToast(`Ошибка создания комнаты`, 'error')
         setCreating(false)
         return
       }
 
+      console.log('[Room] INSERT OK for code:', code)
+
+      const { data: verify } = await supabase
+        .from('games')
+        .select('id, room_code, white_player_id, black_player_id')
+        .eq('room_code', code)
+        .single()
+      console.log('[Room] Verify SELECT:', verify ? 'FOUND' : 'NOT FOUND', verify)
+
+      setCreating(false)
       onClose()
       navigate(`/game/${code}`)
-    } catch {
+    } catch (err) {
+      console.error('[Room] Exception:', err)
       addToast('Ошибка создания комнаты', 'error')
       setCreating(false)
     }

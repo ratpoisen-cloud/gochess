@@ -82,22 +82,38 @@ export default function GamePage() {
 
   // Load game from Supabase
   useEffect(() => {
-    if (!user || !supabase || !roomCode) return
+    if (!user || !supabase || !roomCode) {
+      console.log('[Game] Guard skipped:', { hasUser: !!user, hasSupabase: !!supabase, roomCode })
+      return
+    }
+
+    console.log('[Game] Loading room:', roomCode, 'user:', user.uid)
 
     const load = async () => {
       if (!supabase) return
 
+      console.log('[Game] SELECT games WHERE room_code =', roomCode)
       const { data, error: fetchError } = await supabase
         .from('games')
         .select('*')
         .eq('room_code', roomCode)
         .single()
 
-      if (fetchError || !data) {
+      if (fetchError) {
+        console.error('[Game] SELECT error:', fetchError)
         setError('Комната не найдена')
         setLoading(false)
         return
       }
+
+      if (!data) {
+        console.error('[Game] SELECT returned no data (but no error)')
+        setError('Комната не найдена')
+        setLoading(false)
+        return
+      }
+
+      console.log('[Game] Room found:', data.id, 'white:', data.white_player_id?.slice(0, 8), 'black:', data.black_player_id?.slice(0, 8))
 
       setGameId(data.id)
 

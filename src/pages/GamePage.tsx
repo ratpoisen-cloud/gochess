@@ -761,15 +761,13 @@ export default function GamePage() {
                       navigator.clipboard.writeText(window.location.href)
                       useReactionStore.getState().addReaction({
                         id: generateId(),
-                        square: 'h1', // Just a placeholder square for the toast/effect if needed
+                        square: 'h1',
                         emojiUrl: `${import.meta.env.BASE_URL || '/'}emojis/Emojis_48x48_87.png`,
                         playerId: user?.uid || '',
                         createdAt: Date.now()
                       })
-                      // Basic alert as fallback since we don't want a button
-                      // But better use a toast if available
                     }}
-                    className="group relative flex items-center p-2.5 rounded-[var(--radius-8)] border border-[var(--border)] mb-4 bg-[var(--bg)] cursor-pointer hover:border-[var(--accent-brand)] transition-all"
+                    className="group relative flex items-center h-[44px] px-3 rounded-[var(--radius-8)] border border-[var(--border)] mb-3 bg-[var(--bg)] cursor-pointer hover:border-[rgba(232,232,216,0.3)] transition-all"
                     title="Нажми, чтобы скопировать"
                   >
                     <input
@@ -778,26 +776,28 @@ export default function GamePage() {
                       value={window.location.href}
                       className="flex-1 bg-transparent text-[10px] text-text-secondary outline-none truncate cursor-pointer group-hover:text-text transition-colors"
                     />
-                    <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] uppercase font-bold text-[var(--accent-brand)] bg-[var(--bg)] px-1">
+                    <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[8px] uppercase font-bold text-[var(--accent-brand)] bg-[var(--bg)] px-1">
                       Копировать
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <button
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
-                      className="h-10 rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] text-[var(--accent-brand)] text-[9px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(126,184,126,0.05)] flex items-center justify-center"
-                      style={{ fontFamily: 'var(--font-family-ui)' }}
+                      className="text-[8px] uppercase tracking-[0.15em] font-bold"
                     >
                       телеграм
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
-                      className="h-10 rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] text-[var(--accent-brand)] text-[9px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(126,184,126,0.05)] flex items-center justify-center"
-                      style={{ fontFamily: 'var(--font-family-ui)' }}
+                      className="text-[8px] uppercase tracking-[0.15em] font-bold"
                     >
                       вконтакте
-                    </button>
+                    </Button>
                   </div>
                 </Card>
               )}

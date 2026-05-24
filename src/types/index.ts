@@ -15,21 +15,22 @@ export interface User {
 }
 
 export interface GameData {
-  room_id: string
-  players: {
-    white: string
-    whiteName: string
-    black: string
-    blackName: string
-    whitePhotoURL: string
-    blackPhotoURL: string
-  }
+  id: string
+  room_code: string | null
+  white_player_id: string | null
+  black_player_id: string | null
+  white_name: string
+  black_name: string
   pgn: string
   fen: string
-  game_state: 'active' | 'game_over'
-  message: string | null
+  game_state: string
+  game_type: string
   turn: Color
-  resign: Color | null
-  last_move_time: number
-  created_at: number
+  winner: string | null
+  message: string | null
+  last_move_time: number | null
+  created_at: string
+  reactions: any[]
 }
+
+export type GameType = 'bot' | 'local' | 'online'

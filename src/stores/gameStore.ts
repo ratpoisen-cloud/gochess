@@ -26,7 +26,7 @@ interface GameState {
   resetGame: () => void
   setStatus: (status: GameStatus) => void
   setPlayerColor: (color: Color) => void
-  saveGame: (gameType: 'bot' | 'local', botLevel?: string) => Promise<void>
+  saveGame: (gameType: 'bot' | 'local' | 'online', botLevel?: string) => Promise<void>
 }
 
 const getCheckSquare = (game: Chess): string | null => {

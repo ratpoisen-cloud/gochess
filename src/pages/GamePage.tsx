@@ -298,6 +298,7 @@ export default function GamePage() {
               lastPgnRef.current = g.pgn()
               setIsMyTurn(true)
               soundManager.play('move')
+              useReactionStore.getState().resetMoveCounter()
             } catch { /* ignore */ }
           }
 

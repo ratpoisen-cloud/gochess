@@ -205,11 +205,21 @@ export default function LobbyPage() {
                     </div>
                     <div className="text-[9px] text-text-secondary flex items-center gap-[var(--space-12)]">
                       <span>
-                        {g.game_type === 'bot' ? '🤖 Бот' : g.game_type === 'local' ? '🎮 Локальная' : '🌐 Онлайн'}
+                        {g.game_type === 'bot' ? '🤖 Бот' : g.game_type === 'local' ? '🎮 Локальная' : ''}
                       </span>
                       <span>{new Date(g.created_at).toLocaleDateString()}</span>
                       {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
-                      {isOnline && isActive && <span className="ml-auto text-[var(--accent-brand)] font-bold animate-pulse">Вернуться →</span>}
+                      {isOnline && isActive && (
+                        <span className={`ml-auto font-bold ${
+                          (g.turn === 'w' && g.white_player_id === user.uid) || (g.turn === 'b' && g.black_player_id === user.uid)
+                            ? 'text-[var(--accent-brand)] animate-pulse'
+                            : 'opacity-50'
+                        }`}>
+                          {(g.turn === 'w' && g.white_player_id === user.uid) || (g.turn === 'b' && g.black_player_id === user.uid)
+                            ? 'Ваш ход'
+                            : 'Ход соперника'}
+                        </span>
+                      )}
                     </div>
                   </div>
                 )

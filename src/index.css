@@ -22,12 +22,12 @@
   --toast-bg: rgba(18, 18, 19, 0.96);
   --toast-info-bg: rgba(22, 22, 25, 0.96);
 
-  --accent-brand: #a3c18f; /* Brand Green - Reserved ONLY for branding text */
+  --accent-brand: #7eb87e; /* Updated to logo green */
   --accent: #e8e8d8; /* Milky White */
   --accent-hover: #ffffff;
   --accent-active: #b4b4a4;
   --accent-contrast: #000000;
-  --accent-soft: rgba(232, 232, 216, 0.08);
+  --accent-soft: rgba(126, 184, 126, 0.08);
   --accent-dark: #8c8c8c;
   --danger: #ff4444;
   --danger-hover: #ff6666;

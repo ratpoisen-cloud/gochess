@@ -757,42 +757,46 @@ export default function GamePage() {
                   </h3>
                   
                   <div 
-                    className="flex items-center gap-2 p-2 rounded-[var(--radius-8)] border border-[var(--border)] mb-4 bg-[var(--bg)]"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href)
+                      useReactionStore.getState().addReaction({
+                        id: generateId(),
+                        square: 'h1', // Just a placeholder square for the toast/effect if needed
+                        emojiUrl: `${import.meta.env.BASE_URL || '/'}emojis/Emojis_48x48_87.png`,
+                        playerId: user?.uid || '',
+                        createdAt: Date.now()
+                      })
+                      // Basic alert as fallback since we don't want a button
+                      // But better use a toast if available
+                    }}
+                    className="group relative flex items-center p-2.5 rounded-[var(--radius-8)] border border-[var(--border)] mb-4 bg-[var(--bg)] cursor-pointer hover:border-[var(--accent-brand)] transition-all"
+                    title="Нажми, чтобы скопировать"
                   >
                     <input
                       type="text"
                       readOnly
                       value={window.location.href}
-                      className="flex-1 bg-transparent text-[10px] text-text-secondary outline-none truncate"
+                      className="flex-1 bg-transparent text-[10px] text-text-secondary outline-none truncate cursor-pointer group-hover:text-text transition-colors"
                     />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.href)
-                      }}
-                      className="px-3 py-1.5 rounded-[var(--radius-4)] text-[9px] font-bold uppercase tracking-wider bg-[var(--accent-brand)] text-[var(--bg)] hover:scale-105 active:scale-95 transition-all"
-                    >
+                    <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] uppercase font-bold text-[var(--accent-brand)] bg-[var(--bg)] px-1">
                       Копировать
-                    </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-4 px-1">
                     <button
                       onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
-                      className="flex-1 flex items-center justify-center py-2 rounded-[var(--radius-8)] border border-[var(--border)] hover:bg-[var(--accent-soft)] transition-colors group"
-                      title="Telegram"
+                      className="text-[10px] font-bold text-text-secondary hover:text-[var(--accent-brand)] transition-colors uppercase tracking-widest"
+                      style={{ fontFamily: 'var(--font-family-ui)' }}
                     >
-                      <svg className="w-4 h-4 text-text-secondary group-hover:text-[#229ED9] transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.69-.88-.48-1.38-.78-2.23-1.11-1-.38-.35-1.55.22-2.14.15-.15 2.71-2.48 2.76-2.58.01-.01.01-.05-.01-.03-.02.02-.06.01-.08.01-.07.01-1.13.72-3.19 1.44-.3.1-.57.15-.81.14-.26-.01-.76-.15-1.13-.27-.46-.15-.82-.23-.79-.48.02-.13.34-.26.96-.39 3.76-1.63 6.27-2.7 7.52-3.22.62-.26 1.32-.4 1.76-.4a1 1 0 0 1 .42.06c.1.04.14.11.16.23.01.03.01.12 0 .15z"/>
-                      </svg>
+                      телеграм
                     </button>
                     <button
                       onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
-                      className="flex-1 flex items-center justify-center py-2 rounded-[var(--radius-8)] border border-[var(--border)] hover:bg-[var(--accent-soft)] transition-colors group"
-                      title="VK"
+                      className="text-[10px] font-bold text-text-secondary hover:text-[var(--accent-brand)] transition-colors uppercase tracking-widest"
+                      style={{ fontFamily: 'var(--font-family-ui)' }}
                     >
-                      <svg className="w-4 h-4 text-text-secondary group-hover:text-[#4C75A3] transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M15.074 2H8.926C3.938 2 2 3.938 2 8.926v6.148C2 20.062 3.938 22 8.926 22h6.148c4.988 0 6.926-1.938 6.926-6.926V8.926C22 3.938 20.062 2 15.074 2zm3.328 13.713c0 .12-.045.244-.13.341a.417.417 0 0 1-.314.145h-1.28c-.287 0-.585-.145-.89-.434-.233-.217-.461-.476-.684-.775-.2-.266-.37-.4-.509-.4-.037 0-.083.007-.139.022-.116.035-.205.093-.267.172-.061.079-.092.18-.092.304v.681c0 .12-.045.244-.13.341a.417.417 0 0 1-.314.145h-1.041c-.482 0-1.12-.132-1.916-.395-.826-.271-1.63-.736-2.411-1.396-.781-.659-1.423-1.428-1.925-2.308s-.803-1.745-.904-2.595a.434.434 0 0 1 .129-.364c.086-.09.2-.135.344-.135h1.283c.277 0 .474.127.593.382.412.879.914 1.583 1.507 2.112.593.529 1.05.793 1.371.793.078 0 .142-.016.19-.048.067-.044.116-.11.147-.197.031-.087.047-.267.047-.539v-1.19c-.013-.424-.09-.711-.231-.86-.141-.149-.408-.225-.8-.228a1.21 1.21 0 0 1-.397-.042 3.51 3.51 0 0 1-.097-.034c-.035-.021-.053-.06-.053-.119 0-.097.054-.183.161-.258.194-.135.485-.202.872-.202h1.996c.123 0 .235.045.334.135.099.09.149.21.149.362v2.246c0 .15.021.264.062.344.041.08.09.136.147.169.057.033.109.05.155.05.111 0 .24-.075.385-.224a10.82 1.082 0 0 0 .973-1.229 15.6 15.6 0 0 0 .848-1.637.52.52 0 0 1 .158-.231.42.42 0 0 1 .3-.064h1.284c.123 0 .24.045.351.135.111.09.167.21.167.362 0 .157-.045.32-.136.486a16.63 16.63 0 0 1-.95 1.554c-.21.314-.424.61-.643.887-.219.277-.384.471-.497.583-.112.112-.13.18-.052.203.045.015.118.06.219.135a9.3 9.3 0 0 1 .949.79c.642.592 1.137 1.233 1.485 1.922z"/>
-                      </svg>
+                      вконтакте
                     </button>
                     <button
                       onClick={() => {
@@ -804,10 +808,14 @@ export default function GamePage() {
                           })
                         }
                       }}
-                      className="flex-1 flex items-center justify-center py-2 rounded-[var(--radius-8)] border border-[var(--border)] hover:bg-[var(--accent-soft)] transition-colors group"
+                      className="w-8 h-8 flex items-center justify-center hover:scale-110 active:scale-90 transition-all opacity-80 hover:opacity-100"
                       title="Поделиться"
                     >
-                      <span className="text-[12px] opacity-70 group-hover:opacity-100 transition-opacity">🔗</span>
+                      <img 
+                        src={`${import.meta.env.BASE_URL || '/'}emojis/Emojis_48x48_87.png`} 
+                        alt="share" 
+                        className="w-full h-full object-contain"
+                      />
                     </button>
                   </div>
                 </Card>

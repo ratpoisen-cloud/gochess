@@ -209,17 +209,21 @@ export default function LobbyPage() {
                       </span>
                       <span>{new Date(g.created_at).toLocaleDateString()}</span>
                       {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
-                      {isOnline && isActive && (
-                        <span className={`ml-auto font-bold ${
-                          (g.turn === 'w' && g.white_player_id === user.uid) || (g.turn === 'b' && g.black_player_id === user.uid)
-                            ? 'text-[var(--accent-brand)] animate-pulse'
-                            : 'opacity-50'
-                        }`}>
-                          {(g.turn === 'w' && g.white_player_id === user.uid) || (g.turn === 'b' && g.black_player_id === user.uid)
-                            ? 'Ваш ход'
-                            : 'Ход соперника'}
-                        </span>
-                      )}
+                      {isOnline && isActive && (() => {
+                        const isWhite = g.white_player_id === user.uid
+                        const isBlack = g.black_player_id === user.uid
+                        const isMyTurn = (g.turn === 'w' && isWhite) || (g.turn === 'b' && isBlack)
+                        
+                        return (
+                          <span className={`ml-auto font-bold ${
+                            isMyTurn 
+                              ? 'text-[var(--accent-brand)] animate-pulse' 
+                              : 'text-[var(--text)] opacity-80'
+                          }`}>
+                            {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
+                          </span>
+                        )
+                      })()}
                     </div>
                   </div>
                 )

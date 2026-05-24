@@ -68,6 +68,12 @@ src/
 - `marble` — мраморные
 - `middle-earth` — средиземье
 
+## Реакции (Эмодзи)
+- Используются графические PNG-ассеты из `public/emojis/board/`.
+- Список файлов и утилиты для путей находятся в `src/lib/emojis.ts`.
+- Реализовано через `ReactionPicker` и `reactionStore`.
+- Анимация: `animate-bounce`, время жизни: 5000мс.
+
 ## Наборы фигур (4)
 - `tatiana` (default)
 - `alpha`

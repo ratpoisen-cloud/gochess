@@ -1,0 +1,637 @@
+@media (min-width: 601px) {
+    .user-menu {
+        left: auto;
+        right: 0;
+        max-width: min(320px, calc(100vw - 16px));
+    }
+}
+
+@media (orientation: landscape) {
+    .game-main-column {
+        width: clamp(var(--board-min-size), calc(100vh - 190px), var(--game-main-column-width));
+    }
+
+    .game-layout-2col {
+        grid-template-columns: minmax(0, 1fr) minmax(280px, var(--game-side-column-width));
+        gap: var(--board-stack-gap);
+        align-items: start;
+    }
+
+    .game-side-column {
+        height: clamp(var(--board-min-size), calc(100vh - 190px), var(--game-main-column-width));
+        align-self: start;
+    }
+
+    .game-bottom-panel {
+        flex: 1 1 auto;
+        height: 100%;
+    }
+
+    .move-list-content {
+        flex: 1 1 auto;
+        height: auto;
+        min-height: 0;
+    }
+}
+
+@media (max-width: 900px) {
+    .game-layout-2col {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--board-stack-gap);
+    }
+
+    .game-main-column,
+    .game-side-column {
+        width: min(100%, var(--game-main-column-width));
+        max-width: 100%;
+        height: auto;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .board-area {
+        width: min(100%, var(--game-main-column-width));
+        max-width: 100%;
+        min-width: 0;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+
+@media (min-width: 901px) and (max-width: 1366px) and (min-height: 600px) and (orientation: landscape) {
+    :root {
+        --game-side-column-width: clamp(280px, 27vw, 320px);
+        --game-layout-gap: clamp(10px, 1.6vw, 14px);
+        --board-stack-gap: clamp(8px, 1.3vw, 12px);
+    }
+
+    .main-container {
+        padding-top: 12px;
+        padding-bottom: 24px;
+        gap: 10px;
+    }
+
+    .game-shell {
+        padding-top: 0;
+    }
+
+    .game-layout-2col {
+        grid-template-columns: minmax(0, 1fr) minmax(260px, var(--game-side-column-width));
+        align-items: start;
+    }
+
+    .game-main-column,
+    .board-area {
+        width: min(
+            100%,
+            var(--game-main-column-width),
+            calc(100dvh - 190px),
+            calc(100vw - var(--game-side-column-width) - (var(--game-layout-gap) * 2) - 48px)
+        );
+    }
+
+    .game-status-header {
+        margin-bottom: var(--space-12);
+    }
+
+    .controls.controls-split {
+        margin-top: var(--space-10);
+    }
+
+    .game-side-column {
+        width: min(100%, var(--game-side-column-width));
+        max-width: var(--game-side-column-width);
+        height: auto;
+        min-height: clamp(var(--board-min-size), calc(100dvh - 190px), var(--game-main-column-width));
+    }
+
+    .game-bottom-panel {
+        min-height: clamp(320px, calc(100dvh - 240px), 560px);
+    }
+
+    #myBoard {
+        width: 100%;
+    }
+}
+
+@media (max-width: 900px) {
+
+    .board-wrapper,
+    #myBoard {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-height: 0;
+    }
+
+    .game-bottom-panel {
+        height: auto;
+    }
+
+    .move-list-content {
+        height: 280px;
+    }
+}
+
+@media (max-width: 900px) and (orientation: landscape) {
+    :root {
+        --game-side-column-width: 300px;
+        --board-min-size: 280px;
+        --board-stack-gap: 10px;
+    }
+
+    .game-bottom-panel {
+        padding: 12px;
+    }
+
+    .move-list-content {
+        font-size: 0.8rem;
+    }
+}
+
+@media (orientation: portrait) {
+    .game-layout-2col {
+        grid-template-columns: 1fr;
+    }
+
+    .game-main-column,
+    .game-side-column {
+        width: min(100%, var(--game-main-column-width));
+        height: auto;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .game-status-header,
+    .board-wrapper,
+    .controls.controls-split,
+    .game-bottom-panel {
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .game-bottom-panel {
+        height: auto;
+    }
+
+    .move-list-content {
+        height: 350px;
+    }
+}
+
+@media (max-width: 600px) {
+    .btn:hover,
+    .hub-tile:hover,
+    .hub-tile:focus-visible {
+        transform: none;
+    }
+
+    .btn:active,
+    .hub-tile:active {
+        transform: scale(0.99);
+    }
+
+    body {
+        font-size: calc(13px * 0.85);
+        line-height: 1.8;
+        letter-spacing: 0.018em;
+    }
+
+    :root {
+        --board-min-size: 240px;
+        --board-stack-gap: 10px;
+        --btn-height: 44px;
+        --btn-height-lg: 44px;
+        --btn-padding-x: 12px;
+        --btn-font-size: 0.76rem;
+        --btn-radius: 14px;
+    }
+
+    .main-container {
+        padding: 10px 10px 24px;
+        gap: 10px;
+    }
+
+    .top-bar {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 8px;
+        min-height: 52px;
+        margin-bottom: 0;
+        padding: 8px 10px;
+        border-radius: 16px;
+    }
+
+    .top-bar-left,
+    .top-bar-right {
+        width: auto;
+        min-width: 0;
+    }
+
+    .top-bar-right {
+        justify-content: flex-end;
+        justify-self: end;
+        gap: 6px;
+    }
+
+    .user-menu-wrap {
+        min-height: var(--system-control-height);
+        width: auto;
+        min-width: 0;
+        max-width: 100%;
+        gap: 6px;
+    }
+
+    .user-menu {
+        left: auto;
+        right: 0;
+        min-width: min(180px, calc(100vw - 16px));
+        width: min(260px, calc(100vw - 16px));
+        max-width: calc(100vw - 16px);
+        border-radius: 14px;
+    }
+
+    .user-menu-item {
+        min-height: 40px;
+        padding: 11px 14px;
+    }
+
+    .user-menu-setting {
+        padding: 11px 14px;
+        gap: 7px;
+    }
+
+    #user-info,
+    .user-menu-trigger {
+        width: auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .user-trigger-block {
+        min-width: 42px;
+        min-height: 42px;
+        border-radius: 11px;
+    }
+
+    .user-presence-wrap {
+        gap: 5px;
+        min-width: 0;
+        max-width: min(38vw, 132px);
+    }
+
+    .user-presence-summary {
+        min-height: 28px;
+        max-width: min(28vw, 108px);
+        padding: 0 7px 0 6px;
+        gap: 5px;
+    }
+
+    .user-presence-text {
+        max-width: 56px;
+        font-size: 0.68rem;
+    }
+
+    .user-presence-edit-btn {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        border-radius: 9px;
+    }
+
+    #presence-status-menu {
+        left: 0;
+        right: auto;
+        width: min(220px, calc(100vw - 20px));
+        max-width: calc(100vw - 20px);
+    }
+
+    .card {
+        padding: 20px;
+    }
+
+    .game-item {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: flex-start;
+        row-gap: 10px;
+    }
+
+    .game-actions {
+        width: 100%;
+        justify-content: flex-end;
+        grid-column: 1 / -1;
+        margin-top: 0;
+    }
+
+    .lobby-header {
+        gap: 10px;
+    }
+
+    .lobby-hub-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .hub-tile {
+        min-height: 98px;
+        padding: 12px 14px;
+        gap: 10px;
+        border-radius: 16px;
+        flex-direction: row;
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    .hub-tile-icon {
+        width: 44px;
+        height: 44px;
+        padding: 8px;
+        border-radius: 13px;
+        font-size: 1.62rem;
+    }
+
+    .hub-tile-title {
+        font-size: 1.03rem;
+        line-height: 1.1;
+    }
+
+    .lobby-heading {
+        width: 100%;
+    }
+
+
+    .lobby-header-hub {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .top-lobby-brand {
+        min-height: 32px;
+        margin-left: auto;
+        padding-left: 2px;
+        flex: 0 1 auto;
+    }
+
+    .top-lobby-brand-btn {
+        padding: 2px 5px;
+        border-radius: 11px;
+        min-height: 34px;
+    }
+
+    .top-lobby-brand-btn:active {
+        transform: translateY(1px) scale(0.99);
+    }
+
+    .user-presence-summary {
+        max-width: 120px;
+    }
+
+    .user-presence-text {
+        max-width: 78px;
+    }
+
+    .brand-wordmark--top {
+        width: clamp(88px, 30vw, 130px);
+    }
+
+    .brand-wordmark--guest {
+        width: clamp(124px, 54vw, 200px);
+    }
+
+    .app-footer {
+        margin-top: 12px;
+    }
+
+    .brand-wordmark--footer {
+        width: clamp(86px, 32vw, 118px);
+    }
+
+    .finished-games-block {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .finished-games-block .btn {
+        width: 100%;
+    }
+
+    .lobby-back-btn {
+        width: 100%;
+    }
+
+    .game-meta {
+        gap: 8px;
+    }
+
+    .play-btn,
+    .rematch-btn,
+    .delete-btn {
+        padding: 0 14px;
+    }
+
+    .guest-shell {
+        min-height: calc(100vh - 128px);
+        padding-bottom: 30px;
+    }
+
+    .guest-panel {
+        padding: 26px 20px;
+    }
+
+    .game-status-header {
+        gap: var(--space-8);
+    }
+
+    .game-opponent-zone,
+    .turn-status {
+        min-height: var(--btn-height);
+        min-width: 0;
+        padding: 0 10px;
+        border-radius: var(--btn-radius);
+        font-size: 0.76rem;
+        gap: 6px;
+    }
+
+    .turn-status-quick-phrase-banner {
+        gap: 6px;
+        padding: 0 8px;
+    }
+
+    .turn-status-quick-phrase-text {
+        font-size: 0.78rem;
+    }
+
+    .game-status-header--quick-phrase .game-opponent-zone {
+        flex-basis: clamp(140px, 38%, 220px);
+    }
+
+    .game-opponent-zone {
+        flex: 1 1 50%;
+    }
+
+    .status-actions {
+        width: var(--btn-height);
+        min-width: var(--btn-height);
+        height: var(--btn-height);
+    }
+
+    .board-settings-icon-btn {
+        width: var(--btn-height);
+        height: var(--btn-height);
+        border-radius: var(--btn-radius);
+        font-size: 1.05rem;
+    }
+
+    .board-area {
+        width: 100%;
+        max-width: 100%;
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .board-wrapper {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+    }
+
+    #myBoard {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        min-height: 0;
+    }
+
+    .controls.controls-split {
+        grid-template-columns: 1fr;
+        gap: var(--board-stack-gap);
+    }
+
+    .controls-group {
+        grid-template-columns: 1fr;
+        gap: var(--board-stack-gap);
+    }
+
+    .quick-phrases-menu {
+        right: 0;
+        width: min(220px, calc(100vw - 16px));
+    }
+
+    .game-opponent-presence-popover {
+        left: 0;
+        right: auto;
+        max-width: calc(100vw - 20px);
+    }
+
+    .game-bottom-panel {
+        padding: 14px;
+    }
+
+    .move-list-content,
+    .game-bottom-panel .move-list-content {
+        height: 190px;
+    }
+
+    .review-controls {
+        margin-bottom: var(--space-8);
+    }
+
+    .review-controls-buttons {
+        gap: 6px;
+    }
+
+    .review-control-btn {
+        min-height: 34px;
+        font-size: 0.7rem;
+    }
+
+    .share-container {
+        flex-direction: column;
+    }
+
+    .share-container .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 420px) {
+    .top-bar {
+        gap: 6px;
+        padding: 8px;
+    }
+
+    .brand-wordmark--top {
+        width: clamp(82px, 28vw, 112px);
+    }
+
+    .user-presence-wrap {
+        max-width: 108px;
+    }
+
+    .user-presence-summary {
+        max-width: 84px;
+        padding-right: 6px;
+    }
+
+    .user-presence-text {
+        max-width: 42px;
+    }
+
+    .game-status-header {
+        gap: 6px;
+    }
+
+    .game-opponent-zone,
+    .turn-status {
+        padding: 0 8px;
+        font-size: 0.72rem;
+    }
+
+    .turn-status-quick-phrase-text {
+        max-width: 100%;
+        font-size: 0.75rem;
+    }
+
+    .game-status-header--quick-phrase .game-opponent-zone {
+        flex-basis: clamp(126px, 40%, 176px);
+    }
+
+    .game-opponent-presence-text {
+        max-width: min(160px, calc(100vw - 210px));
+    }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+    .user-presence-wrap {
+        max-width: min(45vw, 148px);
+    }
+
+    .user-presence-summary {
+        max-width: min(45vw, 148px);
+        min-height: 32px;
+        padding: 0 10px 0 8px;
+    }
+
+    .user-presence-edit-btn {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .ui-toast-root {
+        left: 12px;
+        right: 12px;
+        bottom: 10px;
+    }
+
+    .ui-toast {
+        max-width: 100%;
+        font-size: 0.7rem;
+        line-height: 1.55;
+    }
+
+    .ui-confirm-actions {
+        flex-direction: column-reverse;
+    }
+}

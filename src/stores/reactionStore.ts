@@ -3,7 +3,7 @@ import { create } from 'zustand'
 export interface Reaction {
   id: string
   square: string
-  emoji: string
+  emojiUrl: string
   playerId: string
   createdAt: number
 }
@@ -15,7 +15,7 @@ interface ReactionState {
   setReactions: (reactions: Reaction[]) => void
 }
 
-const REACTION_TTL = 3000
+const REACTION_TTL = 5000
 
 export const useReactionStore = create<ReactionState>((set, get) => ({
   reactions: [],

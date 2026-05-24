@@ -6,6 +6,7 @@ import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
 import ColorPickerModal from '@/components/ColorPickerModal'
+import BoardPreview from '@/components/board/BoardPreview'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -177,7 +178,7 @@ export default function LobbyPage() {
             <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-20)] uppercase tracking-widest text-center">
               Последние партии
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[800px] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
               {recentGames.map((g) => {
                 const isOnline = g.game_type === 'online'
                 const isActive = g.game_state !== 'game_over'
@@ -186,48 +187,59 @@ export default function LobbyPage() {
                   <div 
                     key={g.id} 
                     onClick={() => handleGameClick(g)}
-                    className={`p-[var(--space-16)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 ${
+                    className={`p-[var(--space-12)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 flex gap-[var(--space-16)] items-center ${
                       isOnline && isActive 
                         ? 'cursor-pointer active:scale-[0.98]' 
                         : ''
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-[var(--space-8)]">
-                      <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2">
-                        {isOnline && isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
-                        {g.white_name} vs {g.black_name}
-                      </span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                        g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
-                      }`}>
-                        {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
-                      </span>
+                    <div className="shrink-0">
+                      <BoardPreview 
+                        fen={g.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'} 
+                        size={100} 
+                        orientation={g.black_player_id === user.uid ? 'black' : 'white'}
+                      />
                     </div>
-                    <div className="text-[9px] text-text-secondary flex items-center gap-[var(--space-12)]">
-                      <span>
-                        {g.game_type === 'bot' ? '🤖 Бот' : g.game_type === 'local' ? '🎮 Локальная' : ''}
-                      </span>
-                      <span>{new Date(g.created_at).toLocaleDateString()}</span>
-                      {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
-                      {isOnline && isActive && (() => {
-                        const currentUid = user?.uid
-                        const whiteId = g.white_player_id
-                        const blackId = g.black_player_id
-                        const turn = (g.turn || 'w').toLowerCase()
-                        
-                        const isMyTurn = (turn === 'w' && currentUid === whiteId) || 
-                                         (turn === 'b' && currentUid === blackId)
-                        
-                        return (
-                          <span className={`ml-auto font-bold ${
-                            isMyTurn 
-                              ? 'text-[var(--accent-brand)] animate-pulse' 
-                              : 'text-[var(--text)] opacity-60'
-                          }`}>
-                            {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
-                          </span>
-                        )
-                      })()}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-[var(--space-4)]">
+                        <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
+                          {isOnline && isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
+                          {g.white_name} vs {g.black_name}
+                        </span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                          g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
+                        }`}>
+                          {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
+                        </span>
+                      </div>
+                      
+                      <div className="text-[9px] text-text-secondary flex flex-wrap items-center gap-x-[var(--space-12)] gap-y-[var(--space-4)]">
+                        <span>
+                          {g.game_type === 'bot' ? '🤖 Бот' : g.game_type === 'local' ? '🎮 Локальная' : ''}
+                        </span>
+                        <span>{new Date(g.created_at).toLocaleDateString()}</span>
+                        {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
+                        {isOnline && isActive && (() => {
+                          const currentUid = user?.uid
+                          const whiteId = g.white_player_id
+                          const blackId = g.black_player_id
+                          const turn = (g.turn || 'w').toLowerCase()
+                          
+                          const isMyTurn = (turn === 'w' && currentUid === whiteId) || 
+                                           (turn === 'b' && currentUid === blackId)
+                          
+                          return (
+                            <span className={`font-bold ${
+                              isMyTurn 
+                                ? 'text-[var(--accent-brand)] animate-pulse' 
+                                : 'text-[var(--text)] opacity-60'
+                            }`}>
+                              {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
+                            </span>
+                          )
+                        })()}
+                      </div>
                     </div>
                   </div>
                 )

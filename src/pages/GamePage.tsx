@@ -579,13 +579,6 @@ export default function GamePage() {
     setRematchRequest(null)
   }
 
-  const statusText = status === 'checkmate' ? 'Мат!'
-    : status === 'stalemate' ? 'Пат — ничья'
-    : status === 'draw' ? 'Ничья'
-    : status === 'check' ? 'Шах!'
-    : isMyTurn ? 'Ваш ход'
-    : 'Ход соперника'
-
   const statusClasses: Record<string, string> = {
     checkmate: 'text-[var(--danger)]',
     stalemate: 'text-text-secondary',
@@ -678,15 +671,38 @@ export default function GamePage() {
         )}
         <div className="game-layout-container" style={{ display: opponentJoined ? '' : 'none' }}>
             <div className="game-main-column">
-              <div className="mb-[var(--space-16)] text-center game:text-left flex items-center justify-between">
-                <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status] || ''}`}>
-                  {statusText}
-                </h2>
-                <div className="flex items-center gap-[var(--space-8)]">
-                  <span className="text-[10px] text-text-secondary uppercase tracking-wider">
-                    {playerColor === 'w' ? 'Белые' : 'Чёрные'}
+              <div 
+                className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
+                style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+              >
+                {/* Left: Opponent Info */}
+                <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
+                  <img 
+                    src={`${import.meta.env.BASE_URL || '/'}emojis/multi_new.png`} 
+                    alt="vs" 
+                    className="w-5 h-5 object-contain opacity-90"
+                  />
+                  <span className="text-[var(--accent-brand)] truncate">
+                    {opponentName || 'Соперник'}
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${isMyTurn ? 'bg-[var(--accent-brand)] animate-pulse' : 'bg-text-secondary'}`} />
+                </div>
+
+                {/* Center: Notifications (Check, Results) */}
+                <div className="text-center flex justify-center">
+                  {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
+                    <h2 className={`text-[10px] font-bold ${statusClasses[status]} uppercase tracking-[0.2em] animate-pulse`}>
+                      {status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья'}
+                    </h2>
+                  )}
+                </div>
+
+                {/* Right: Turn Status */}
+                <div className="text-right">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                    isMyTurn ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
+                  }`}>
+                    {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
+                  </span>
                 </div>
               </div>
 
@@ -732,40 +748,27 @@ export default function GamePage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
-                    <Button variant="outline" size="sm" onClick={() => setShowUndoConfirm(true)}>
+                  <div 
+                    className="mx-auto mt-[var(--space-12)] flex justify-between gap-[var(--space-12)]"
+                    style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+                  >
+                    <Button variant="outline" size="sm" onClick={() => setShowUndoConfirm(true)} className="flex-1 max-w-[160px]">
                       Отмена хода
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setShowDrawConfirm(true)}>
-                      Ничья
-                    </Button>
-                    <Button variant="danger" size="sm" onClick={() => setShowResignConfirm(true)}>
-                      Сдаться
-                    </Button>
+                    <div className="flex gap-[var(--space-12)] flex-1 justify-end">
+                      <Button variant="outline" size="sm" onClick={() => setShowDrawConfirm(true)} className="flex-1 max-w-[120px]">
+                        Ничья
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => setShowResignConfirm(true)} className="flex-1 max-w-[120px]">
+                        Сдаться
+                      </Button>
+                    </div>
                   </div>
                 )}
             </div>
 
             <div className="game-side-column">
               <Card padding="sm">
-                <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
-                  Игроки
-                </h3>
-                <div className="space-y-[var(--space-8)] mb-[var(--space-16)]">
-                  <div className="flex items-center justify-between text-[var(--font-size-xs)]">
-                    <span className="flex items-center gap-[var(--space-6)]">
-                      <span className="w-2 h-2 rounded-full bg-white inline-block border border-[var(--border)]" />
-                      {playerColor === 'w' ? 'Вы' : (opponentName || 'Соперник')}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[var(--font-size-xs)]">
-                    <span className="flex items-center gap-[var(--space-6)]">
-                      <span className="w-2 h-2 rounded-full bg-black inline-block border border-[var(--border)]" />
-                      {playerColor === 'b' ? 'Вы' : (opponentName || 'Соперник')}
-                    </span>
-                  </div>
-                </div>
-
                 <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
                   История ходов
                 </h3>

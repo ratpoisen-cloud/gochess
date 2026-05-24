@@ -143,6 +143,7 @@ export default function ChessBoard({
           const isSelected = selectedSquare === square
           const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square)
           const isCheck = checkSquare === square
+          const isCheckmate = game.isCheckmate()
 
           return (
             <div
@@ -163,7 +164,21 @@ export default function ChessBoard({
               onTouchEnd={handleTouchEnd}
               onTouchMove={handleTouchEnd}
             >
-              {children}
+              <div 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  transform: (isCheckmate && isCheck) ? 'rotate(90deg)' : 'none',
+                  transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transformOrigin: 'center center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
+                }}
+              >
+                {children}
+              </div>
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}
               {reactionEmojis.filter((r) => r.square === square).slice(-1).map((r) => (

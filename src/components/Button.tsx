@@ -17,7 +17,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   draw:
     'bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)]',
   danger:
-    'bg-[var(--danger)] text-white border-[color-mix(in_srgb,var(--danger)_60%,var(--border))] hover:bg-[color-mix(in_srgb,var(--danger)_80%,transparent)]',
+    'bg-[var(--danger-soft)] text-[var(--text)] border-[var(--danger-border)] hover:bg-[color-mix(in_srgb,var(--danger-soft)_120%,transparent)] active:scale-[0.98]',
   success:
     'bg-[var(--success)] text-white border-[color-mix(in_srgb,var(--success)_60%,var(--border))] hover:bg-[color-mix(in_srgb,var(--success)_80%,transparent)]',
   ghost:

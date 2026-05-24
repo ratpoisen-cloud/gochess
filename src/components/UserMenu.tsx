@@ -123,7 +123,7 @@ export default function UserMenu() {
                 setIsOpen(false)
                 signOut()
               }}
-              className="flex items-center gap-[var(--space-12)] w-full p-[10px_12px] text-[var(--font-size-sm)] text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] rounded-[var(--radius-8)] transition-all mt-[4px]"
+              className="flex items-center gap-[var(--space-12)] w-full p-[10px_12px] text-[var(--font-size-sm)] text-[var(--danger)] hover:bg-[var(--danger-soft)] rounded-[var(--radius-8)] transition-all mt-[4px]"
             >
               Выйти
             </button>

@@ -220,6 +220,35 @@ export default function GamePage() {
     }
   }, [roomCode, user, updateGameState])
 
+  // Poll for opponent while waiting
+  useEffect(() => {
+    if (!gameId || !supabase || opponentJoined || loading) return
+
+    const sb = supabase!
+    const interval = setInterval(async () => {
+      const { data } = await sb
+        .from('games')
+        .select('white_player_id, black_player_id, white_name, black_name, turn')
+        .eq('id', gameId)
+        .single()
+
+      if (!data) return
+
+      if (playerColor === 'w' && data.black_player_id && !opponentJoined) {
+        setOpponentJoined(true)
+        setOpponentName(data.black_name || 'Соперник')
+        setIsMyTurn(data.turn === 'w')
+      }
+      if (playerColor === 'b' && data.white_player_id && !opponentJoined) {
+        setOpponentJoined(true)
+        setOpponentName(data.white_name || 'Соперник')
+        setIsMyTurn(data.turn === 'b')
+      }
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [gameId, opponentJoined, loading, playerColor])
+
   // Subscribe to Realtime
   useEffect(() => {
     if (!gameId || !supabase) return

@@ -6,10 +6,13 @@ import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
 import CustomSelect from '@/components/CustomSelect'
 import SettingsDropdown from '@/components/SettingsDropdown'
+import UserMenu from '@/components/UserMenu'
+import { useAuth } from '@/hooks/useAuth'
 import type { BotLevel } from '@/types'
 
 export default function BotPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
   const [initialized, setInitialized] = useState(false)
   const gameRef = useRef(game)
@@ -103,6 +106,7 @@ export default function BotPage() {
                 { value: 'hard', label: 'Сильный' },
               ]}
             />
+            {user && <UserMenu />}
           </div>
         </div>
       </header>

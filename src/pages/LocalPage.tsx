@@ -5,9 +5,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
 import SettingsDropdown from '@/components/SettingsDropdown'
+import UserMenu from '@/components/UserMenu'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function LocalPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
   const [initialized, setInitialized] = useState(false)
   const savedRef = useRef(false)
@@ -68,7 +71,10 @@ export default function LocalPage() {
           <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em] uppercase">
             Игра вдвоём
           </h1>
-          <SettingsDropdown />
+            <div className="flex items-center gap-[var(--space-12)]">
+              <SettingsDropdown />
+              {user && <UserMenu />}
+            </div>
         </div>
       </header>
 

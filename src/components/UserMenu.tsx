@@ -116,7 +116,7 @@ export default function UserMenu() {
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-[var(--space-12)] w-full p-[10px_12px] text-[var(--font-size-sm)] text-text-secondary hover:text-[var(--accent-brand)] hover:bg-[color-mix(in_srgb,var(--accent-brand)_15%,transparent)] rounded-[var(--radius-8)] transition-all"
             >
-              <span>⚙️</span> Настройки
+              Настройки
             </Link>
             <button
               onClick={() => {
@@ -125,7 +125,7 @@ export default function UserMenu() {
               }}
               className="flex items-center gap-[var(--space-12)] w-full p-[10px_12px] text-[var(--font-size-sm)] text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_10%,transparent)] rounded-[var(--radius-8)] transition-all mt-[4px]"
             >
-              <span>🚪</span> Выйти
+              Выйти
             </button>
           </div>
         </div>

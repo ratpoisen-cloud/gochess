@@ -166,22 +166,15 @@ export default function ChessBoard({
               {children}
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}
-              {reactionEmojis.filter((r) => r.square === square).slice(-3).map((r, idx) => (
+              {reactionEmojis.filter((r) => r.square === square).slice(-1).map((r) => (
                 <div
                   key={r.id}
-                  className="absolute pointer-events-none animate-bounce shadow-lg"
-                  style={{ 
-                    bottom: `${idx * 15}%`, 
-                    right: '0',
-                    width: '40%',
-                    height: '40%',
-                    zIndex: 50 + idx
-                  }}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-50 animate-bounce"
                 >
                   <img 
                     src={r.emojiUrl} 
                     alt="reaction" 
-                    className="w-full h-full object-contain"
+                    className="w-[70%] h-[70%] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.5)]"
                   />
                 </div>
               ))}

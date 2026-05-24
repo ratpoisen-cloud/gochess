@@ -374,6 +374,7 @@ export default function GamePage() {
         soundManager.play('checkmate')
       }
 
+      useReactionStore.getState().resetMoveCounter()
       return true
     } catch {
       return false

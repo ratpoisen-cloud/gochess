@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
+import { useReactionStore } from '@/stores/reactionStore'
 import type { Chess } from 'chess.js'
 
 interface ChessBoardProps {
@@ -53,6 +54,8 @@ export default function ChessBoard({
 
   // Active moves: priority = selected > hover
   const activeMoveDetails = selectedSquare ? selectedMoveDetails : hoveredMoveDetails
+
+  const reactionEmojis = useReactionStore((s) => s.reactions)
 
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
@@ -133,6 +136,15 @@ export default function ChessBoard({
               {children}
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}
+              {reactionEmojis.filter((r) => r.square === square).slice(-3).map((r) => (
+                <span
+                  key={r.id}
+                  className="absolute bottom-0 right-0 text-sm leading-none pointer-events-none animate-bounce"
+                  style={{ fontSize: Math.max(12, (boardWidth || 400) / 40) }}
+                >
+                  {r.emoji}
+                </span>
+              ))}
             </div>
           )
         }}

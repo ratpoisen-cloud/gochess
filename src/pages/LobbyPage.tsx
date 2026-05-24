@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
-import CreateRoomModal from '@/components/CreateRoomModal'
+import ColorPickerModal from '@/components/ColorPickerModal'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -48,7 +48,7 @@ export default function LobbyPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  const [isCreateRoomModalOpen, setIsCreateRoomModalOpen] = useState(false)
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<any[]>([])
 
@@ -124,6 +124,32 @@ export default function LobbyPage() {
         </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)]">
+          <button
+            onClick={() => {
+              if (user) {
+                setIsColorPickerOpen(true)
+              } else {
+                setIsAuthModalOpen(true)
+              }
+            }}
+            className="group flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile cursor-pointer text-left w-full"
+          >
+            <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+              <img 
+                src={`${BASE}emojis/multi_new.png`} 
+                alt="По сети"
+                className="w-[96px] h-[96px] object-contain"
+                style={{ imageRendering: 'pixelated' }}
+              />
+            </div>
+            <h3 className="text-[var(--font-size-sm)] font-bold mb-[var(--space-10)] text-center transition-colors duration-200 group-hover:text-white">
+              По сети
+            </h3>
+            <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[170px] opacity-60 group-hover:opacity-100 transition-opacity">
+              Пригласи друга по ссылке и играй онлайн
+            </p>
+          </button>
+
           <HubTile
             to="/bot"
             icon="bot_new"
@@ -138,32 +164,6 @@ export default function LobbyPage() {
             description="Классическая игра вдвоем на одном устройстве"
             variant="secondary"
           />
-
-          <button
-            onClick={() => {
-              if (user) {
-                setIsCreateRoomModalOpen(true)
-              } else {
-                setIsAuthModalOpen(true)
-              }
-            }}
-            className="group flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile cursor-pointer text-left w-full"
-          >
-            <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
-              <img 
-                src={`${BASE}emojis/tournament_new.png`} 
-                alt="По сети"
-                className="w-[96px] h-[96px] object-contain"
-                style={{ imageRendering: 'pixelated' }}
-              />
-            </div>
-            <h3 className="text-[var(--font-size-sm)] font-bold mb-[var(--space-10)] text-center transition-colors duration-200 group-hover:text-white">
-              По сети
-            </h3>
-            <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[170px] opacity-60 group-hover:opacity-100 transition-opacity">
-              Пригласи друга по ссылке и играй онлайн
-            </p>
-          </button>
         </section>
 
         {user && recentGames.length > 0 && (
@@ -207,7 +207,7 @@ export default function LobbyPage() {
       </footer>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      <CreateRoomModal isOpen={isCreateRoomModalOpen} onClose={() => setIsCreateRoomModalOpen(false)} />
+      <ColorPickerModal isOpen={isColorPickerOpen} onClose={() => setIsColorPickerOpen(false)} />
     </div>
   )
 }

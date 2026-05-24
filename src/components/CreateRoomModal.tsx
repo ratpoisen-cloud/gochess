@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Modal from './Modal'
 import Button from './Button'
 import { useToast } from './Toast'
@@ -22,6 +23,7 @@ interface CreateRoomModalProps {
 }
 
 export default function CreateRoomModal({ isOpen, onClose }: CreateRoomModalProps) {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { addToast } = useToast()
   const [step, setStep] = useState<'create' | 'link' | 'error'>('create')
@@ -73,6 +75,8 @@ export default function CreateRoomModal({ isOpen, onClose }: CreateRoomModalProp
       setRoomUrl(url)
       setStep('link')
       addToast('Комната создана!', 'success')
+      onClose()
+      navigate(`/game/${code}`)
     } catch (err: any) {
       console.error('Create room error:', err)
       setStep('error')

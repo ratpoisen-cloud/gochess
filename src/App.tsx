@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import LobbyPage from './pages/LobbyPage'
+import GamePage from './pages/GamePage'
 import BotPage from './pages/BotPage'
 import LocalPage from './pages/LocalPage'
 import SettingsPage from './pages/SettingsPage'
@@ -11,6 +12,7 @@ function App() {
     <ErrorBoundary>
       <Routes>
         <Route path="/" element={<LobbyPage />} />
+        <Route path="/game/:roomCode" element={<GamePage />} />
         <Route path="/bot" element={<BotPage />} />
         <Route path="/local" element={<LocalPage />} />
         <Route path="/settings" element={<SettingsPage />} />

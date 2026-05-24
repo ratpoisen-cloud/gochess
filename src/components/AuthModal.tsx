@@ -76,6 +76,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       title={isLogin ? 'Вход в аккаунт' : 'Регистрация'}
       description={isLogin ? 'С возвращением!' : 'Создайте аккаунт, чтобы сохранять прогресс'}
     >
+      <button
+        onClick={onClose}
+        className="text-[10px] font-bold text-text-secondary hover:text-text transition-colors px-0 uppercase tracking-widest block mb-[var(--space-16)]"
+        style={{ fontFamily: 'var(--font-family-ui)' }}
+      >
+        Назад
+      </button>
       <form onSubmit={handleSubmit} className="space-y-[var(--space-16)]">
         <div className="space-y-[var(--space-8)] text-left">
           <label className="text-[var(--font-size-xs)] text-[var(--accent-brand)] font-medium px-[var(--space-4)]">

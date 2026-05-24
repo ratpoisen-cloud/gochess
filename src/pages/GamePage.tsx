@@ -86,6 +86,7 @@ export default function GamePage() {
       return
     }
 
+    const sb = supabase!
     let cancelled = false
 
     const load = async () => {
@@ -93,7 +94,7 @@ export default function GamePage() {
         console.log('[Game] Loading room:', roomCode, 'user:', user.uid)
         console.log('[Game] SELECT games WHERE room_code =', roomCode)
 
-        const { data, error: fetchError } = await supabase
+        const { data, error: fetchError } = await sb
           .from('games')
           .select('*')
           .eq('room_code', roomCode)
@@ -124,7 +125,7 @@ export default function GamePage() {
           setOpponentJoined(!!data.white_player_id)
           setIsMyTurn(data.turn === 'b')
         } else if (!data.black_player_id) {
-          const { error: joinError } = await supabase
+          const { error: joinError } = await sb
             .from('games')
             .update({
               black_player_id: user.uid,
@@ -148,7 +149,7 @@ export default function GamePage() {
             setIsMyTurn(false)
           }
         } else if (!data.white_player_id) {
-          const { error: joinError } = await supabase
+          const { error: joinError } = await sb
             .from('games')
             .update({
               white_player_id: user.uid,

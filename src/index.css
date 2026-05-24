@@ -276,7 +276,7 @@ option {
 }
 
 .pixel-tile:hover {
-  background: color-mix(in srgb, var(--bg) 90%, var(--accent-brand));
+  background: color-mix(in srgb, var(--bg) 92%, #ffffff);
   transform: translateY(-2px);
 }
 
@@ -289,7 +289,7 @@ option {
 }
 
 .pixel-tile-primary:hover {
-  background: color-mix(in srgb, var(--bg) 85%, var(--accent-brand));
+  background: color-mix(in srgb, var(--bg) 88%, #ffffff);
 }
 
 .pixel-tile-disabled {

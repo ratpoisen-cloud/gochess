@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useCallback } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
 import { useReactionStore } from '@/stores/reactionStore'
@@ -12,6 +12,7 @@ interface ChessBoardProps {
   legalMoves: string[]
   onDrop: (source: string, target: string) => boolean
   onSquareClick: (square: string) => void
+  onReactionSquare?: (square: string, clientX: number, clientY: number) => void
   boardWidth?: number
   boardOrientation?: 'white' | 'black'
   animationDuration?: number
@@ -24,6 +25,7 @@ export default function ChessBoard({
   selectedSquare,
   onDrop,
   onSquareClick,
+  onReactionSquare,
   boardWidth,
   boardOrientation = 'white',
   animationDuration = 200,
@@ -31,6 +33,31 @@ export default function ChessBoard({
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
+  const longPressTimer = useRef<any>(null)
+  const reactionEmojis = useReactionStore((s) => s.reactions)
+
+  const handleContextMenu = useCallback((square: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    if (onReactionSquare) {
+      onReactionSquare(square, e.clientX, e.clientY)
+    }
+  }, [onReactionSquare])
+
+  const handleTouchStart = useCallback((square: string, e: React.TouchEvent) => {
+    longPressTimer.current = setTimeout(() => {
+      if (onReactionSquare) {
+        const touch = e.touches[0]
+        onReactionSquare(square, touch.clientX, touch.clientY)
+      }
+    }, 500)
+  }, [onReactionSquare])
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }, [])
 
   // Moves for SELECTED piece (click-to-move)
   const selectedMoveDetails = useMemo(() => {
@@ -54,8 +81,6 @@ export default function ChessBoard({
 
   // Active moves: priority = selected > hover
   const activeMoveDetails = selectedSquare ? selectedMoveDetails : hoveredMoveDetails
-
-  const reactionEmojis = useReactionStore((s) => s.reactions)
 
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
@@ -103,6 +128,7 @@ export default function ChessBoard({
           return onDrop(source, target)
         }}
         onSquareClick={onSquareClick}
+        onPromotionCheck={() => false}
         boardOrientation={boardOrientation}
         boardWidth={boardWidth}
         customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
@@ -132,6 +158,10 @@ export default function ChessBoard({
                 if (piece) setHoveredSquare(square)
               }}
               onMouseLeave={() => setHoveredSquare(null)}
+              onContextMenu={(e) => handleContextMenu(square, e)}
+              onTouchStart={(e) => handleTouchStart(square, e)}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchEnd}
             >
               {children}
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}

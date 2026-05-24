@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
+import { useBoardStore } from '@/stores/boardStore'
 import { soundManager } from '@/lib/soundManager'
 import ChessBoard from '@/components/board/ChessBoard'
 import Card from '@/components/Card'
@@ -39,8 +40,11 @@ export default function GamePage() {
   const [resultText, setResultText] = useState('')
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
+  const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
   const [opponentJoined, setOpponentJoined] = useState(false)
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const addReaction = useReactionStore((s) => s.addReaction)
+  const getPieceUrl = useBoardStore((s) => s.getPieceUrl)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading && opponentJoined)
@@ -384,6 +388,11 @@ export default function GamePage() {
     if (selectedSquare) {
       const isLegal = legalMoves.includes(square)
       if (isLegal) {
+        const movingPiece = g.get(selectedSquare as any)
+        if (movingPiece && movingPiece.type === 'p' && (square[1] === '8' || square[1] === '1')) {
+          setPendingPromotion({ from: selectedSquare, to: square })
+          return
+        }
         makeMove(selectedSquare, square)
         return
       }
@@ -460,6 +469,12 @@ export default function GamePage() {
     if (!error) {
       navigate(`/game/${code}`)
     }
+  }
+
+  const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
+    setReactionSquare(square)
+    setReactionPos({ x: clientX, y: clientY })
+    setShowReactionPicker(true)
   }
 
   const handleEmojiSelect = async (emoji: string) => {
@@ -612,6 +627,7 @@ export default function GamePage() {
                     legalMoves={legalMoves}
                     onDrop={makeMove}
                     onSquareClick={onSquareClick}
+                    onReactionSquare={handleReactionSquare}
                     boardWidth={stableWidth}
                     boardOrientation={playerColor === 'w' ? 'white' : 'black'}
                   />
@@ -655,50 +671,65 @@ export default function GamePage() {
                 </div>
               )}
 
-              {!gameOver && (
-                <div className="mt-[var(--space-12)]">
-                  {showReactionPicker ? (
-                    <div className="relative">
-                      {reactionSquare ? (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-[100]">
-                          <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-2">
-                            <div className="grid grid-cols-6 gap-1">
-                              {['😄', '😎', '🔥', '💀', '😱', '🥶', '💪', '😅', '😢', '👀', '🎉', '😤', '🤝', '♟️', '⭐', '❤️'].map((emoji) => (
-                                <button
-                                  key={emoji}
-                                  onClick={() => handleEmojiSelect(emoji)}
-                                  className="w-7 h-7 flex items-center justify-center text-sm hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-colors"
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center">
-                          <button
-                            onClick={() => setShowReactionPicker(false)}
-                            className="text-[10px] text-text-secondary hover:text-text transition-colors uppercase tracking-widest"
-                          >
-                            Закрыть реакции
-                          </button>
-                          <p className="text-[9px] text-text-secondary mt-1">
-                            Нажми на клетку доски, чтобы оставить реакцию
-                          </p>
-                        </div>
-                      )}
+              {showReactionPicker && reactionPos && (
+                <div
+                  className="fixed z-[9999]"
+                  style={{
+                    left: reactionPos.x,
+                    top: reactionPos.y,
+                    transform: 'translate(-50%, -120%)',
+                  }}
+                >
+                  <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-2 shadow-lg">
+                    <div className="grid grid-cols-6 gap-1">
+                      {['😄', '😎', '🔥', '💀', '😱', '🥶', '💪', '😅', '😢', '👀', '🎉', '😤', '🤝', '♟️', '⭐', '❤️'].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleEmojiSelect(emoji)}
+                          className="w-8 h-8 flex items-center justify-center text-base hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-colors"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="text-center">
-                      <button
-                        onClick={() => setShowReactionPicker(true)}
-                        className="text-[10px] text-text-secondary hover:text-text transition-colors uppercase tracking-widest"
-                      >
-                        Реакции
-                      </button>
-                    </div>
-                  )}
+                  </div>
+                </div>
+              )}
+
+              {/* Promotion Modal */}
+              {pendingPromotion && (
+                <div
+                  className="fixed inset-0 z-[9998] flex items-center justify-center"
+                  onClick={() => setPendingPromotion(null)}
+                  style={{ background: 'rgba(0,0,0,0.5)' }}
+                >
+                  <div
+                    className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-4 flex gap-2 shadow-lg"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {(['q', 'r', 'b', 'n'] as const).map((piece) => {
+                      const code = `${playerColor === 'w' ? 'w' : 'b'}${piece.toUpperCase()}` as const
+                      return (
+                        <button
+                          key={piece}
+                          onClick={() => {
+                            makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                            setPendingPromotion(null)
+                            setSelectedSquare(null)
+                            setLegalMoves([])
+                          }}
+                          className="w-12 h-12 flex items-center justify-center hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-colors"
+                        >
+                          <img
+                            src={getPieceUrl(code)}
+                            alt={piece}
+                            className="w-10 h-10"
+                            draggable={false}
+                          />
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

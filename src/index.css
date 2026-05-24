@@ -277,6 +277,7 @@ option {
 
 .pixel-tile:hover {
   transform: translateY(-2px);
+  background: rgba(232, 232, 216, 0.03);
 }
 
 .pixel-tile:active {
@@ -289,6 +290,7 @@ option {
 
 .pixel-tile-primary:hover {
   transform: translateY(-2px);
+  background: rgba(232, 232, 216, 0.05);
 }
 
 .pixel-tile-disabled {

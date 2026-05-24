@@ -194,72 +194,22 @@ npm run dev
 Для режима бота: `http://localhost:5173/bot`
 Для игры по ссылке: `http://localhost:5173/game/<roomId>`
 
-## 🗄 Supabase MCP
+## 🗄 Миграции
 
-Для работы с базой данных используй MCP сервер `supabase`. Не используй Supabase JS SDK напрямую для DDL операций — только через MCP.
+SQL-миграции лежат в `supabase/migrations/`. При пуше в `main` Supabase GitHub Integration применяет их автоматически.
 
-### Доступные инструменты
+Формат имени: `<YYYYMMDDHHMMSS>_<description>.sql`
 
-| Инструмент | Описание | Когда использовать |
-|---|---|---|
-| `supabase_list_tables` | Список таблиц в схеме | Перед любыми изменениями — понять текущую схему |
-| `supabase_execute_sql` | SQL запросы (SELECT, INSERT, UPDATE, DELETE) | Чтение данных, проверка результатов миграций |
-| `supabase_apply_migration` | Применение SQL миграций (tracked) | CREATE TABLE, ALTER, RLS policies, индексы |
-| `supabase_list_migrations` | Список применённых миграций | Проверка истории изменений |
-| `supabase_generate_typescript_types` | Генерация TS типов из схемы | После изменений схемы — обновить типы в проекте |
-| `supabase_search_docs` | Поиск в документации Supabase | Когда нужна справка по API или функциям |
-| `supabase_get_logs` | Логи сервисов (api, postgres, auth, storage) | Дебаг проблем |
-| `supabase_get_advisors` | Советы по безопасности и производительности | Аудит проекта |
-| `supabase_get_project_url` | API URL проекта | Для конфигурации клиента |
-| `supabase_get_publishable_keys` | Anon/publishable ключи | Для настройки frontend |
+### Порядок работы при создании таблицы/политики
 
-### Порядок работы при создании таблицы
-
-1. `supabase_list_tables` — проверить, нет ли уже такой таблицы
-2. `supabase_apply_migration` — создать таблицу с RLS
-3. `supabase_execute_sql` — проверить, что таблица создана
-4. `supabase_generate_typescript_types` — обновить TS типы
-
-### RLS политики — шаблон
-
-При создании RLS политик всегда используй этот шаблон:
-
-```sql
--- Включить RLS
-ALTER TABLE table_name ENABLE ROW LEVEL SECURITY;
-
--- Политика: пользователи видят только свои данные
-CREATE POLICY "Users can view own data"
-  ON table_name FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Политика: пользователи могут изменять только свои данные
-CREATE POLICY "Users can update own data"
-  ON table_name FOR UPDATE
-  USING (auth.uid() = user_id);
-```
+1. Создать файл `supabase/migrations/<timestamp>_<name>.sql`
+2. Проверить миграцию через `supabase_execute_sql` (если MCP доступен)
+3. Закоммитить и запушить — Supabase применит автоматически
 
 ### Важно
 
-- **Всегда** используй `supabase_apply_migration` для DDL (CREATE, ALTER, DROP) — миграции трекаются в Supabase
-- **Всегда** используй `supabase_execute_sql` для DML (SELECT, INSERT, UPDATE) — обычные запросы
 - **Никогда** не коммить сервисный ключ (`service_role`) в репозиторий
 - **Всегда** включай RLS для новых таблиц
-- **Всегда** проверяй результат миграции через `supabase_execute_sql`
-
-### Аутентификация
-
-MCP сервер использует API Key через переменную окружения `SUPABASE_PUBLISHABLE_KEY`.
-
-**Настройка:**
-1. Ключ хранится в файле `.env` в корне проекта (не коммитить в Git!)
-2. OpenCode автоматически подставляет ключ из `{env:SUPABASE_PUBLISHABLE_KEY}`
-3. OAuth отключён (`"oauth": false`), используется только API Key
-
-**Если ключ не работает:**
-- Проверь, что `.env` файл существует и содержит `SUPABASE_PUBLISHABLE_KEY=...`
-- Убедись, что OpenCode запущен в директории проекта (где лежит `.env`)
-- Альтернатива: установить переменную окружения глобально через `setx SUPABASE_PUBLISHABLE_KEY "key"` (Windows)
 
 ## 🤖 Multi-Agent System (CrewAI + Gemini CLI)
 

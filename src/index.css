@@ -163,11 +163,7 @@ html {
 }
 
 body {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 46%),
-    radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bg) 88%, #0a0a0b), var(--bg) 72%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-family-ui);
   line-height: 1.5;

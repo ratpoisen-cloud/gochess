@@ -238,7 +238,7 @@ export default function LobbyPage() {
 
       </main>
 
-      <footer className="py-12 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-[var(--card)]/30 text-center opacity-50">
+      <footer className="py-12 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] text-center opacity-50">
          <p className="text-[10px] text-text-secondary tracking-widest uppercase mb-[var(--space-8)]" style={{ fontFamily: 'var(--font-family-ui)' }}>
            GoChess &copy; 2026 • Pixel Soul
          </p>

@@ -213,9 +213,18 @@ export default function LobbyPage() {
                         const currentUid = user.uid
                         const isWhite = g.white_player_id === currentUid
                         const isBlack = g.black_player_id === currentUid
-                        
-                        // Normalize turn to lowercase just in case
                         const turn = String(g.turn || '').toLowerCase()
+                        
+                        // Debug log to help identify the issue
+                        console.log(`[Lobby] Game ${g.room_code}:`, {
+                          turn,
+                          isWhite,
+                          isBlack,
+                          currentUid,
+                          whiteId: g.white_player_id,
+                          blackId: g.black_player_id
+                        })
+
                         const isMyTurn = (turn === 'w' && isWhite) || (turn === 'b' && isBlack)
                         
                         return (

@@ -39,7 +39,6 @@ export default function Modal({ isOpen, onClose, title, description, children, m
         className="animate-modal-pixel-in text-center text-[var(--font-size-sm)] leading-[1.55] rounded-[var(--radius-8)] p-[var(--space-32)]"
         style={{
           background: 'var(--bg)',
-          border: '1px solid color-mix(in srgb, var(--accent-brand) 30%, var(--border))',
           boxShadow: 'none',
           maxWidth: maxWidth || 'min(92vw, 380px)',
           width: '90%',

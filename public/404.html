@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoChess</title>
+    <script>
+      var path = window.location.pathname
+      var search = window.location.search
+      var hash = window.location.hash
+      if (path !== '/gochess/' && path !== '/gochess') {
+        sessionStorage.setItem('gochess-redirect', path + search + hash)
+      }
+      window.location.href = '/gochess'
+    </script>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+  </body>
+</html>

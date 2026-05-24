@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+*.pyc
+__pycache__/
+agents/__pycache__/
+agents/tools/__pycache__/
+.DS_Store
+эмоджи/
+Эмоджи/
+*.log

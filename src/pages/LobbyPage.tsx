@@ -1,0 +1,153 @@
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/hooks/useAuth'
+import AuthModal from '@/components/AuthModal'
+import UserMenu from '@/components/UserMenu'
+import LoadingScreen from '@/components/LoadingScreen'
+
+const BASE = import.meta.env.BASE_URL || '/'
+
+interface HubTileProps {
+  to: string
+  icon: string
+  title: string
+  description: string
+  variant?: 'primary' | 'secondary' | 'muted'
+}
+function HubTile({ to, icon, title, description, variant = 'secondary' }: HubTileProps) {
+  const isPrimary = variant === 'primary'
+
+  return (
+    <Link
+      to={to}
+      className={`group flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile ${isPrimary ? 'pixel-tile-primary' : ''}`}
+    >
+      <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+        <img 
+          src={`${BASE}emojis/${icon}.png`} 
+          alt={title}
+          className="w-[96px] h-[96px] object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.4)]"
+          style={{ 
+            imageRendering: 'pixelated',
+          }}
+        />
+      </div>
+      <h3 className="text-[var(--font-size-sm)] font-bold mb-[var(--space-10)] text-center transition-colors duration-200 group-hover:text-white">
+        {title}
+      </h3>
+      <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[170px] opacity-60 group-hover:opacity-100 transition-opacity">
+        {description}
+      </p>
+    </Link>
+  )
+}
+
+export default function LobbyPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+
+  useEffect(() => {
+    // Simulate initial app load for the cool splash screen effect
+    const timer = setTimeout(() => {
+      setInitialLoading(false)
+    }, 1200)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <div className="min-h-[100dvh] flex flex-col bg-bg">
+      <LoadingScreen isLoading={initialLoading} />
+      
+      <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
+        <div className="max-w-[1200px] mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-[var(--space-12)]">
+            <img
+              src={`${BASE}logo/gochess_wordmark_dark.svg`}
+              alt="GoChess"
+              className="h-[38px] w-auto"
+            />
+          </div>
+          <div className="flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
+            <div className="flex items-center gap-[var(--space-16)]">
+              {user ? (
+                <UserMenu />
+              ) : (
+                <button 
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="text-[10px] font-bold text-text-secondary hover:text-text transition-colors px-2 uppercase tracking-widest"
+                  style={{ fontFamily: 'var(--font-family-ui)' }}
+                >
+                  Войти
+                </button>
+              )}
+              
+              <button 
+                onClick={() => navigate('/settings')}
+                className="p-1 text-text-secondary hover:text-text transition-all duration-200 active:scale-95 flex items-center"
+                title="Настройки"
+              >
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">
+                  <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84a.483.483 0 0 0-.48.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.488.488 0 0 0-.59.22L3.05 8.87a.49.49 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.48-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] pb-[var(--space-64)] flex-1 w-full flex flex-col justify-center gap-[10vh] md:gap-[12vh]">
+        <section className="text-center">
+          <h2 className="text-[clamp(2rem,5.5vw,3.6rem)] font-bold text-text tracking-tight leading-[1.05] uppercase">
+            <span className="text-[var(--accent-brand)]">Играй</span> в шахматы<br/>с друзьями
+          </h2>
+        </section>
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)]">
+          <HubTile
+            to="/bot"
+            icon="bot_new"
+            title="Против Бота"
+            description="Оттачивай мастерство на 3 уровнях сложности"
+            variant="secondary"
+          />
+          <HubTile
+            to="/local"
+            icon="local_new"
+            title="За одним ПК"
+            description="Классическая игра вдвоем на одном устройстве"
+            variant="secondary"
+          />
+
+          <div className="group flex flex-col items-center justify-center min-h-[230px] p-[28px_16px] rounded-[var(--radius-8)] text-center pixel-tile pixel-tile-disabled">
+            <div className="mb-[var(--space-20)] grayscale opacity-10">
+              <img 
+                src={`${BASE}emojis/tournament_new.png`} 
+                alt="Soon" 
+                className="w-[96px] h-[96px] object-contain" 
+                style={{ imageRendering: 'pixelated' }}
+              />
+            </div>
+            <h3 className="text-[var(--font-size-sm)] font-bold mb-[var(--space-8)] opacity-40">Турниры</h3>
+            <div className="inline-block px-3 py-1 rounded-full bg-white/5 border border-white/10">
+              <span className="text-[9px] text-text-secondary uppercase tracking-widest font-bold">Скоро</span>
+            </div>
+          </div>
+        </section>
+
+      </main>
+
+      <footer className="py-12 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] bg-[var(--card)]/30 text-center opacity-50">
+         <p className="text-[10px] text-text-secondary tracking-widest uppercase mb-[var(--space-8)]" style={{ fontFamily: 'var(--font-family-ui)' }}>
+           GoChess &copy; 2026 • Pixel Soul
+         </p>
+         <Link to="/agent-logs" className="text-[9px] text-text-secondary hover:text-[var(--accent-brand)] transition-colors uppercase tracking-widest" style={{ fontFamily: 'var(--font-family-ui)' }}>
+           🤖 Логи агента
+         </Link>
+      </footer>
+
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+    </div>
+  )
+}

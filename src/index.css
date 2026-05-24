@@ -1,0 +1,326 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-family-ui: 'Press Start 2P', monospace;
+
+  --bg: #050607;
+  --card: #0d0d0d;
+  --surface: #121416;
+  --surface-elevated: #191919;
+  --top-bar-bg: rgba(10, 12, 14, 0.72);
+  --panel-muted-bg: rgba(232, 232, 216, 0.035);
+  --overlay-bg: rgba(8, 8, 9, 0.78);
+  --modal-bg: #171718;
+  --input-bg: #151516;
+  --input-bg-readonly: #1b1b1c;
+  --input-placeholder: #8d8d8d;
+  --item-bg: #151516;
+  --item-hover-bg: #1c1c1d;
+  --move-list-bg: #111111;
+  --toast-bg: rgba(18, 18, 19, 0.96);
+  --toast-info-bg: rgba(22, 22, 25, 0.96);
+
+  --accent-brand: #a3c18f; /* Brand Green - Reserved ONLY for branding text */
+  --accent: #e8e8d8; /* Milky White */
+  --accent-hover: #ffffff;
+  --accent-active: #b4b4a4;
+  --accent-contrast: #000000;
+  --accent-soft: rgba(232, 232, 216, 0.08);
+  --accent-dark: #8c8c8c;
+  --danger: #ff4444;
+  --danger-hover: #ff6666;
+  --success: #e8e8d8; /* Change from green to milk-white */
+  --text: #e8e8d8; /* Milky White from Logo */
+  --text-secondary: #b4b4a4;
+  --border: rgba(232, 232, 216, 0.1);
+  --draw-bg: #222222;
+  --draw-text: #ffffff;
+  --draw-border: #444444;
+  --draw-hover: #333333;
+  --draw-hover-shadow: rgba(255, 255, 255, 0.1);
+
+  --highlight-my-turn: rgba(255, 255, 255, 0.15);
+  --shadow-accent: rgba(255, 255, 255, 0.1);
+  
+  /* Board Highlights Replication - Unified Style */
+  --board-last-move-outline: rgba(64, 156, 255, 0.5);
+  --board-check-outline: rgba(255, 68, 68, 0.95);
+  --board-check-glow: rgba(255, 68, 68, 0.4);
+  --board-highlight-selected: rgba(232, 232, 216, 0.95);
+  --board-highlight-possible: rgba(232, 232, 216, 0.6);
+  --board-highlight-possible-shadow: rgba(232, 232, 216, 0.2);
+  --board-highlight-capture: rgba(255, 68, 68, 0.9);
+  --board-highlight-capture-shadow: rgba(255, 68, 68, 0.4);
+  --board-highlight-drag-bg: rgba(232, 232, 216, 0.1);
+
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  --radius-4: 4px;
+  --radius-8: 8px;
+
+  --font-size-xs: 0.72rem;
+  --font-size-sm: 0.82rem;
+  --font-size-md: 0.9rem;
+  --font-size-lg: 1.02rem;
+  --font-size-xl: 1.7rem;
+
+  --btn-height: 44px;
+  --btn-height-lg: 50px;
+  --btn-padding-x: 14px;
+  --btn-font-size: 0.82rem;
+  --btn-radius: 8px;
+
+  --game-layout-gap: 20px;
+  --board-stack-gap: 16px;
+  --board-min-size: 320px;
+  --game-main-column-width: 1100px;
+  --game-side-column-width: 400px;
+}
+
+/* Stable Grid Layout */
+.game-layout-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--game-layout-gap);
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .game-layout-container {
+    grid-template-columns: minmax(0, 1fr) var(--game-side-column-width);
+    align-items: start;
+    justify-content: center;
+  }
+}
+
+.game-main-column {
+  width: 100%;
+  max-width: var(--game-main-column-width);
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.game-side-column {
+  width: 100%;
+  max-width: var(--game-main-column-width);
+}
+
+@media (min-width: 900px) {
+  .game-side-column {
+    width: var(--game-side-column-width);
+    max-width: var(--game-side-column-width);
+    position: sticky;
+    top: var(--space-24);
+  }
+}
+
+/* Pure CSS Board Container */
+.board-container {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: min(100%, var(--game-main-column-width), calc(100dvh - 200px));
+  margin: 0 auto;
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 2px solid var(--accent-brand);
+  border-radius: var(--radius-8);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+/* Let react-chessboard control its own size via boardWidth prop */
+.board-container > div,
+.board-container [role="presentation"] {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-8);
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 85%;
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 46%),
+    radial-gradient(circle at 50% 100%, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 88%, #0a0a0b), var(--bg) 72%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-family-ui);
+  line-height: 1.5;
+  letter-spacing: 0.015em;
+  font-size: calc(13px * 0.85);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+button,
+input,
+textarea,
+select,
+option {
+  font-family: inherit;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Board Highlights Replication */
+[data-square] {
+  position: relative;
+  overflow: visible;
+  outline: none !important;
+}
+
+[data-square]:focus, 
+[data-square]:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.highlight-possible {
+  position: absolute;
+  width: 26%;
+  height: 26%;
+  background: var(--board-highlight-possible);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 8px var(--board-highlight-possible-shadow);
+  z-index: 10;
+  animation: move-indicator-in 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.highlight-capture {
+  position: absolute;
+  width: 26%;
+  height: 26%;
+  background: var(--board-highlight-capture);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  box-shadow: 0 0 10px var(--board-highlight-capture-shadow);
+  z-index: 10;
+  animation: move-indicator-in 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.highlight-selected {
+  position: relative;
+  background: rgba(232, 232, 216, 0.3) !important;
+  box-shadow: inset 0 0 0 4px var(--board-highlight-selected) !important;
+  z-index: 2;
+}
+
+.highlight-last-move {
+  background: var(--board-last-move-outline) !important;
+  z-index: 1;
+}
+
+.highlight-check {
+  box-shadow: inset 0 0 0 4px var(--board-check-outline), 0 0 16px var(--board-check-glow) !important;
+  border-radius: 4px;
+  z-index: 3;
+}
+
+/* Hide cursor during drag — piece follows cursor directly */
+.board-container:active {
+  cursor: none !important;
+}
+
+@keyframes move-indicator-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* Pixel Tiles (simplified, no 3D effect) */
+.pixel-tile {
+  transition: all 0.2s ease;
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--accent-brand) 30%, var(--border));
+  border-radius: var(--radius-8);
+}
+
+.pixel-tile:hover {
+  background: color-mix(in srgb, var(--bg) 90%, var(--accent-brand));
+  border-color: color-mix(in srgb, var(--accent-brand) 60%, var(--border));
+  transform: translateY(-2px);
+}
+
+.pixel-tile:active {
+  transform: translateY(0);
+}
+
+.pixel-tile-primary {
+  background: var(--bg);
+  border-color: var(--accent-brand);
+}
+
+.pixel-tile-primary:hover {
+  background: color-mix(in srgb, var(--bg) 85%, var(--accent-brand));
+  border-color: var(--accent-brand);
+}
+
+.pixel-tile-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-dropdown-in {
+  animation: dropdown-in 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

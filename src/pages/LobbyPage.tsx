@@ -210,15 +210,19 @@ export default function LobbyPage() {
                       <span>{new Date(g.created_at).toLocaleDateString()}</span>
                       {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
                       {isOnline && isActive && (() => {
-                        const isWhite = g.white_player_id === user.uid
-                        const isBlack = g.black_player_id === user.uid
-                        const isMyTurn = (g.turn === 'w' && isWhite) || (g.turn === 'b' && isBlack)
+                        const currentUid = user.uid
+                        const isWhite = g.white_player_id === currentUid
+                        const isBlack = g.black_player_id === currentUid
+                        
+                        // Normalize turn to lowercase just in case
+                        const turn = String(g.turn || '').toLowerCase()
+                        const isMyTurn = (turn === 'w' && isWhite) || (turn === 'b' && isBlack)
                         
                         return (
                           <span className={`ml-auto font-bold ${
                             isMyTurn 
                               ? 'text-[var(--accent-brand)] animate-pulse' 
-                              : 'text-[var(--text)] opacity-80'
+                              : 'text-[var(--text)] opacity-60'
                           }`}>
                             {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
                           </span>

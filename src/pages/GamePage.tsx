@@ -648,7 +648,7 @@ export default function GamePage() {
             </div>
             <div className="max-w-[400px] mx-auto">
               <div className="flex items-center gap-[var(--space-8)] p-[var(--space-12)] rounded-[var(--radius-8)]"
-                style={{ background: 'color-mix(in_srgb, var(--accent-brand) 10%, var(--bg))', border: '1px solid color-mix(in_srgb, var(--accent-brand) 30%, var(--border))' }}
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
               >
                 <input
                   type="text"
@@ -883,7 +883,7 @@ export default function GamePage() {
           style={{ background: 'rgba(0,0,0,0.5)' }}
         >
           <div
-            className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-4 flex gap-2 shadow-lg"
+            className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-4 flex gap-2 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
             {(['q', 'r', 'b', 'n'] as const).map((piece) => {

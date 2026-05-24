@@ -93,7 +93,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
-            className="w-full bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors placeholder:text-[var(--input-placeholder)]"
+            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors placeholder:text-[var(--input-placeholder)]"
           />
         </div>
 
@@ -106,7 +106,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
-            className="w-full bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors placeholder:text-[var(--input-placeholder)]"
+            className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors placeholder:text-[var(--input-placeholder)]"
           />
         </div>
 

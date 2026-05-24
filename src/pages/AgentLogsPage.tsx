@@ -73,7 +73,7 @@ export default function AgentLogsPage() {
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[var(--space-24)] text-center">
+          <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[var(--space-24)] text-center">
             <p className="text-text-secondary text-[var(--font-size-sm)] mb-[var(--space-12)]">
               Нет сохранённых сессий
             </p>
@@ -95,7 +95,7 @@ export default function AgentLogsPage() {
                   <button
                     key={s.name}
                     onClick={() => loadSession(s.name)}
-                    className="w-full text-left p-[var(--space-12)] rounded-[var(--radius-8)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] bg-[var(--bg)] text-[var(--font-size-xs)] text-text-secondary hover:border-[var(--accent-brand)] transition-colors"
+                    className="w-full text-left p-[var(--space-12)] rounded-[var(--radius-8)] border border-[var(--border)] bg-[var(--bg)] text-[var(--font-size-xs)] text-text-secondary hover:border-[var(--accent-brand)] transition-colors"
                   >
                     {s.name.replace('.json', '')}
                   </button>
@@ -107,7 +107,7 @@ export default function AgentLogsPage() {
           <div className="lg:col-span-2">
             {selected ? (
               <div className="space-y-[var(--space-16)]">
-                <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[var(--space-20)]">
+                <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[var(--space-20)]">
                   <h2 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
                     Детали сессии
                   </h2>
@@ -142,7 +142,7 @@ export default function AgentLogsPage() {
                 </div>
 
                 {selected.applied_files.length > 0 && (
-                  <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[var(--space-20)]">
+                  <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[var(--space-20)]">
                     <h2 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
                       Изменённые файлы
                     </h2>
@@ -168,7 +168,7 @@ export default function AgentLogsPage() {
                   </div>
                 )}
 
-                <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[var(--space-20)]">
+                <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[var(--space-20)]">
                   <h2 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
                     План
                   </h2>
@@ -178,7 +178,7 @@ export default function AgentLogsPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[var(--space-24)] flex items-center justify-center min-h-[300px]">
+              <div className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[var(--space-24)] flex items-center justify-center min-h-[300px]">
                 <p className="text-text-secondary text-[var(--font-size-sm)]">
                   Выберите сессию слева
                 </p>

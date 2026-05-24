@@ -98,10 +98,11 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
         <button
           onClick={() => handleChoose('w')}
           disabled={creating}
-          className="w-full inline-flex items-center justify-center min-h-[var(--btn-height)] px-[var(--btn-padding-x)] text-[var(--btn-font-size)] rounded-[var(--btn-radius)] font-semibold cursor-pointer leading-[1.3] text-center tracking-[0.012em] shadow-none transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full inline-flex items-center justify-center min-h-[var(--btn-height)] px-[var(--btn-padding-x)] text-[var(--btn-font-size)] border rounded-[var(--btn-radius)] font-semibold cursor-pointer leading-[1.3] text-center tracking-[0.012em] shadow-none transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: 'var(--text)',
             color: 'var(--bg)',
+            borderColor: 'var(--accent-brand)',
           }}
         >
           Белые
@@ -113,7 +114,7 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
           className="w-full inline-flex items-center justify-center min-h-[var(--btn-height)] px-[var(--btn-padding-x)] text-[var(--btn-font-size)] border rounded-[var(--btn-radius)] font-semibold cursor-pointer leading-[1.3] text-center tracking-[0.012em] shadow-none transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             background: 'var(--bg)',
-            border: '1px solid color-mix(in srgb, var(--accent-brand) 30%, var(--border))',
+            border: '1px solid var(--border)',
             color: 'var(--text)',
           }}
         >

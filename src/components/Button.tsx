@@ -13,9 +13,9 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary:
     'bg-[var(--accent-brand)] text-[var(--bg)] border-[color-mix(in_srgb,var(--accent-brand)_60%,var(--border))] hover:bg-[color-mix(in_srgb,var(--accent-brand)_85%,transparent)] active:bg-[color-mix(in_srgb,var(--accent-brand)_70%,transparent)]',
   outline:
-    'bg-[var(--bg)] text-text border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] hover:bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)] hover:border-[color-mix(in_srgb,var(--accent-brand)_50%,var(--border))]',
+    'bg-[var(--bg)] text-text border border-[var(--border)] hover:bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)] hover:border-[rgba(232,232,216,0.25)]',
   draw:
-    'bg-[var(--bg)] text-[var(--text)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] hover:bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)]',
+    'bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] hover:bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)]',
   danger:
     'bg-[var(--danger)] text-white border-[color-mix(in_srgb,var(--danger)_60%,var(--border))] hover:bg-[color-mix(in_srgb,var(--danger)_80%,transparent)]',
   success:

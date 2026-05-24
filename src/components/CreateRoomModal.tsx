@@ -115,7 +115,7 @@ export default function CreateRoomModal({ isOpen, onClose }: CreateRoomModalProp
               Комната создана! Отправь ссылку другу:
             </p>
             <div className="flex items-center gap-[var(--space-8)] p-[var(--space-12)] rounded-[var(--radius-8)]"
-              style={{ background: 'color-mix(in srgb, var(--accent-brand) 10%, var(--bg))', border: '1px solid color-mix(in srgb, var(--accent-brand) 30%, var(--border))' }}
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
             >
               <input
                 type="text"

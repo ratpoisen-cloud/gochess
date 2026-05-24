@@ -73,7 +73,7 @@ function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="animate-toast-retro-in pointer-events-auto max-w-[min(92vw,360px)] p-[9px_11px] rounded-[var(--radius-8)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] opacity-100 translate-y-0 leading-[1.5] text-[0.76rem] font-medium saturate-100 cursor-pointer"
+          className="animate-toast-retro-in pointer-events-auto max-w-[min(92vw,360px)] p-[9px_11px] rounded-[var(--radius-8)] border border-[var(--border)] opacity-100 translate-y-0 leading-[1.5] text-[0.76rem] font-medium saturate-100 cursor-pointer"
           style={{
             background: 'var(--bg)',
             borderLeftWidth: '3px',

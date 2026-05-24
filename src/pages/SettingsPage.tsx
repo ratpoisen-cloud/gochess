@@ -108,7 +108,7 @@ export default function SettingsPage() {
             <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">
               Профиль
             </h2>
-            <form onSubmit={handleUpdateProfile} className="max-w-[400px] space-y-[var(--space-16)] bg-[var(--bg)] p-[var(--space-24)] rounded-[var(--radius-8)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))]">
+            <form onSubmit={handleUpdateProfile} className="max-w-[400px] space-y-[var(--space-16)] bg-[var(--bg)] p-[var(--space-24)] rounded-[var(--radius-8)] border border-[var(--border)]">
               <div className="space-y-[var(--space-8)]">
                 <label className="text-[var(--font-size-xs)] text-[var(--accent-brand)] font-medium">
                   Отображаемое имя
@@ -117,7 +117,7 @@ export default function SettingsPage() {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors placeholder:text-[var(--input-placeholder)]"
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-[12px] text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)] transition-colors placeholder:text-[var(--input-placeholder)]"
                 />
               </div>
               <Button type="submit" size="sm" disabled={isUpdating || displayName === user.displayName}>

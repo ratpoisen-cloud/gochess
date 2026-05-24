@@ -59,7 +59,7 @@ export default function UserMenu() {
         className="flex items-center gap-[var(--space-8)] p-[4px] rounded-[var(--radius-8)] hover:bg-[color-mix(in_srgb,var(--accent-brand)_15%,transparent)] transition-colors focus:outline-none"
       >
         <div className="relative w-[32px] h-[32px]">
-          <div className="w-full h-full rounded-full overflow-hidden bg-[var(--bg)] flex items-center justify-center text-[var(--accent-brand)] font-bold text-[0.8rem] border border-[color-mix(in_srgb,var(--accent-brand)_40%,var(--border))]">
+          <div className="w-full h-full rounded-full overflow-hidden bg-[var(--bg)] flex items-center justify-center text-[var(--accent-brand)] font-bold text-[0.8rem] border border-[var(--border)]">
             {user.photoURL ? (
               <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />
             ) : (
@@ -74,13 +74,13 @@ export default function UserMenu() {
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-[var(--space-8)] w-[260px] rounded-[var(--radius-8)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] z-[100] animate-modal-pixel-in overflow-hidden"
+          className="absolute right-0 mt-[var(--space-8)] w-[260px] rounded-[var(--radius-8)] border border-[var(--border)] z-[100] animate-modal-pixel-in overflow-hidden"
           style={{ background: 'var(--bg)' }}
         >
-          <div className="p-[var(--space-16)] border-b border-[color-mix(in_srgb,var(--accent-brand)_20%,var(--border))]">
+          <div className="p-[var(--space-16)] border-b border-[var(--border)]">
             <div className="flex flex-col items-center gap-[var(--space-12)] mb-[var(--space-12)]">
               <div 
-                className="group relative w-[64px] h-[64px] rounded-full overflow-hidden bg-[var(--bg)] flex items-center justify-center text-[var(--accent-brand)] font-bold text-[1.5rem] border-2 border-[var(--accent-brand)] cursor-pointer"
+                className="group relative w-[64px] h-[64px] rounded-full overflow-hidden bg-[var(--bg)] flex items-center justify-center text-[var(--accent-brand)] font-bold text-[1.5rem] border-2 border-[var(--border)] cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {user.photoURL ? (

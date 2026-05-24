@@ -51,7 +51,7 @@ export default function CustomSelect({ value, onChange, options, className = "" 
 
       {isOpen && (
         <div 
-          className="absolute right-0 mt-4 w-48 bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] overflow-hidden z-[100] animate-dropdown-in"
+          className="absolute right-0 mt-4 w-48 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] overflow-hidden z-[100] animate-dropdown-in"
         >
           <div className="py-2">
             {options.map((option) => (

@@ -20,7 +20,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
           bg-[var(--bg)]
           rounded-[var(--radius-8)]
           ${paddingClasses[padding]}
-          ${bordered ? 'border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))]' : ''}
+          ${bordered ? 'border border-[var(--border)]' : ''}
           ${className}
         `}
         {...props}

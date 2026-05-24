@@ -31,7 +31,7 @@ export default function SettingsDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[320px] bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
+        <div className="absolute right-0 top-full mt-2 w-[320px] bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
           <div className="p-[var(--space-16)]">
             <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-[var(--accent-brand)]">Тема доски</h3>
             <div className="grid grid-cols-3 gap-[var(--space-8)] mb-[var(--space-16)]">

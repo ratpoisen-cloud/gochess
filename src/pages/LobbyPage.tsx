@@ -59,7 +59,7 @@ export default function LobbyPage() {
     }
     supabase
       .from('games')
-      .select('id, white_name, black_name, game_type, winner, message, created_at, pgn')
+      .select('id, room_code, white_name, black_name, game_type, winner, message, created_at, pgn, game_state')
       .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
       .order('created_at', { ascending: false })
       .limit(10)
@@ -67,6 +67,12 @@ export default function LobbyPage() {
         if (data) setRecentGames(data)
       })
   }, [user])
+
+  const handleGameClick = (game: any) => {
+    if (game.game_type === 'online' && game.room_code) {
+      navigate(`/game/${game.room_code}`)
+    }
+  }
 
   useEffect(() => {
     // Simulate initial app load for the cool splash screen effect
@@ -172,25 +178,42 @@ export default function LobbyPage() {
               Последние партии
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[800px] mx-auto">
-              {recentGames.map((g) => (
-                <div key={g.id} className="p-[var(--space-16)] rounded-[var(--radius-8)] pixel-tile">
-                  <div className="flex items-center justify-between mb-[var(--space-8)]">
-                    <span className="text-[var(--font-size-xs)] text-text">
-                      {g.white_name} vs {g.black_name}
-                    </span>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                      g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
-                    }`}>
-                      {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
-                    </span>
+              {recentGames.map((g) => {
+                const isOnline = g.game_type === 'online'
+                const isActive = g.game_state !== 'game_over'
+                
+                return (
+                  <div 
+                    key={g.id} 
+                    onClick={() => handleGameClick(g)}
+                    className={`p-[var(--space-16)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 ${
+                      isOnline && isActive 
+                        ? 'cursor-pointer hover:border-[var(--accent-brand)] hover:bg-[color-mix(in_srgb,var(--accent-brand)_5%,transparent)] active:scale-[0.98]' 
+                        : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-[var(--space-8)]">
+                      <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2">
+                        {isOnline && isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
+                        {g.white_name} vs {g.black_name}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
+                      }`}>
+                        {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-text-secondary flex items-center gap-[var(--space-12)]">
+                      <span>
+                        {g.game_type === 'bot' ? '🤖 Бот' : g.game_type === 'local' ? '🎮 Локальная' : '🌐 Онлайн'}
+                      </span>
+                      <span>{new Date(g.created_at).toLocaleDateString()}</span>
+                      {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
+                      {isOnline && isActive && <span className="ml-auto text-[var(--accent-brand)] font-bold animate-pulse">Вернуться →</span>}
+                    </div>
                   </div>
-                  <div className="text-[9px] text-text-secondary flex items-center gap-[var(--space-12)]">
-                    <span>{g.game_type === 'bot' ? '🤖 Бот' : '🎮 Локальная'}</span>
-                    <span>{new Date(g.created_at).toLocaleDateString()}</span>
-                    {g.message && <span className="capitalize">{g.message}</span>}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         )}

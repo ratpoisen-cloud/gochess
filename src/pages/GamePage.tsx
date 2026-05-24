@@ -349,7 +349,6 @@ export default function GamePage() {
         pgn: newPgn,
         fen: g.fen(),
         turn: g.turn(),
-        last_move_time: Date.now(),
       }
 
       if (gameOverNow) {

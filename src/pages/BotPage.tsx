@@ -19,7 +19,7 @@ export default function BotPage() {
   const savedRef = useRef(false)
   
   const boardContainerRef = useRef<HTMLDivElement>(null)
-  const { stableWidth } = useBoardWidth(boardContainerRef)
+  const { stableWidth } = useBoardWidth(boardContainerRef, true)
 
   useEffect(() => {
     if (!initialized) {

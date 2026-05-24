@@ -43,7 +43,7 @@ export default function GamePage() {
   const addReaction = useReactionStore((s) => s.addReaction)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
-  const { stableWidth } = useBoardWidth(boardContainerRef)
+  const { stableWidth } = useBoardWidth(boardContainerRef, !loading && opponentJoined)
   const gameRef = useRef(game)
   const channelRef = useRef<any>(null)
   const lastPgnRef = useRef('')

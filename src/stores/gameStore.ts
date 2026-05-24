@@ -77,18 +77,23 @@ export const useGameStore = create<GameState>()(
       makeMove: (from, to, promotion) => {
         const { game } = get()
         try {
-          const result = game.move({ from, to, promotion })
-          if (!result) return false
-
-          // Sound handling
-          if (game.isCheckmate()) {
-            soundManager.play('checkmate')
-          } else if (game.inCheck()) {
-            soundManager.play('check')
-          } else if (result.captured) {
-            soundManager.play('capture')
+          // If from contains a FEN or PGN, we are syncing from external source
+          if (from.includes('/') || from.includes(' ')) {
+            game.load(from)
           } else {
-            soundManager.play('move')
+            const result = game.move({ from, to, promotion })
+            if (!result) return false
+
+            // Sound handling
+            if (game.isCheckmate()) {
+              soundManager.play('checkmate')
+            } else if (game.inCheck()) {
+              soundManager.play('check')
+            } else if (result.captured) {
+              soundManager.play('capture')
+            } else {
+              soundManager.play('move')
+            }
           }
 
           set({
@@ -102,7 +107,7 @@ export const useGameStore = create<GameState>()(
             legalMoves: [],
             moveHistory: game.history(),
             isGameOver: game.isGameOver(),
-            lastMove: { from, to },
+            lastMove: to ? { from, to } : null,
             checkSquare: getCheckSquare(game),
           })
           return true
@@ -153,10 +158,10 @@ export const useGameStore = create<GameState>()(
         const { game } = get()
         game.undo()
         set({
-          status: game.isGameOver() ? 'checkmate' : 'playing',
+          status: game.inCheck() ? 'check' : 'playing',
           currentTurn: game.turn() as Color,
           moveHistory: game.history(),
-          isGameOver: game.isGameOver(),
+          isGameOver: false,
           lastMove: null,
           checkSquare: getCheckSquare(game),
         })

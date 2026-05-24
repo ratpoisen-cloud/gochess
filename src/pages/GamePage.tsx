@@ -13,7 +13,8 @@ import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
-import type { GameStatus } from '@/types'
+import RequestModal from '@/components/RequestModal'
+import type { GameStatus, GameData } from '@/types'
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
@@ -44,6 +45,11 @@ export default function GamePage() {
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
   const [opponentJoined, setOpponentJoined] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  
+  const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
+  const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
+  const [rematchRequest, setRematchRequest] = useState<GameData['rematch_request']>(null)
+  
   const addReaction = useReactionStore((s) => s.addReaction)
   const getPieceUrl = useBoardStore((s) => s.getPieceUrl)
 
@@ -296,11 +302,15 @@ export default function GamePage() {
               g.loadPgn(newData.pgn)
               updateGameState(g)
               lastPgnRef.current = g.pgn()
-              setIsMyTurn(true)
+              setIsMyTurn(newData.turn === playerColor)
               soundManager.play('move')
               useReactionStore.getState().resetMoveCounter()
             } catch { /* ignore */ }
           }
+
+          if (newData.undo_request !== undefined) setUndoRequest(newData.undo_request)
+          if (newData.draw_request !== undefined) setDrawRequest(newData.draw_request)
+          if (newData.rematch_request !== undefined) setRematchRequest(newData.rematch_request)
 
           if (newData.reactions && Array.isArray(newData.reactions)) {
             const currentReactions = useReactionStore.getState().reactions
@@ -509,6 +519,111 @@ export default function GamePage() {
     }).eq('id', gameId)
   }
 
+  const handleUndoRequest = async () => {
+    if (!gameId || !user || !supabase || gameOver) return
+    if (moveHistory.length === 0) return
+    await supabase.from('games').update({
+      undo_request: { from_id: user.uid, createdAt: Date.now() }
+    }).eq('id', gameId)
+  }
+
+  const handleAcceptUndo = async () => {
+    if (!gameId || !user || !supabase || !undoRequest) return
+    const g = new Chess(gameRef.current.fen())
+    
+    // Undo once or twice depending on who requested
+    // If it's your turn, undoing once reverts opponent's move.
+    // Usually we undo 1 ply.
+    g.undo()
+    
+    const newPgn = g.pgn()
+    const newFen = g.fen()
+    
+    await supabase.from('games').update({
+      pgn: newPgn,
+      fen: newFen,
+      turn: g.turn(),
+      undo_request: null
+    }).eq('id', gameId)
+    
+    updateGameState(g)
+    lastPgnRef.current = newPgn
+    setUndoRequest(null)
+  }
+
+  const handleRejectUndo = async () => {
+    if (!gameId || !supabase) return
+    await supabase.from('games').update({ undo_request: null }).eq('id', gameId)
+    setUndoRequest(null)
+  }
+
+  const handleDrawRequest = async () => {
+    if (!gameId || !user || !supabase || gameOver || !opponentJoined) return
+    await supabase.from('games').update({
+      draw_request: { from_id: user.uid, createdAt: Date.now() }
+    }).eq('id', gameId)
+  }
+
+  const handleAcceptDraw = async () => {
+    if (!gameId || !supabase || !drawRequest) return
+    await supabase.from('games').update({
+      game_state: 'game_over',
+      winner: null,
+      message: 'draw',
+      draw_request: null
+    }).eq('id', gameId)
+    setDrawRequest(null)
+  }
+
+  const handleRejectDraw = async () => {
+    if (!gameId || !supabase) return
+    await supabase.from('games').update({ draw_request: null }).eq('id', gameId)
+    setDrawRequest(null)
+  }
+
+  const handleRematchRequest = async () => {
+    if (!gameId || !user || !supabase || !gameOver) return
+    const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+    await supabase.from('games').update({
+      rematch_request: { from_id: user.uid, proposed_room_id: newCode, createdAt: Date.now() }
+    }).eq('id', gameId)
+  }
+
+  const handleAcceptRematch = async () => {
+    if (!gameId || !user || !supabase || !rematchRequest) return
+    
+    const newRoomCode = rematchRequest.proposed_room_id
+    
+    // Create new game with inverted colors
+    const { error: insertError } = await supabase.from('games').insert({
+      room_code: newRoomCode,
+      white_player_id: playerColor === 'b' ? user.uid : null, // If I was black, I'm now white
+      white_name: playerColor === 'b' ? user.displayName : '',
+      black_player_id: playerColor === 'w' ? user.uid : null, // If I was white, I'm now black
+      black_name: playerColor === 'w' ? user.displayName : '',
+      game_type: 'online',
+      pgn: new Chess().pgn(),
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      turn: 'w',
+      game_state: 'playing',
+    })
+
+    if (insertError) {
+      console.error('Rematch error:', insertError)
+      return
+    }
+
+    await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
+    setRematchRequest(null)
+    navigate(`/game/${newRoomCode}`)
+  }
+
+  const handleRejectRematch = async () => {
+    if (!gameId || !supabase) return
+    await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
+    setRematchRequest(null)
+  }
+
   const statusText = status === 'checkmate' ? 'Мат!'
     : status === 'stalemate' ? 'Пат — ничья'
     : status === 'draw' ? 'Ничья'
@@ -643,36 +758,37 @@ export default function GamePage() {
                 )}
               </div>
 
-              {gameOver && (
-                <div className="mt-[var(--space-16)] text-center space-y-[var(--space-12)]">
-                  <p className={`text-[var(--font-size-lg)] font-bold ${
-                    resultText === 'Ничья' || resultText === 'Вы сдались'
-                      ? 'text-text-secondary'
-                      : 'text-[var(--accent-brand)]'
-                  }`}>
-                    {resultText}
-                  </p>
-                  <div className="flex justify-center gap-[var(--space-12)]">
-                    <Button variant="outline" onClick={handleRematch}>
-                      Реванш
+                {gameOver ? (
+                  <div className="mt-[var(--space-16)] text-center space-y-[var(--space-12)]">
+                    <p className={`text-[var(--font-size-lg)] font-bold ${
+                      resultText === 'Ничья' || resultText === 'Вы сдались'
+                        ? 'text-text-secondary'
+                        : 'text-[var(--accent-brand)]'
+                    }`}>
+                      {resultText}
+                    </p>
+                    <div className="flex justify-center gap-[var(--space-12)]">
+                      <Button variant="primary" onClick={handleRematchRequest}>
+                        Реванш
+                      </Button>
+                      <Button variant="outline" onClick={() => navigate('/')}>
+                        В лобби
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
+                    <Button variant="outline" size="sm" onClick={handleUndoRequest}>
+                      Отмена хода
                     </Button>
-                    <Button onClick={() => navigate('/')}>
-                      В лобби
+                    <Button variant="outline" size="sm" onClick={handleDrawRequest}>
+                      Ничья
+                    </Button>
+                    <Button variant="danger" size="sm" onClick={handleResign}>
+                      Сдаться
                     </Button>
                   </div>
-                </div>
-              )}
-
-              {!gameOver && (
-                <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
-                  <Button variant="outline" onClick={handleDrawOffer}>
-                    Ничья
-                  </Button>
-                  <Button variant="danger" onClick={handleResign}>
-                    Сдаться
-                  </Button>
-                </div>
-              )}
+                )}
 
               {showReactionPicker && reactionPos && (
                 <div
@@ -691,6 +807,37 @@ export default function GamePage() {
                     }}
                   />
                 </div>
+              )}
+
+              {/* Request Modals */}
+              {undoRequest && undoRequest.from_id !== user?.uid && (
+                <RequestModal
+                  isOpen={true}
+                  title="Отмена хода"
+                  description="Соперник просит отменить последний ход. Вы согласны?"
+                  onAccept={handleAcceptUndo}
+                  onReject={handleRejectUndo}
+                />
+              )}
+
+              {drawRequest && drawRequest.from_id !== user?.uid && (
+                <RequestModal
+                  isOpen={true}
+                  title="Предложение ничьи"
+                  description="Соперник предлагает закончить партию вничью."
+                  onAccept={handleAcceptDraw}
+                  onReject={handleRejectDraw}
+                />
+              )}
+
+              {rematchRequest && rematchRequest.from_id !== user?.uid && (
+                <RequestModal
+                  isOpen={true}
+                  title="Реванш"
+                  description="Соперник предлагает сыграть еще раз."
+                  onAccept={handleAcceptRematch}
+                  onReject={handleRejectRematch}
+                />
               )}
 
               {/* Promotion Modal */}

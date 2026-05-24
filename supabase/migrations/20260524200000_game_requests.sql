@@ -1,0 +1,4 @@
+-- Add request columns to games table
+ALTER TABLE games ADD COLUMN IF NOT EXISTS undo_request JSONB DEFAULT NULL;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS draw_request JSONB DEFAULT NULL;
+ALTER TABLE games ADD COLUMN IF NOT EXISTS rematch_request JSONB DEFAULT NULL;

@@ -783,7 +783,7 @@ export default function GamePage() {
 
                   <div className="grid grid-cols-2 gap-2">
                     <Button
-                      variant="outline"
+                      variant="primary"
                       size="sm"
                       onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
                       className="text-[8px] uppercase tracking-[0.15em] font-bold"
@@ -791,7 +791,7 @@ export default function GamePage() {
                       телеграм
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="primary"
                       size="sm"
                       onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
                       className="text-[8px] uppercase tracking-[0.15em] font-bold"

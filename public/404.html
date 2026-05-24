@@ -8,10 +8,10 @@
       var path = window.location.pathname
       var search = window.location.search
       var hash = window.location.hash
-      if (path !== '/gochess/' && path !== '/gochess') {
+      if (path !== '/gochess_alternative/' && path !== '/gochess_alternative') {
         sessionStorage.setItem('gochess-redirect', path + search + hash)
       }
-      window.location.href = '/gochess'
+      window.location.href = '/gochess_alternative'
     </script>
   </head>
   <body>

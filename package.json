@@ -1,6 +1,7 @@
 {
   "name": "gochess",
   "private": true,
+  "homepage": "https://ratpoisen-cloud.github.io/gochess_alternative",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

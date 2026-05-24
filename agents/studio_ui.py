@@ -226,6 +226,34 @@ task = st.text_area(
     label_visibility="collapsed"
 )
 
+st.markdown("<div style='margin-top: 32px; margin-bottom: 12px; font-weight: 600;'>💬 Прямой промпт</div>", unsafe_allow_html=True)
+
+direct_prompt = st.text_area(
+    "Прямой промпт",
+    height=200,
+    placeholder="Напиши промпт напрямую для Groq/Ollama...",
+    label_visibility="collapsed",
+    key="direct_prompt",
+)
+
+if st.button("🚀 Отправить промпт", use_container_width=True):
+    if not direct_prompt.strip():
+        st.error("Введите промпт")
+    else:
+        with st.spinner(f"Думает {provider.upper()}..."):
+            try:
+                tool = OllamaTool(provider=provider)
+                result = tool.generate(direct_prompt)
+                if result:
+                    st.markdown("---")
+                    st.markdown(result)
+                else:
+                    st.error("Модель не ответила")
+            except Exception as e:
+                st.error(f"Ошибка: {e}")
+
+st.divider()
+
 col1, col2, col3 = st.columns(3)
 
 with col1:

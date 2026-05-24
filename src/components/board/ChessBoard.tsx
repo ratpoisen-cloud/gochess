@@ -106,6 +106,7 @@ export default function ChessBoard({
         customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
         customPieces={customPieces}
         animationDuration={animationDuration}
+        customNotationStyle={{ fontSize: boardWidth ? Math.round(boardWidth / 64) : 12 }}
         customSquare={({ square, children, style }: any) => {
           const activeMove = activeMoveDetails.find(m => m.to === square)
           const isActiveMove = !!activeMove

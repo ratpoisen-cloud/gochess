@@ -74,11 +74,13 @@ class OllamaTool:
             payload["options"] = {"num_ctx": 32768}
             url = f"{self.base_url}/api/chat"
         else:
-            payload["max_completion_tokens"] = 8192
+            payload["max_completion_tokens"] = 4096
             url = f"{self.base_url}/chat/completions"
 
         try:
-            resp = httpx.post(url, json=payload, headers=headers, timeout=300)
+            import json as _json
+            print(f"[Groq Debug] POST {url}, size={len(_json.dumps(payload))} bytes, follow_redirects=False")
+            resp = httpx.request("POST", url, json=payload, headers=headers, timeout=300, follow_redirects=False)
             resp.raise_for_status()
             data = resp.json()
 

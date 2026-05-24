@@ -68,13 +68,6 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
 
       console.log('[Room] INSERT OK for code:', code)
 
-      const { data: verify } = await supabase
-        .from('games')
-        .select('id, room_code, white_player_id, black_player_id')
-        .eq('room_code', code)
-        .single()
-      console.log('[Room] Verify SELECT:', verify ? 'FOUND' : 'NOT FOUND', verify)
-
       setCreating(false)
       onClose()
       navigate(`/game/${code}`)

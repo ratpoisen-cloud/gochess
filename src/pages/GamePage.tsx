@@ -518,7 +518,7 @@ export default function GamePage() {
       </header>
 
       <main className="max-w-[1600px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
-        {!opponentJoined ? (
+        {!opponentJoined && (
           <div className="text-center space-y-[var(--space-16)]">
             <p className="text-text-secondary text-[var(--font-size-sm)]">
               Ожидание соперника...
@@ -558,8 +558,8 @@ export default function GamePage() {
               Вы играете <span className="text-[var(--accent-brand)] font-bold">{playerColor === 'w' ? 'белыми' : 'чёрными'}</span>
             </p>
           </div>
-        ) : (
-          <div className="game-layout-container">
+        )}
+        <div className="game-layout-container" style={{ display: opponentJoined ? '' : 'none' }}>
             <div className="game-main-column">
               <div className="mb-[var(--space-16)] text-center game:text-left flex items-center justify-between">
                 <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status] || ''}`}>
@@ -716,8 +716,7 @@ export default function GamePage() {
                 </div>
               </Card>
             </div>
-          </div>
-        )}
+        </div>
       </main>
     </div>
   )

@@ -31,9 +31,9 @@ export interface GameData {
   last_move_time: number | null
   created_at: string
   reactions: any[]
-  undo_request: { from_id: string; createdAt: number } | null
-  draw_request: { from_id: string; createdAt: number } | null
-  rematch_request: { from_id: string; proposed_room_id: string; createdAt: number } | null
+  undo_request: { from_id: string; created_at: number } | null
+  draw_request: { from_id: string; created_at: number } | null
+  rematch_request: { from_id: string; proposed_room_id: string; created_at: number } | null
 }
 
 export type GameType = 'bot' | 'local' | 'online'

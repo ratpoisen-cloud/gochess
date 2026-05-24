@@ -124,6 +124,11 @@ export default function GamePage() {
 
         if (cancelled) return
         setGameId(data.id)
+        
+        // Load initial requests
+        setUndoRequest(data.undo_request)
+        setDrawRequest(data.draw_request)
+        setRematchRequest(data.rematch_request)
 
         if (data.white_player_id === user.uid) {
           setPlayerColor('w')
@@ -270,6 +275,7 @@ export default function GamePage() {
         { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
         (payload: any) => {
           const newData = payload.new
+          console.log('[Realtime] Update received:', newData)
 
           // Check if opponent joined
           if (playerColor === 'w' && newData.black_player_id && !opponentJoined) {
@@ -522,18 +528,19 @@ export default function GamePage() {
   const handleUndoRequest = async () => {
     if (!gameId || !user || !supabase || gameOver) return
     if (moveHistory.length === 0) return
-    await supabase.from('games').update({
-      undo_request: { from_id: user.uid, createdAt: Date.now() }
+    const { error } = await supabase.from('games').update({
+      undo_request: { from_id: user.uid, created_at: Date.now() }
     }).eq('id', gameId)
+    if (error) {
+      console.error('Undo request error:', error)
+      alert('Ошибка при отправке запроса: ' + error.message)
+    }
   }
 
   const handleAcceptUndo = async () => {
     if (!gameId || !user || !supabase || !undoRequest) return
-    const g = new Chess(gameRef.current.fen())
-    
-    // Undo once or twice depending on who requested
-    // If it's your turn, undoing once reverts opponent's move.
-    // Usually we undo 1 ply.
+    const g = new Chess()
+    g.loadPgn(lastPgnRef.current)
     g.undo()
     
     const newPgn = g.pgn()
@@ -560,7 +567,7 @@ export default function GamePage() {
   const handleDrawRequest = async () => {
     if (!gameId || !user || !supabase || gameOver || !opponentJoined) return
     await supabase.from('games').update({
-      draw_request: { from_id: user.uid, createdAt: Date.now() }
+      draw_request: { from_id: user.uid, created_at: Date.now() }
     }).eq('id', gameId)
   }
 
@@ -585,7 +592,7 @@ export default function GamePage() {
     if (!gameId || !user || !supabase || !gameOver) return
     const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
     await supabase.from('games').update({
-      rematch_request: { from_id: user.uid, proposed_room_id: newCode, createdAt: Date.now() }
+      rematch_request: { from_id: user.uid, proposed_room_id: newCode, created_at: Date.now() }
     }).eq('id', gameId)
   }
 
@@ -877,51 +884,96 @@ export default function GamePage() {
                 </div>
               )}
             </div>
-
-            <div className="game-side-column">
-              <Card padding="sm">
-                <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
-                  Игроки
-                </h3>
-                <div className="space-y-[var(--space-8)] mb-[var(--space-16)]">
-                  <div className="flex items-center justify-between text-[var(--font-size-xs)]">
-                    <span className="flex items-center gap-[var(--space-6)]">
-                      <span className="w-2 h-2 rounded-full bg-white inline-block border border-[var(--border)]" />
-                      {playerColor === 'w' ? 'Вы' : opponentName}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[var(--font-size-xs)]">
-                    <span className="flex items-center gap-[var(--space-6)]">
-                      <span className="w-2 h-2 rounded-full bg-black inline-block border border-[var(--border)]" />
-                      {playerColor === 'b' ? 'Вы' : opponentName}
-                    </span>
-                  </div>
-                </div>
-
-                <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
-                  История ходов
-                </h3>
-                <div
-                  className="max-h-[350px] overflow-y-auto space-y-1 text-[var(--font-size-xs)]"
-                  style={{ background: 'var(--bg)', borderRadius: 'var(--radius-8)', padding: 'var(--space-12)' }}
-                >
-                  {moveHistory.length === 0 ? (
-                    <p className="text-text-secondary text-center py-[var(--space-16)]">Нет ходов</p>
-                  ) : (
-                    moveHistory.map((move, i) => (
-                      <span key={i} className="inline-block mr-[var(--space-8)]">
-                        {i % 2 === 0 && (
-                          <span className="text-text-secondary mr-[var(--space-4)]">{Math.floor(i / 2) + 1}.</span>
-                        )}
-                        <span className="text-text">{move}</span>
-                      </span>
-                    ))
-                  )}
-                </div>
-              </Card>
-            </div>
         </div>
       </main>
+
+      {/* Global Modals/Overlays */}
+      {showReactionPicker && reactionPos && (
+        <div
+          className="fixed z-[9999]"
+          style={{
+            left: reactionPos.x,
+            top: reactionPos.y,
+            transform: 'translate(-50%, -120%)',
+          }}
+        >
+          <ReactionPicker
+            onSelect={handleEmojiSelect}
+            onClose={() => {
+              setShowReactionPicker(false)
+              setReactionSquare(null)
+            }}
+          />
+        </div>
+      )}
+
+      {/* Request Modals */}
+      {undoRequest && undoRequest.from_id !== user?.uid && (
+        <RequestModal
+          isOpen={true}
+          title="Отмена хода"
+          description="Соперник просит отменить последний ход. Вы согласны?"
+          onAccept={handleAcceptUndo}
+          onReject={handleRejectUndo}
+        />
+      )}
+
+      {drawRequest && drawRequest.from_id !== user?.uid && (
+        <RequestModal
+          isOpen={true}
+          title="Предложение ничьи"
+          description="Соперник предлагает закончить партию вничью."
+          onAccept={handleAcceptDraw}
+          onReject={handleRejectDraw}
+        />
+      )}
+
+      {rematchRequest && rematchRequest.from_id !== user?.uid && (
+        <RequestModal
+          isOpen={true}
+          title="Реванш"
+          description="Соперник предлагает сыграть еще раз."
+          onAccept={handleAcceptRematch}
+          onReject={handleRejectRematch}
+        />
+      )}
+
+      {/* Promotion Modal */}
+      {pendingPromotion && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-center justify-center"
+          onClick={() => setPendingPromotion(null)}
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+        >
+          <div
+            className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-4 flex gap-2 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(['q', 'r', 'b', 'n'] as const).map((piece) => {
+              const code = `${playerColor === 'w' ? 'w' : 'b'}${piece.toUpperCase()}` as const
+              return (
+                <button
+                  key={piece}
+                  onClick={() => {
+                    makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                    setPendingPromotion(null)
+                    setSelectedSquare(null)
+                    setLegalMoves([])
+                  }}
+                  className="w-12 h-12 flex items-center justify-center hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-colors"
+                >
+                  <img
+                    src={getPieceUrl(code)}
+                    alt={piece}
+                    className="w-10 h-10"
+                    draggable={false}
+                  />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

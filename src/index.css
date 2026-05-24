@@ -270,13 +270,11 @@ option {
 .pixel-tile {
   transition: all 0.2s ease;
   background: var(--bg);
-  border: 1px solid color-mix(in srgb, var(--accent-brand) 30%, var(--border));
   border-radius: var(--radius-8);
 }
 
 .pixel-tile:hover {
   background: color-mix(in srgb, var(--bg) 90%, var(--accent-brand));
-  border-color: color-mix(in srgb, var(--accent-brand) 60%, var(--border));
   transform: translateY(-2px);
 }
 
@@ -286,12 +284,10 @@ option {
 
 .pixel-tile-primary {
   background: var(--bg);
-  border-color: var(--accent-brand);
 }
 
 .pixel-tile-primary:hover {
   background: color-mix(in srgb, var(--bg) 85%, var(--accent-brand));
-  border-color: var(--accent-brand);
 }
 
 .pixel-tile-disabled {

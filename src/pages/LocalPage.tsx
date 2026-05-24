@@ -112,7 +112,7 @@ export default function LocalPage() {
               </h3>
               <div
                 className="max-h-[350px] overflow-y-auto space-y-1 text-[var(--font-size-xs)]"
-                style={{ background: 'var(--bg)', borderRadius: 'var(--radius-8)', padding: 'var(--space-12)', border: '1px solid color-mix(in srgb, var(--accent-brand) 30%, var(--border))' }}
+                style={{ background: 'var(--bg)', borderRadius: 'var(--radius-8)', padding: 'var(--space-12)' }}
               >
                 {moveHistory.length === 0 ? (
                   <p className="text-text-secondary text-center py-[var(--space-16)]">Нет ходов</p>

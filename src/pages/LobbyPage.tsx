@@ -7,6 +7,7 @@ import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
 import ColorPickerModal from '@/components/ColorPickerModal'
 import BoardPreview from '@/components/board/BoardPreview'
+import Footer from '@/components/Footer'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -89,13 +90,9 @@ export default function LobbyPage() {
       
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-[var(--space-12)]">
-            <img
-              src={`${BASE}logo/gochess_wordmark_dark.svg`}
-              alt="GoChess"
-              className="h-[38px] w-auto"
-            />
-          </div>
+          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline">
+            <span className="text-[var(--accent-brand)]">го</span> шахматы
+          </Link>
           <div className="flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
             <div className="flex items-center gap-[var(--space-16)]">
               <button 
@@ -124,11 +121,6 @@ export default function LobbyPage() {
       </header>
 
       <main className="max-w-[1200px] mx-auto px-[var(--space-24)] pb-[var(--space-64)] flex-1 w-full flex flex-col justify-center gap-[10vh] md:gap-[12vh]">
-        <section className="text-center">
-          <h2 className="text-[clamp(2rem,5.5vw,3.6rem)] font-bold text-text tracking-tight leading-[1.05] uppercase">
-            <span className="text-[var(--accent-brand)]">Играй</span> в шахматы<br/>с друзьями
-          </h2>
-        </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)]">
           <button
@@ -250,14 +242,7 @@ export default function LobbyPage() {
 
       </main>
 
-      <footer className="py-12 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)] text-center opacity-50">
-         <p className="text-[10px] text-text-secondary tracking-widest uppercase mb-[var(--space-8)]" style={{ fontFamily: 'var(--font-family-ui)' }}>
-           GoChess &copy; 2026 • Pixel Soul
-         </p>
-         <Link to="/agent-logs" className="text-[9px] text-text-secondary hover:text-[var(--accent-brand)] transition-colors uppercase tracking-widest" style={{ fontFamily: 'var(--font-family-ui)' }}>
-           🤖 Логи агента
-         </Link>
-      </footer>
+      <Footer />
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <ColorPickerModal isOpen={isColorPickerOpen} onClose={() => setIsColorPickerOpen(false)} />

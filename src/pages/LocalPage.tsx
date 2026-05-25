@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef } from 'react'
@@ -9,11 +9,11 @@ import Card from '@/components/Card'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
+import Footer from '@/components/Footer'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function LocalPage() {
-  const navigate = useNavigate()
   const { user } = useAuth()
   const { addToast } = useToast()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
@@ -94,16 +94,9 @@ export default function LocalPage() {
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
-          <button 
-            onClick={() => navigate('/')}
-            className="text-[10px] font-bold text-text-secondary hover:text-text transition-colors uppercase tracking-widest"
-            style={{ fontFamily: 'var(--font-family-ui)' }}
-          >
-            В лобби
-          </button>
-          <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em] uppercase">
-            Игра вдвоём
-          </h1>
+          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline text-text hover:text-text">
+            <span className="text-[var(--accent-brand)]">го</span> шахматы
+          </Link>
             <div className="flex items-center gap-[var(--space-12)]">
               <SettingsDropdown />
               {user && <UserMenu />}
@@ -184,6 +177,8 @@ export default function LocalPage() {
           anchorY={reactionPos.y}
         />
       )}
+
+      <Footer />
     </div>
   )
 }

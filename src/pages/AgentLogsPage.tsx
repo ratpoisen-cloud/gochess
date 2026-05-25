@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import Footer from '@/components/Footer'
 
 interface SessionFile {
   name: string
@@ -17,7 +18,6 @@ interface Session {
 }
 
 export default function AgentLogsPage() {
-  const navigate = useNavigate()
   const [sessions, setSessions] = useState<SessionFile[]>([])
   const [selected, setSelected] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
@@ -47,17 +47,9 @@ export default function AgentLogsPage() {
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <button
-            onClick={() => navigate('/')}
-            className="text-[10px] font-bold text-text-secondary hover:text-text transition-colors uppercase tracking-widest"
-            style={{ fontFamily: 'var(--font-family-ui)' }}
-          >
-            В лобби
-          </button>
-          <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em] uppercase">
-            Логи агента
-          </h1>
-          <div className="w-[100px]" />
+          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline text-text hover:text-text">
+            <span className="text-[var(--accent-brand)]">го</span> шахматы
+          </Link>
         </div>
       </header>
 
@@ -187,6 +179,8 @@ export default function AgentLogsPage() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   )
 }

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/Toast'
 import Button from '@/components/Button'
+import Footer from '@/components/Footer'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -49,7 +50,6 @@ function PiecePreview({ pieceSetId }: { pieceSetId: string }) {
 }
 
 export default function SettingsPage() {
-  const navigate = useNavigate()
   const { selectedTheme, selectedPieceSet, setSelectedTheme, setSelectedPieceSet } = useBoardStore()
   const { user, updateProfile } = useAuth()
   const { addToast } = useToast()
@@ -85,19 +85,9 @@ export default function SettingsPage() {
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <button 
-            onClick={() => navigate(-1)}
-            className="p-1 text-text-secondary hover:text-text transition-all duration-200 active:scale-95 flex items-center"
-            title="Назад"
-          >
-            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em] uppercase">
-            Настройки
-          </h1>
-          <div className="w-[100px]" />
+          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline text-text hover:text-text">
+            <span className="text-[var(--accent-brand)]">го</span> шахматы
+          </Link>
         </div>
       </header>
 
@@ -197,6 +187,8 @@ export default function SettingsPage() {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Chess, type Move } from 'chess.js'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,6 +15,7 @@ import ReactionPicker from '@/components/ReactionPicker'
 import { useToast } from '@/components/Toast'
 import RequestModal from '@/components/RequestModal'
 import Card from '@/components/Card'
+import Footer from '@/components/Footer'
 import type { GameStatus, GameData } from '@/types'
 
 function generateId(): string {
@@ -617,16 +618,9 @@ export default function GamePage() {
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
-          <button
-            onClick={() => navigate('/')}
-            className="text-[10px] font-bold text-text-secondary hover:text-text transition-colors uppercase tracking-widest"
-            style={{ fontFamily: 'var(--font-family-ui)' }}
-          >
-            В лобби
-          </button>
-          <h1 className="text-[var(--font-size-md)] font-bold text-text tracking-[0.02em] uppercase">
-            Игра по сети
-          </h1>
+          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline text-text hover:text-text">
+            <span className="text-[var(--accent-brand)]">го</span> шахматы
+          </Link>
           <div className="flex items-center gap-[var(--space-12)]">
             <SettingsDropdown />
             {user && <UserMenu />}
@@ -926,6 +920,8 @@ export default function GamePage() {
           </div>
         </div>
       )}
+
+      <Footer />
     </div>
   )
 }

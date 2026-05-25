@@ -23,9 +23,10 @@ function generateId(): string {
 }
 
 export default function GamePage() {
-  const { roomCode } = useParams<{ roomCode: string }>()
-  const navigate = useNavigate()
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const { getPieceUrl } = useBoardStore()
+  const { roomCode } = useParams<{ roomCode: string }>()
 
   const [game, setGame] = useState(new Chess())
   const [status, setStatus] = useState<GameStatus>('playing')
@@ -58,7 +59,6 @@ export default function GamePage() {
   const [rematchRequest, setRematchRequest] = useState<GameData['rematch_request']>(null)
   
   const addReaction = useReactionStore((s) => s.addReaction)
-  const getPieceUrl = useBoardStore((s) => s.getPieceUrl)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
@@ -79,6 +79,14 @@ export default function GamePage() {
       }
     }
     return null
+  }
+
+  const checkPromotion = (from: string, to: string): boolean => {
+    const piece = game.get(from as any)
+    if (piece?.type !== 'p') return false
+    if (piece.color === 'w' && to[1] === '8') return true
+    if (piece.color === 'b' && to[1] === '1') return true
+    return false
   }
 
   const updateGameState = useCallback((g: Chess) => {
@@ -396,6 +404,19 @@ export default function GamePage() {
     }
   }, [isMyTurn, gameId, gameOver, supabase, updateGameState])
 
+  const onDrop = useCallback((from: string, to: string) => {
+    if (!isMyTurn || gameOver) return false
+    
+    if (checkPromotion(from, to)) {
+      if (legalMoves.includes(to)) {
+        setPendingPromotion({ from, to })
+        return true
+      }
+    }
+    
+    return makeMove(from, to)
+  }, [makeMove, isMyTurn, gameOver, legalMoves])
+
   const onSquareClick = useCallback((square: string) => {
     if (gameOver || !isMyTurn) return
 
@@ -672,18 +693,89 @@ export default function GamePage() {
 
               <div ref={boardContainerRef} className="board-container">
                 {stableWidth > 0 ? (
-                  <ChessBoard
-                    game={game}
-                    lastMove={lastMove}
-                    checkSquare={checkSquare}
-                    selectedSquare={selectedSquare}
-                    legalMoves={legalMoves}
-                    onDrop={makeMove}
-                    onSquareClick={onSquareClick}
-                    onReactionSquare={handleReactionSquare}
-                    boardWidth={stableWidth}
-                    boardOrientation={playerColor === 'w' ? 'white' : 'black'}
-                  />
+                  <>
+                    <ChessBoard
+                      game={game}
+                      lastMove={lastMove}
+                      checkSquare={checkSquare}
+                      selectedSquare={selectedSquare}
+                      legalMoves={legalMoves}
+                      onDrop={onDrop}
+                      onSquareClick={onSquareClick}
+                      onReactionSquare={handleReactionSquare}
+                      boardWidth={stableWidth}
+                      boardOrientation={playerColor === 'w' ? 'white' : 'black'}
+                    />
+
+                    {/* Promotion Overlay */}
+                    {pendingPromotion && (() => {
+                      const square = pendingPromotion.to
+                      const col = square[0].charCodeAt(0) - 97
+                      const rank = parseInt(square[1])
+                      
+                      let leftIdx = col
+                      let isAtTop = rank === 8
+                      
+                      if (playerColor === 'b') {
+                        leftIdx = 7 - col
+                        isAtTop = rank === 1
+                      }
+
+                      return (
+                        <div
+                          className="absolute inset-0 z-[100] cursor-default bg-black/10"
+                          onClick={() => setPendingPromotion(null)}
+                        >
+                          <div 
+                            className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
+                            style={{
+                              left: `${leftIdx * 12.5}%`,
+                              top: isAtTop ? 0 : 'auto',
+                              bottom: isAtTop ? 'auto' : 0,
+                              width: '12.5%',
+                              height: '50%',
+                              backgroundColor: 'rgba(18, 20, 18, 0.96)',
+                              border: '1px solid rgba(255, 255, 255, 0.12)',
+                              borderRadius: 'var(--radius-14)',
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {(['q', 'r', 'b', 'n'] as const).map((piece) => {
+                              const code = `${playerColor}${piece.toUpperCase()}` as const
+                              return (
+                                <button
+                                  key={piece}
+                                  onClick={() => {
+                                    makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                                    setPendingPromotion(null)
+                                    onSquareClick(pendingPromotion.to)
+                                  }}
+                                  className="flex-1 flex items-center justify-center transition-colors group"
+                                  style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+                                  }}
+                                >
+                                  <img
+                                    src={getPieceUrl(code)}
+                                    alt={piece}
+                                    className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform"
+                                    draggable={false}
+                                  />
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center animate-pulse">
                     <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
@@ -886,43 +978,6 @@ export default function GamePage() {
           onAccept={handleAcceptRematch}
           onReject={handleRejectRematch}
         />
-      )}
-
-      {/* Promotion Modal */}
-      {pendingPromotion && (
-        <div
-          className="fixed inset-0 z-[9998] flex items-center justify-center"
-          onClick={() => setPendingPromotion(null)}
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-        >
-          <div
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-4 flex gap-2 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {(['q', 'r', 'b', 'n'] as const).map((piece) => {
-              const code = `${playerColor === 'w' ? 'w' : 'b'}${piece.toUpperCase()}` as const
-              return (
-                <button
-                  key={piece}
-                  onClick={() => {
-                    makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                    setPendingPromotion(null)
-                    setSelectedSquare(null)
-                    setLegalMoves([])
-                  }}
-                  className="w-12 h-12 flex items-center justify-center hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-colors"
-                >
-                  <img
-                    src={getPieceUrl(code)}
-                    alt={piece}
-                    className="w-10 h-10"
-                    draggable={false}
-                  />
-                </button>
-              )
-            })}
-          </div>
-        </div>
       )}
 
       <Footer />

@@ -1,11 +1,13 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
 import type { Color } from '@/types'
 import Card from '@/components/Card'
+import Modal from '@/components/Modal'
+import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
@@ -13,11 +15,32 @@ import Footer from '@/components/Footer'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/hooks/useAuth'
 
+import { useBoardStore } from '@/stores/boardStore'
+
+type BoardView = 'standard' | 'autoflip' | 'face-to-face'
+
 export default function LocalPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { addToast } = useToast()
-  const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
+  const { getPieceUrl } = useBoardStore()
+  const { 
+    game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
+    checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
+    resetGame, saveGame, undoMove 
+  } = useGameStore()
+  
   const [initialized, setInitialized] = useState(false)
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(true)
+  const [manualGameOver, setManualGameOver] = useState(false)
+  const [resultText, setResultText] = useState('')
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  
+  // Setup States
+  const [whiteName, setWhiteName] = useState(user?.displayName || 'Игрок 1')
+  const [blackName, setBlackName] = useState('Гость')
+  const [boardView, setBoardView] = useState<BoardView>('standard')
+  
   const savedRef = useRef(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
@@ -33,25 +56,79 @@ export default function LocalPage() {
     }
   }, [])
 
+  const isActuallyGameOver = isGameOver || manualGameOver
+
+  const checkPromotion = (from: string, to: string): boolean => {
+    const piece = game.get(from as any)
+    if (piece?.type !== 'p') return false
+    if (piece.color === 'w' && to[1] === '8') return true
+    if (piece.color === 'b' && to[1] === '1') return true
+    return false
+  }
+
   useEffect(() => {
-    if (isGameOver && !savedRef.current) {
+    if (isActuallyGameOver && !savedRef.current) {
       savedRef.current = true
       saveGame('local')
+      
+      // If it was an automatic game over, set the result text
+      if (isGameOver && !manualGameOver) {
+        if (status === 'checkmate') {
+          setResultText(currentTurn === 'w' ? `Победа чёрных (${blackName})` : `Победа белых (${whiteName})`)
+        } else {
+          setResultText('Ничья')
+        }
+      }
     }
-    if (!isGameOver) {
+    if (!isActuallyGameOver) {
       savedRef.current = false
     }
-  }, [isGameOver, saveGame])
+  }, [isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
+    if (isActuallyGameOver) return false
+    
+    if (checkPromotion(sourceSquare, targetSquare)) {
+      setPendingPromotion({ from: sourceSquare, to: targetSquare })
+      return true
+    }
+    
     return makeMove(sourceSquare, targetSquare)
   }
 
   const onSquareClick = (square: string) => {
+    if (isActuallyGameOver) return
+
+    if (selectedSquare && checkPromotion(selectedSquare, square)) {
+      if (legalMoves.includes(square)) {
+        setPendingPromotion({ from: selectedSquare, to: square })
+        return
+      }
+    }
+
     selectSquare(square)
   }
 
+  const handleResign = () => {
+    const winner = currentTurn === 'w' ? blackName : whiteName
+    setResultText(`Сдача. Победа ${winner}`)
+    setManualGameOver(true)
+  }
+
+  const handleDraw = () => {
+    setResultText('Ничья по соглашению')
+    setManualGameOver(true)
+  }
+
+  const handleRematch = () => {
+    resetGame()
+    setManualGameOver(false)
+    setResultText('')
+    savedRef.current = false
+  }
+
   const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
+    if (isActuallyGameOver) return
     setReactionSquare(square)
     setReactionPos({ x: clientX, y: clientY })
     setShowReactionPicker(true)
@@ -76,24 +153,42 @@ export default function LocalPage() {
     setReactionSquare(null)
   }
 
-  const statusText = status === 'checkmate' ? 'Мат!'
-    : status === 'stalemate' ? 'Пат — ничья'
-    : status === 'draw' ? 'Ничья'
-    : status === 'check' ? 'Шах!'
-    : currentTurn === 'w' ? 'Ход белых' : 'Ход чёрных'
+  const handleStartGame = () => {
+    resetGame()
+    setManualGameOver(false)
+    setResultText('')
+    setIsSetupModalOpen(false)
+  }
 
   const statusClasses = {
     checkmate: 'text-[var(--danger)]',
     stalemate: 'text-text-secondary',
     draw: 'text-text-secondary',
     check: 'text-[var(--danger)]',
-    playing: currentTurn === 'w' ? 'text-[var(--accent)]' : 'text-text',
+    playing: currentTurn === 'w' ? 'text-[var(--accent-brand)]' : 'text-text opacity-60',
   }
+
+  // Orientation logic for autoflip
+  const boardOrientation = boardView === 'autoflip' 
+    ? (currentTurn === 'w' ? 'white' : 'black')
+    : 'white'
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
+      {/* Inject face-to-face rotation styles if needed */}
+      {boardView === 'face-to-face' && (
+        <style>
+          {`
+            /* Only rotate actual black pieces on the board */
+            [data-square] img[alt^="b"] {
+              rotate: 180deg;
+            }
+          `}
+        </style>
+      )}
+
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
             <img
               src={`${import.meta.env.BASE_URL || '/'}logo/gochess_wordmark_dark.svg`}
@@ -101,37 +196,141 @@ export default function LocalPage() {
               className="h-[28px] w-auto"
             />
           </Link>
-            <div className="flex items-center gap-[var(--space-12)]">
-              <SettingsDropdown />
-              {user && <UserMenu />}
-            </div>
+          <div className="flex items-center gap-[var(--space-12)]">
+            <SettingsDropdown />
+            {user && <UserMenu />}
+          </div>
         </div>
       </header>
 
       <main className="max-w-[1200px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
         <div className="game-layout-container">
           <div className="game-main-column">
-            <div className="mb-[var(--space-16)] text-center game:text-left">
-              <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status]}`}>
-                {statusText}
-              </h2>
+            <div 
+              className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
+              style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+            >
+              {/* Left: Matchup Info */}
+              <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
+                <img 
+                  src={`${import.meta.env.BASE_URL || '/'}emojis/local_new.png`} 
+                  alt="local" 
+                  className="w-5 h-5 object-contain opacity-90"
+                />
+                <span className="text-[var(--accent-brand)] truncate">
+                  {whiteName} vs {blackName}
+                </span>
+              </div>
+
+              {/* Center: Notifications */}
+              <div className="text-center flex justify-center">
+                {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
+                  <h2 className={`text-[10px] font-bold ${statusClasses[status]} uppercase tracking-[0.2em] animate-pulse`}>
+                    {status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья'}
+                  </h2>
+                )}
+              </div>
+
+              {/* Right: Turn Status */}
+              <div className="text-right">
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                  currentTurn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
+                }`}>
+                  Ход: {currentTurn === 'w' ? whiteName : blackName}
+                </span>
+              </div>
             </div>
+
             <div
               ref={boardContainerRef}
               className="board-container"
             >
               {stableWidth > 0 ? (
-                <ChessBoard
-                  game={game}
-                  lastMove={lastMove}
-                  checkSquare={checkSquare}
-                  selectedSquare={selectedSquare}
-                  legalMoves={legalMoves}
-                  onDrop={onDrop}
-                  onSquareClick={onSquareClick}
-                  onReactionSquare={handleReactionSquare}
-                  boardWidth={stableWidth}
-                />
+                <>
+                  <ChessBoard
+                    game={game}
+                    lastMove={lastMove}
+                    checkSquare={checkSquare}
+                    selectedSquare={selectedSquare}
+                    legalMoves={legalMoves}
+                    onDrop={onDrop}
+                    onSquareClick={onSquareClick}
+                    onReactionSquare={handleReactionSquare}
+                    boardWidth={stableWidth}
+                    boardOrientation={boardOrientation}
+                  />
+                  
+                  {/* Promotion Overlay */}
+                  {pendingPromotion && (() => {
+                    const square = pendingPromotion.to
+                    const col = square[0].charCodeAt(0) - 97
+                    const rank = parseInt(square[1])
+                    
+                    let leftIdx = col
+                    let isAtTop = rank === 8
+                    
+                    if (boardOrientation === 'black') {
+                      leftIdx = 7 - col
+                      isAtTop = rank === 1
+                    }
+
+                    return (
+                      <div
+                        className="absolute inset-0 z-[100] cursor-default bg-black/10"
+                        onClick={() => setPendingPromotion(null)}
+                      >
+                        <div 
+                          className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
+                          style={{
+                            left: `${leftIdx * 12.5}%`,
+                            top: isAtTop ? 0 : 'auto',
+                            bottom: isAtTop ? 'auto' : 0,
+                            width: '12.5%',
+                            height: '50%',
+                            backgroundColor: 'rgba(18, 20, 18, 0.96)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: 'var(--radius-14)',
+                            /* Rotate entire picker for black player in face-to-face mode */
+                            rotate: (boardView === 'face-to-face' && currentTurn === 'b') ? '180deg' : '0deg'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {(['q', 'r', 'b', 'n'] as const).map((piece) => {
+                            const code = `${currentTurn}${piece.toUpperCase()}` as const
+                            return (
+                              <button
+                                key={piece}
+                                onClick={() => {
+                                  makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                                  setPendingPromotion(null)
+                                  selectSquare(pendingPromotion.to)
+                                }}
+                                className="flex-1 flex items-center justify-center transition-colors group"
+                                style={{
+                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+                                }}
+                              >
+                                <img
+                                  src={getPieceUrl(code)}
+                                  alt={`promo-${piece}`}
+                                  className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform"
+                                  draggable={false}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-12 animate-pulse">
                   <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
@@ -140,6 +339,43 @@ export default function LocalPage() {
                 </div>
               )}
             </div>
+
+            {isActuallyGameOver ? (
+              <div className="mt-[var(--space-16)] text-center space-y-[var(--space-12)]">
+                <p className={`text-[var(--font-size-lg)] font-bold ${
+                  resultText.includes('Ничья')
+                    ? 'text-text-secondary'
+                    : 'text-[var(--accent-brand)]'
+                }`}>
+                  {resultText}
+                </p>
+                <div className="flex justify-center gap-[var(--space-12)]">
+                  <Button variant="primary" onClick={handleRematch}>
+                    Новая игра
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate('/')}>
+                    В лобби
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="mx-auto mt-[var(--space-12)] flex justify-between gap-[var(--space-12)]"
+                style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+              >
+                <Button variant="outline" size="sm" onClick={undoMove} className="flex-1 max-w-[160px]">
+                  Отмена хода
+                </Button>
+                <div className="flex gap-[var(--space-12)] flex-1 justify-end">
+                  <Button variant="outline" size="sm" onClick={handleDraw} className="flex-1 max-w-[120px]">
+                    Ничья
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={handleResign} className="flex-1 max-w-[120px]">
+                    Сдаться
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="game-side-column">
@@ -168,6 +404,93 @@ export default function LocalPage() {
           </div>
         </div>
       </main>
+
+      {/* Setup Modal */}
+      <Modal
+        isOpen={isSetupModalOpen}
+        onClose={() => {}}
+        description="Настройка локальной партии"
+      >
+        <div className="space-y-[var(--space-24)] pt-[var(--space-8)]">
+          {/* Player Names */}
+          <div className="space-y-[var(--space-16)]">
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">
+                Игрок за белых
+              </label>
+              <input 
+                type="text"
+                value={whiteName}
+                onChange={(e) => setWhiteName(e.target.value)}
+                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-3 text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)]"
+              />
+            </div>
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest px-1">
+                Игрок за черных
+              </label>
+              <input 
+                type="text"
+                value={blackName}
+                onChange={(e) => setBlackName(e.target.value)}
+                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] p-3 text-text text-[var(--font-size-sm)] focus:outline-none focus:border-[var(--accent-brand)]"
+              />
+            </div>
+          </div>
+
+          {/* Board View */}
+          <div className="space-y-[var(--space-12)]">
+            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">
+              Режим доски
+            </label>
+            <div className="space-y-2">
+              <Button 
+                fullWidth 
+                variant="primary" 
+                onClick={() => setBoardView('standard')}
+                className={`border-2 ${boardView === 'standard' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+              >
+                Стандарт
+              </Button>
+              <Button 
+                fullWidth 
+                variant="primary" 
+                onClick={() => setBoardView('autoflip')}
+                className={`border-2 ${boardView === 'autoflip' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+              >
+                Авто-разворот
+              </Button>
+              <Button 
+                fullWidth 
+                variant="primary" 
+                onClick={() => setBoardView('face-to-face')}
+                className={`border-2 ${boardView === 'face-to-face' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+              >
+                Лицом к лицу
+              </Button>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="space-y-[var(--space-12)] pt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
+            <Button 
+              fullWidth 
+              onClick={handleStartGame}
+              variant="primary"
+            >
+              Начать игру
+            </Button>
+            <Button 
+              fullWidth 
+              onClick={() => navigate('/')}
+              variant="primary"
+              className="hover:!bg-[var(--danger-soft)] hover:!border-[var(--danger-border)]"
+            >
+              Отмена
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {showReactionPicker && reactionPos && (
         <ReactionPicker

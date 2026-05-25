@@ -297,6 +297,15 @@ option {
   pointer-events: none;
 }
 
+@keyframes image-typing {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+.animate-image-typing {
+  animation: image-typing 1.2s steps(15, end) forwards;
+}
+
 @keyframes dropdown-in {
   from {
     opacity: 0;

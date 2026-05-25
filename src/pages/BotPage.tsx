@@ -1,35 +1,40 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
-import CustomSelect from '@/components/CustomSelect'
+import Modal from '@/components/Modal'
+import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import Footer from '@/components/Footer'
 import type { BotLevel } from '@/types'
 
+import { useBoardStore } from '@/stores/boardStore'
+
 export default function BotPage() {
   const { user } = useAuth()
-  const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
-  const [initialized, setInitialized] = useState(false)
+  const navigate = useNavigate()
+  const { getPieceUrl } = useBoardStore()
+  const { 
+    game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
+    checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
+    resetGame, saveGame, playerColor, setPlayerColor 
+  } = useGameStore()
+  
+  const [isLevelModalOpen, setIsLevelModalOpen] = useState(true)
+  const [tempColor, setTempColor] = useState<'w' | 'b' | 'random'>('w')
+  const [level, setLevel] = useState<BotLevel>('medium')
+  const [isBotThinking, setIsBotThinking] = useState(false)
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  
   const gameRef = useRef(game)
   const savedRef = useRef(false)
   
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
-
-  useEffect(() => {
-    if (!initialized) {
-      resetGame()
-      setInitialized(true)
-    }
-  }, [])
-
-  const [level, setLevel] = useState<BotLevel>('medium')
-  const [isBotThinking, setIsBotThinking] = useState(false)
 
   useEffect(() => {
     gameRef.current = game
@@ -45,10 +50,18 @@ export default function BotPage() {
     }
   }, [isGameOver, saveGame, level])
 
-  const onDrop = useCallback((sourceSquare: string, targetSquare: string) => {
-    const success = makeMove(sourceSquare, targetSquare)
-    if (success) {
-      setTimeout(() => {
+  const checkPromotion = (from: string, to: string): boolean => {
+    const piece = game.get(from as any)
+    if (piece?.type !== 'p') return false
+    if (piece.color === 'w' && to[1] === '8') return true
+    if (piece.color === 'b' && to[1] === '1') return true
+    return false
+  }
+
+  // Bot Turn Logic
+  useEffect(() => {
+    if (!isGameOver && currentTurn !== playerColor && !isBotThinking && !isLevelModalOpen && !pendingPromotion) {
+      const timer = setTimeout(() => {
         setIsBotThinking(true)
         const currentGame = gameRef.current
         const moves = currentGame.moves({ verbose: true })
@@ -57,28 +70,54 @@ export default function BotPage() {
           makeMove(randomMove.from, randomMove.to, randomMove.promotion)
         }
         setIsBotThinking(false)
-      }, 500)
+      }, 600)
+      return () => clearTimeout(timer)
     }
-    return success
-  }, [makeMove])
+  }, [currentTurn, playerColor, isGameOver, isBotThinking, makeMove, isLevelModalOpen, pendingPromotion])
+
+  const onDrop = useCallback((sourceSquare: string, targetSquare: string) => {
+    if (currentTurn !== playerColor) return false
+    
+    if (checkPromotion(sourceSquare, targetSquare)) {
+      if (legalMoves.includes(targetSquare)) {
+        setPendingPromotion({ from: sourceSquare, to: targetSquare })
+        return true
+      }
+    }
+    
+    return makeMove(sourceSquare, targetSquare)
+  }, [makeMove, currentTurn, playerColor, game, legalMoves])
 
   const onSquareClick = (square: string) => {
+    if (currentTurn !== playerColor) return
+
+    if (selectedSquare && checkPromotion(selectedSquare, square)) {
+      if (legalMoves.includes(square)) {
+        setPendingPromotion({ from: selectedSquare, to: square })
+        return
+      }
+    }
+
     selectSquare(square)
   }
 
-  const statusText = status === 'checkmate' ? 'Мат!'
-    : status === 'stalemate' ? 'Пат — ничья'
-    : status === 'draw' ? 'Ничья'
-    : status === 'check' ? 'Шах!'
-    : isBotThinking ? 'Бот думает...'
-    : currentTurn === 'w' ? 'Ход белых' : 'Ход чёрных'
+  const handleStartGame = (selectedLevel: BotLevel) => {
+    const finalColor = tempColor === 'random' 
+      ? (Math.random() > 0.5 ? 'w' : 'b') 
+      : tempColor
+    
+    setPlayerColor(finalColor)
+    setLevel(selectedLevel)
+    resetGame()
+    setIsLevelModalOpen(false)
+  }
 
   const statusClasses = {
     checkmate: 'text-[var(--danger)]',
     stalemate: 'text-text-secondary',
     draw: 'text-text-secondary',
     check: 'text-[var(--danger)]',
-    playing: isBotThinking ? 'text-[var(--accent)] animate-pulse' : currentTurn === 'w' ? 'text-[var(--accent)]' : 'text-text',
+    playing: isBotThinking ? 'text-[var(--accent-brand)] animate-pulse' : currentTurn === playerColor ? 'text-[var(--accent-brand)]' : 'text-text opacity-60',
   }
 
   return (
@@ -94,15 +133,6 @@ export default function BotPage() {
           </Link>
           <div className="flex items-center gap-[var(--space-12)]">
             <SettingsDropdown />
-            <CustomSelect
-              value={level}
-              onChange={(val) => setLevel(val as BotLevel)}
-              options={[
-                { value: 'easy', label: 'Лёгкий' },
-                { value: 'medium', label: 'Средний' },
-                { value: 'hard', label: 'Сильный' },
-              ]}
-            />
             {user && <UserMenu />}
           </div>
         </div>
@@ -111,26 +141,128 @@ export default function BotPage() {
       <main className="max-w-[1200px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
         <div className="game-layout-container">
           <div className="game-main-column">
-            <div className="mb-[var(--space-16)] text-center game:text-left">
-              <h2 className={`text-[var(--font-size-lg)] font-bold ${statusClasses[status]}`}>
-                {statusText}
-              </h2>
+            <div 
+              className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
+              style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+            >
+              {/* Left: Bot Info */}
+              <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
+                <img 
+                  src={`${import.meta.env.BASE_URL || '/'}emojis/bot_new.png`} 
+                  alt="bot" 
+                  className="w-5 h-5 object-contain opacity-90"
+                />
+                <span className="text-[var(--accent-brand)] truncate">
+                  Ичи {level === 'easy' ? 'легкий' : level === 'medium' ? 'средний' : 'сложный'}
+                </span>
+              </div>
+
+              {/* Center: Notifications (Check, Results) */}
+              <div className="text-center flex justify-center">
+                {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
+                  <h2 className={`text-[10px] font-bold ${statusClasses[status]} uppercase tracking-[0.2em] animate-pulse`}>
+                    {status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья'}
+                  </h2>
+                )}
+              </div>
+
+              {/* Right: Turn Status */}
+              <div className="text-right">
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                  !isBotThinking && currentTurn === playerColor ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
+                }`}>
+                  {isBotThinking ? 'Ход соперника' : currentTurn === playerColor ? 'Ваш ход' : 'Ход соперника'}
+                </span>
+              </div>
             </div>
+
             <div
               ref={boardContainerRef}
               className="board-container"
             >
               {stableWidth > 0 ? (
-                <ChessBoard
-                  game={game}
-                  lastMove={lastMove}
-                  checkSquare={checkSquare}
-                  selectedSquare={selectedSquare}
-                  legalMoves={legalMoves}
-                  onDrop={onDrop}
-                  onSquareClick={onSquareClick}
-                  boardWidth={stableWidth}
-                />
+                <>
+                  <ChessBoard
+                    game={game}
+                    lastMove={lastMove}
+                    checkSquare={checkSquare}
+                    selectedSquare={selectedSquare}
+                    legalMoves={legalMoves}
+                    onDrop={onDrop}
+                    onSquareClick={onSquareClick}
+                    boardWidth={stableWidth}
+                    boardOrientation={playerColor === 'b' ? 'black' : 'white'}
+                  />
+
+                  {/* Promotion Overlay */}
+                  {pendingPromotion && (() => {
+                    const square = pendingPromotion.to
+                    const col = square[0].charCodeAt(0) - 97
+                    const rank = parseInt(square[1])
+                    
+                    let leftIdx = col
+                    let isAtTop = rank === 8
+                    
+                    if (playerColor === 'b') {
+                      leftIdx = 7 - col
+                      isAtTop = rank === 1
+                    }
+
+                    return (
+                      <div
+                        className="absolute inset-0 z-[100] cursor-default bg-black/10"
+                        onClick={() => setPendingPromotion(null)}
+                      >
+                        <div 
+                          className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
+                          style={{
+                            left: `${leftIdx * 12.5}%`,
+                            top: isAtTop ? 0 : 'auto',
+                            bottom: isAtTop ? 'auto' : 0,
+                            width: '12.5%',
+                            height: '50%',
+                            backgroundColor: 'rgba(18, 20, 18, 0.96)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: 'var(--radius-14)',
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {(['q', 'r', 'b', 'n'] as const).map((piece) => {
+                            const code = `${playerColor}${piece.toUpperCase()}` as const
+                            return (
+                              <button
+                                key={piece}
+                                onClick={() => {
+                                  makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                                  setPendingPromotion(null)
+                                  selectSquare(pendingPromotion.to)
+                                }}
+                                className="flex-1 flex items-center justify-center transition-colors group"
+                                style={{
+                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+                                }}
+                              >
+                                <img
+                                  src={getPieceUrl(code)}
+                                  alt={piece}
+                                  className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform"
+                                  draggable={false}
+                                />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-12 animate-pulse">
                   <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
@@ -168,7 +300,88 @@ export default function BotPage() {
         </div>
       </main>
 
+      <Modal
+        isOpen={isLevelModalOpen}
+        onClose={() => {}}
+        description="Настройка партии с Ичи"
+      >
+        <div className="space-y-[var(--space-24)] pt-[var(--space-8)]">
+          <div className="space-y-[var(--space-12)]">
+            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">
+              Ваш цвет
+            </label>
+            <div className="space-y-2">
+              <Button 
+                fullWidth 
+                variant="primary" 
+                onClick={() => setTempColor('w')}
+                className={`border-2 ${tempColor === 'w' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+              >
+                Белые
+              </Button>
+              <Button 
+                fullWidth 
+                variant="primary" 
+                onClick={() => setTempColor('b')}
+                className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+              >
+                Черные
+              </Button>
+              <Button 
+                fullWidth 
+                variant="primary" 
+                onClick={() => setTempColor('random')}
+                className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+              >
+                Случайно 🎲
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-[var(--space-12)]">
+            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">
+              Сложность
+            </label>
+            <div className="space-y-2">
+              <Button 
+                fullWidth 
+                onClick={() => handleStartGame('easy')}
+                variant="primary"
+              >
+                Лёгкий
+              </Button>
+              <Button 
+                fullWidth 
+                onClick={() => handleStartGame('medium')}
+                variant="primary"
+              >
+                Средний
+              </Button>
+              <Button 
+                fullWidth 
+                onClick={() => handleStartGame('hard')}
+                variant="primary"
+              >
+                Сильный
+              </Button>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
+            <Button 
+              fullWidth 
+              onClick={() => navigate('/')}
+              variant="primary"
+              className="hover:!bg-[var(--danger-soft)] hover:!border-[var(--danger-border)]"
+            >
+              Отмена
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       <Footer />
     </div>
   )
 }
+

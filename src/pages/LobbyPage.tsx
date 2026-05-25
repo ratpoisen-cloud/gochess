@@ -53,6 +53,27 @@ export default function LobbyPage() {
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<any[]>([])
+  const [displayedChars, setDisplayedChars] = useState(0)
+  const [animationPhase, setAnimationPhase] = useState<'typing' | 'logo'>('typing')
+  
+  const fullTextLine1 = "Играй в шахматы"
+  const fullTextLine2 = "с друзьями"
+
+  useEffect(() => {
+    if (initialLoading) return
+    const totalLen = fullTextLine1.length + fullTextLine2.length
+    if (displayedChars < totalLen) {
+      const timer = setTimeout(() => {
+        setDisplayedChars(prev => prev + 1)
+      }, 60)
+      return () => clearTimeout(timer)
+    } else if (animationPhase === 'typing') {
+      const timer = setTimeout(() => {
+        setAnimationPhase('logo')
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [displayedChars, initialLoading, animationPhase])
 
   useEffect(() => {
     if (!user || !supabase) {
@@ -68,15 +89,15 @@ export default function LobbyPage() {
       .then(({ data }) => {
         if (data) setRecentGames(data)
       })
-    }, [user])
+  }, [user])
 
-    const handleGameClick = (game: any) => {
+  const handleGameClick = (game: any) => {
     if (game.game_type === 'online' && game.room_code) {
       navigate(`/game/${game.room_code}`)
     }
-    }
+  }
 
-    useEffect(() => {
+  useEffect(() => {
     // Simulate initial app load for the cool splash screen effect
     const timer = setTimeout(() => {
       setInitialLoading(false)
@@ -89,12 +110,7 @@ export default function LobbyPage() {
       <LoadingScreen isLoading={initialLoading} />
       
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-center relative">
-          <img
-            src={`${BASE}logo/gochess_wordmark_dark.svg`}
-            alt="GoChess"
-            className="h-[32px] w-auto"
-          />
+        <div className="max-w-[1200px] mx-auto flex items-center justify-center relative min-h-[32px]">
           <div className="absolute right-0 flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
             {user ? (
               <UserMenu />
@@ -112,10 +128,36 @@ export default function LobbyPage() {
       </header>
 
       <main className="max-w-[1200px] mx-auto px-[var(--space-24)] pb-[var(--space-64)] flex-1 w-full flex flex-col justify-center gap-[10vh] md:gap-[12vh]">
-        <section className="text-center">
-          <h2 className="text-[clamp(2rem,5.5vw,3.6rem)] font-bold text-text tracking-tight leading-[1.05] uppercase">
-            <span className="text-[var(--accent-brand)]">Играй</span> в шахматы<br/>с друзьями
+        <section className="text-center relative min-h-[80px] flex items-center justify-center">
+          <h2 className={`absolute text-[clamp(1.4rem,4vw,1.8rem)] font-bold text-text tracking-tight leading-[1.2] uppercase w-full transition-all duration-700 ${animationPhase === 'logo' ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+            {displayedChars > 0 ? (
+              <>
+                <span className="text-[var(--accent-brand)]">
+                  {fullTextLine1.slice(0, Math.min(displayedChars, 5))}
+                </span>
+                {displayedChars > 5 && fullTextLine1.slice(5, Math.min(displayedChars, fullTextLine1.length))}
+                {displayedChars > fullTextLine1.length && (
+                  <>
+                    <br />
+                    {fullTextLine2.slice(0, displayedChars - fullTextLine1.length)}
+                  </>
+                )}
+                {displayedChars < (fullTextLine1.length + fullTextLine2.length) ? (
+                  <span className="animate-pulse ml-1 inline-block w-2 h-[1em] bg-[var(--accent-brand)] align-middle" />
+                ) : (
+                  <span className="ml-1 inline-block w-2 h-[1em] bg-transparent align-middle" />
+                )}
+              </>
+            ) : (
+              <span className="opacity-0">.</span>
+            )}
           </h2>
+          
+          <img
+            src={`${BASE}logo/gochess_wordmark_dark.svg`}
+            alt="GoChess"
+            className={`absolute h-[56px] md:h-[72px] w-auto ${animationPhase === 'logo' ? 'opacity-100 animate-image-typing' : 'opacity-0'}`}
+          />
         </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)]">

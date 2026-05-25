@@ -190,7 +190,7 @@ export default function LobbyPage() {
           <HubTile
             to="/bot"
             icon="bot_new"
-            title="Против Бота"
+            title="Игра с Ичи"
             description="Оттачивай мастерство на 3 уровнях сложности"
             variant="secondary"
           />
@@ -246,7 +246,7 @@ export default function LobbyPage() {
                       
                       <div className="text-[9px] text-text-secondary flex flex-wrap items-center gap-x-[var(--space-12)] gap-y-[var(--space-4)]">
                         <span>
-                          {g.game_type === 'bot' ? '🤖 Бот' : g.game_type === 'local' ? '🎮 Локальная' : ''}
+                          {g.game_type === 'bot' ? '🤖 Ичи' : g.game_type === 'local' ? '🎮 Локальная' : ''}
                         </span>
                         <span>{new Date(g.created_at).toLocaleDateString()}</span>
                         {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}

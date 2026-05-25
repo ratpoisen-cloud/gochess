@@ -89,9 +89,13 @@ export default function LobbyPage() {
       <LoadingScreen isLoading={initialLoading} />
       
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
-        <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <div />
-          <div className="flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
+        <div className="max-w-[1200px] mx-auto flex items-center justify-center relative">
+          <img
+            src={`${BASE}logo/gochess_wordmark_dark.svg`}
+            alt="GoChess"
+            className="h-[32px] w-auto"
+          />
+          <div className="absolute right-0 flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
             <div className="flex items-center gap-[var(--space-16)]">
               <button 
                 onClick={() => navigate('/settings')}

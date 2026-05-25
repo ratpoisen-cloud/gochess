@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { Color } from '@/types'
 
 export interface Reaction {
   id: string
@@ -8,10 +9,13 @@ export interface Reaction {
   createdAt: number
 }
 
+export type AddReactionResult = 'ok' | 'square_occupied' | 'limit_reached'
+
 interface ReactionState {
   reactions: Reaction[]
-  reactionsInCurrentMove: number
-  addReaction: (r: Reaction) => boolean
+  reactionsWhite: number
+  reactionsBlack: number
+  addReaction: (r: Reaction, color?: Color) => AddReactionResult
   removeReaction: (id: string) => void
   setReactions: (reactions: Reaction[]) => void
   resetMoveCounter: () => void
@@ -22,26 +26,37 @@ const MAX_REACTIONS_PER_MOVE = 5
 
 export const useReactionStore = create<ReactionState>((set, get) => ({
   reactions: [],
-  reactionsInCurrentMove: 0,
+  reactionsWhite: 0,
+  reactionsBlack: 0,
 
-  addReaction: (r) => {
-    const { reactionsInCurrentMove, reactions } = get()
-    
-    // Rule: One emoji per square (replace if exists)
-    const filtered = reactions.filter(existing => existing.square !== r.square)
+  addReaction: (r, color) => {
+    const { reactions, reactionsWhite, reactionsBlack } = get()
 
-    if (reactionsInCurrentMove >= MAX_REACTIONS_PER_MOVE) return false
+    const existingOnSquare = reactions.find(
+      (existing) => existing.square === r.square && existing.playerId === r.playerId
+    )
+    if (existingOnSquare) {
+      return 'square_occupied'
+    }
 
-    set((s) => ({ 
-      reactions: [...filtered, r],
-      reactionsInCurrentMove: s.reactionsInCurrentMove + 1
+    if (color) {
+      const count = color === 'w' ? reactionsWhite : reactionsBlack
+      if (count >= MAX_REACTIONS_PER_MOVE) {
+        return 'limit_reached'
+      }
+    }
+
+    set((s) => ({
+      reactions: [...s.reactions, r],
+      reactionsWhite: s.reactionsWhite + (color === 'w' ? 1 : 0),
+      reactionsBlack: s.reactionsBlack + (color === 'b' ? 1 : 0),
     }))
 
     setTimeout(() => {
       get().removeReaction(r.id)
     }, REACTION_TTL)
 
-    return true
+    return 'ok'
   },
 
   removeReaction: (id) => {
@@ -49,6 +64,6 @@ export const useReactionStore = create<ReactionState>((set, get) => ({
   },
 
   setReactions: (reactions) => set({ reactions }),
-  
-  resetMoveCounter: () => set({ reactionsInCurrentMove: 0 }),
+
+  resetMoveCounter: () => set({ reactionsWhite: 0, reactionsBlack: 0 }),
 }))

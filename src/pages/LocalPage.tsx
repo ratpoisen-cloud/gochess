@@ -3,10 +3,18 @@ import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
+import { useReactionStore, type Reaction, type AddReactionResult } from '@/stores/reactionStore'
+import ReactionPicker from '@/components/ReactionPicker'
+import { useToast } from '@/components/Toast'
 import Card from '@/components/Card'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import { useAuth } from '@/hooks/useAuth'
+import type { Color } from '@/types'
+
+function generateId(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
 
 export default function LocalPage() {
   const navigate = useNavigate()
@@ -14,9 +22,17 @@ export default function LocalPage() {
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
   const [initialized, setInitialized] = useState(false)
   const savedRef = useRef(false)
+  const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [reactionSquare, setReactionSquare] = useState<string | null>(null)
+  const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
+  const addReaction = useReactionStore((s) => s.addReaction)
+  const resetMoveCounter = useReactionStore((s) => s.resetMoveCounter)
+  const { addToast } = useToast()
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
+
+  const lastPgnRef = useRef(game.pgn())
 
   useEffect(() => {
     if (!initialized) {
@@ -35,12 +51,46 @@ export default function LocalPage() {
     }
   }, [isGameOver, saveGame])
 
+  useEffect(() => {
+    const currentPgn = game.pgn()
+    if (currentPgn !== lastPgnRef.current) {
+      lastPgnRef.current = currentPgn
+      resetMoveCounter()
+    }
+  }, [game, resetMoveCounter])
+
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     return makeMove(sourceSquare, targetSquare)
   }
 
   const onSquareClick = (square: string) => {
     selectSquare(square)
+  }
+
+  const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
+    setReactionSquare(square)
+    setReactionPos({ x: clientX, y: clientY })
+    setShowReactionPicker(true)
+  }
+
+  const handleEmojiSelect = (emojiUrl: string) => {
+    if (!reactionSquare) return
+
+    const color: Color = currentTurn === 'w' ? 'b' : 'w'
+    const reaction: Reaction = {
+      id: generateId(),
+      square: reactionSquare,
+      emojiUrl,
+      playerId: user?.uid || 'local',
+      createdAt: Date.now(),
+    }
+
+    const result: AddReactionResult = addReaction(reaction, color)
+    if (result === 'limit_reached') {
+      addToast('Не более 5 реакций за ход', 'warning')
+    }
+    setShowReactionPicker(false)
+    setReactionSquare(null)
   }
 
   const statusText = status === 'checkmate' ? 'Мат!'
@@ -99,6 +149,7 @@ export default function LocalPage() {
                   legalMoves={legalMoves}
                   onDrop={onDrop}
                   onSquareClick={onSquareClick}
+                  onReactionSquare={handleReactionSquare}
                   boardWidth={stableWidth}
                 />
               ) : (
@@ -137,6 +188,19 @@ export default function LocalPage() {
           </div>
         </div>
       </main>
+
+      {showReactionPicker && reactionPos && (
+        <ReactionPicker
+          anchorX={reactionPos.x}
+          anchorY={reactionPos.y}
+          boardWidth={stableWidth}
+          onSelect={handleEmojiSelect}
+          onClose={() => {
+            setShowReactionPicker(false)
+            setReactionSquare(null)
+          }}
+        />
+      )}
     </div>
   )
 }

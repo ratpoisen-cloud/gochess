@@ -1,53 +1,88 @@
+import { useLayoutEffect, useRef, useState } from 'react'
 import { BOARD_EMOJI_FILES, getEmojiUrl } from '@/lib/emojis'
 
 interface ReactionPickerProps {
+  anchorX: number
+  anchorY: number
+  boardWidth: number
   onSelect: (emojiUrl: string) => void
   onClose: () => void
 }
 
-export default function ReactionPicker({ onSelect, onClose }: ReactionPickerProps) {
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
+}
+
+export default function ReactionPicker({ anchorX, anchorY, boardWidth, onSelect, onClose }: ReactionPickerProps) {
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
+
+  const margin = 8
+  const pickerWidth = Math.min(boardWidth * 0.85, 400)
+
+  useLayoutEffect(() => {
+    const el = pickerRef.current
+    if (!el) return
+
+    el.style.visibility = 'hidden'
+    el.style.left = '0'
+    el.style.top = '0'
+
+    const rect = el.getBoundingClientRect()
+    const height = rect.height
+
+    const left = anchorX < window.innerWidth / 2
+      ? clamp(margin, anchorX, window.innerWidth - pickerWidth - margin)
+      : clamp(margin, anchorX - pickerWidth, window.innerWidth - pickerWidth - margin)
+
+    const top = anchorY < window.innerHeight / 2
+      ? clamp(margin, anchorY + margin, window.innerHeight - height - margin)
+      : clamp(margin, anchorY - height - margin, window.innerHeight - height - margin)
+
+    el.style.visibility = 'visible'
+    setPos({ left, top })
+  }, [anchorX, anchorY, pickerWidth])
+
   return (
-    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 z-[240] animate-dropdown-in">
-      <div 
-        className="grid grid-cols-8 gap-1 p-1.5 shadow-[0_12px_24px_rgba(0,0,0,0.45)] backdrop-blur-md"
+    <>
+      <div
+        className="fixed inset-0 z-[9998]"
+        onClick={onClose}
+      />
+      <div
+        ref={pickerRef}
+        className="fixed z-[9999] animate-dropdown-in"
         style={{
-          width: 'min(296px, calc(100vw - 32px))',
-          backgroundColor: 'rgba(18, 20, 18, 0.96)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: 'var(--radius-14)',
+          left: pos?.left ?? anchorX,
+          top: pos?.top ?? anchorY,
+          visibility: pos ? 'visible' : 'hidden',
+          width: pickerWidth,
         }}
       >
-        {BOARD_EMOJI_FILES.map((file) => {
-          const url = getEmojiUrl(file)
-          return (
-            <button
-              key={file}
-              onClick={() => { onSelect(url); onClose() }}
-              className="aspect-square flex items-center justify-center transition-all hover:scale-110 active:scale-90"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '10px',
-                border: '1px solid transparent',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(232, 232, 216, 0.55)'
-                e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'transparent'
-                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
-              }}
-            >
-              <img 
-                src={url} 
-                alt="emoji" 
-                className="w-[70%] h-[70%] object-contain"
-                loading="lazy"
-              />
-            </button>
-          )
-        })}
+        <div
+          className="bg-[var(--bg)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,var(--border))] rounded-[var(--radius-8)] p-2 shadow-lg"
+        >
+          <div className="grid grid-cols-8 gap-1 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+            {BOARD_EMOJI_FILES.map((file) => {
+              const url = getEmojiUrl(file)
+              return (
+                <button
+                  key={file}
+                  onClick={() => { onSelect(url); onClose() }}
+                  className="aspect-square flex items-center justify-center hover:bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] rounded-[var(--radius-4)] transition-all hover:scale-110 active:scale-95"
+                >
+                  <img
+                    src={url}
+                    alt="emoji"
+                    className="w-[70%] h-[70%] object-contain"
+                    loading="lazy"
+                  />
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

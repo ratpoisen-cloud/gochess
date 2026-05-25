@@ -85,8 +85,12 @@ export default function SettingsPage() {
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline text-text hover:text-text">
-            <span className="text-[var(--accent-brand)]">го</span> шахматы
+          <Link to="/">
+            <img
+              src={`${import.meta.env.BASE_URL || '/'}logo/gochess_wordmark_dark.svg`}
+              alt="GoChess"
+              className="h-[28px] w-auto"
+            />
           </Link>
         </div>
       </header>

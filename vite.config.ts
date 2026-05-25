@@ -4,7 +4,7 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/gochess_alternative/',
+  base: process.env.VITE_BASE || '/gochess_alternative/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

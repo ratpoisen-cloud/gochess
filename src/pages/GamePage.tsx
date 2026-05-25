@@ -4,10 +4,9 @@ import { Chess, type Move } from 'chess.js'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
-import { useReactionStore, type Reaction, type AddReactionResult } from '@/stores/reactionStore'
+import { useReactionStore, type Reaction } from '@/stores/reactionStore'
 import { useBoardStore } from '@/stores/boardStore'
 import { soundManager } from '@/lib/soundManager'
-import { useToast } from '@/components/Toast'
 import ChessBoard from '@/components/board/ChessBoard'
 import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
@@ -15,7 +14,7 @@ import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
 import RequestModal from '@/components/RequestModal'
 import Card from '@/components/Card'
-import type { GameStatus, GameData, Color } from '@/types'
+import type { GameStatus, GameData } from '@/types'
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
@@ -56,9 +55,7 @@ export default function GamePage() {
   const [rematchRequest, setRematchRequest] = useState<GameData['rematch_request']>(null)
   
   const addReaction = useReactionStore((s) => s.addReaction)
-  const resetMoveCounter = useReactionStore((s) => s.resetMoveCounter)
   const getPieceUrl = useBoardStore((s) => s.getPieceUrl)
-  const { addToast } = useToast()
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
@@ -354,7 +351,6 @@ export default function GamePage() {
       const newPgn = g.pgn()
       lastPgnRef.current = newPgn
       updateGameState(g)
-      resetMoveCounter()
       setIsMyTurn(false)
 
       const isCheckmate = g.isCheckmate()
@@ -452,7 +448,6 @@ export default function GamePage() {
   const handleEmojiSelect = async (emojiUrl: string) => {
     if (!gameId || !user || !supabase || !reactionSquare) return
 
-    const color: Color | undefined = playerColor || undefined
     const reaction: Reaction = {
       id: generateId(),
       square: reactionSquare,
@@ -461,11 +456,7 @@ export default function GamePage() {
       createdAt: Date.now(),
     }
 
-    const result: AddReactionResult = addReaction(reaction, color)
-    if (result === 'limit_reached') {
-      addToast('Не более 5 реакций за ход', 'warning')
-      return
-    }
+    addReaction(reaction)
     setShowReactionPicker(false)
     setReactionSquare(null)
 
@@ -816,16 +807,22 @@ export default function GamePage() {
 
       {/* Global Modals/Overlays */}
       {showReactionPicker && reactionPos && (
-        <ReactionPicker
-          anchorX={reactionPos.x}
-          anchorY={reactionPos.y}
-          boardWidth={stableWidth}
-          onSelect={handleEmojiSelect}
-          onClose={() => {
-            setShowReactionPicker(false)
-            setReactionSquare(null)
+        <div
+          className="fixed z-[9999]"
+          style={{
+            left: reactionPos.x,
+            top: reactionPos.y,
+            transform: 'translate(-50%, -120%)',
           }}
-        />
+        >
+          <ReactionPicker
+            onSelect={handleEmojiSelect}
+            onClose={() => {
+              setShowReactionPicker(false)
+              setReactionSquare(null)
+            }}
+          />
+        </div>
       )}
 
       {/* Request Modals */}

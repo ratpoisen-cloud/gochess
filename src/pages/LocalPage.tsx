@@ -3,17 +3,25 @@ import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
+import { useReactionStore, type Reaction } from '@/stores/reactionStore'
+import type { Color } from '@/types'
 import Card from '@/components/Card'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
+import ReactionPicker from '@/components/ReactionPicker'
+import { useToast } from '@/components/Toast'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function LocalPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { addToast } = useToast()
   const { game, status, currentTurn, selectedSquare, legalMoves, lastMove, checkSquare, moveHistory, isGameOver, makeMove, selectSquare, resetGame, saveGame } = useGameStore()
   const [initialized, setInitialized] = useState(false)
   const savedRef = useRef(false)
+  const [showReactionPicker, setShowReactionPicker] = useState(false)
+  const [reactionSquare, setReactionSquare] = useState<string | null>(null)
+  const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
@@ -41,6 +49,31 @@ export default function LocalPage() {
 
   const onSquareClick = (square: string) => {
     selectSquare(square)
+  }
+
+  const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
+    setReactionSquare(square)
+    setReactionPos({ x: clientX, y: clientY })
+    setShowReactionPicker(true)
+  }
+
+  const handleEmojiSelect = (emojiUrl: string) => {
+    if (!reactionSquare) return
+    const reaction: Reaction = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      square: reactionSquare,
+      emojiUrl,
+      playerId: currentTurn,
+      createdAt: Date.now(),
+    }
+    const result = useReactionStore.getState().addReaction(reaction, currentTurn as Color)
+    if (result === 'limit_reached') {
+      addToast('Не более 5 реакций за ход', 'warning')
+      return
+    }
+    if (result !== 'ok') return
+    setShowReactionPicker(false)
+    setReactionSquare(null)
   }
 
   const statusText = status === 'checkmate' ? 'Мат!'
@@ -99,6 +132,7 @@ export default function LocalPage() {
                   legalMoves={legalMoves}
                   onDrop={onDrop}
                   onSquareClick={onSquareClick}
+                  onReactionSquare={handleReactionSquare}
                   boardWidth={stableWidth}
                 />
               ) : (
@@ -137,6 +171,19 @@ export default function LocalPage() {
           </div>
         </div>
       </main>
+
+      {showReactionPicker && reactionPos && (
+        <ReactionPicker
+          onSelect={handleEmojiSelect}
+          onClose={() => {
+            setShowReactionPicker(false)
+            setReactionSquare(null)
+          }}
+          boardWidth={stableWidth}
+          anchorX={reactionPos.x}
+          anchorY={reactionPos.y}
+        />
+      )}
     </div>
   )
 }

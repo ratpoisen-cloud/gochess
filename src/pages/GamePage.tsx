@@ -12,6 +12,7 @@ import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
+import { useToast } from '@/components/Toast'
 import RequestModal from '@/components/RequestModal'
 import Card from '@/components/Card'
 import type { GameStatus, GameData } from '@/types'
@@ -45,6 +46,7 @@ export default function GamePage() {
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
   const [opponentJoined, setOpponentJoined] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  const { addToast } = useToast()
   
   const [showUndoConfirm, setShowUndoConfirm] = useState(false)
   const [showDrawConfirm, setShowDrawConfirm] = useState(false)
@@ -446,7 +448,7 @@ export default function GamePage() {
   }
 
   const handleEmojiSelect = async (emojiUrl: string) => {
-    if (!gameId || !user || !supabase || !reactionSquare) return
+    if (!gameId || !user || !supabase || !reactionSquare || !playerColor) return
 
     const reaction: Reaction = {
       id: generateId(),
@@ -456,7 +458,12 @@ export default function GamePage() {
       createdAt: Date.now(),
     }
 
-    addReaction(reaction)
+    const result = useReactionStore.getState().addReaction(reaction, playerColor)
+    if (result === 'limit_reached') {
+      addToast('Не более 5 реакций за ход', 'warning')
+      return
+    }
+    if (result !== 'ok') return
     setShowReactionPicker(false)
     setReactionSquare(null)
 
@@ -807,22 +814,16 @@ export default function GamePage() {
 
       {/* Global Modals/Overlays */}
       {showReactionPicker && reactionPos && (
-        <div
-          className="fixed z-[9999]"
-          style={{
-            left: reactionPos.x,
-            top: reactionPos.y,
-            transform: 'translate(-50%, -120%)',
+        <ReactionPicker
+          onSelect={handleEmojiSelect}
+          onClose={() => {
+            setShowReactionPicker(false)
+            setReactionSquare(null)
           }}
-        >
-          <ReactionPicker
-            onSelect={handleEmojiSelect}
-            onClose={() => {
-              setShowReactionPicker(false)
-              setReactionSquare(null)
-            }}
-          />
-        </div>
+          boardWidth={stableWidth}
+          anchorX={reactionPos.x}
+          anchorY={reactionPos.y}
+        />
       )}
 
       {/* Request Modals */}

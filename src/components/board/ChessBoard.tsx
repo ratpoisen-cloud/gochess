@@ -187,14 +187,10 @@ export default function ChessBoard({
                   className="absolute inset-0 flex items-center justify-center pointer-events-none z-50"
                 >
                   <div 
-                    className="animate-bounce flex items-center justify-center shadow-[0_8px_16px_rgba(0,0,0,0.35)]"
+                    className="animate-bounce flex items-center justify-center"
                     style={{
                       width: '45%',
                       height: '45%',
-                      backgroundColor: 'rgba(15, 17, 15, 0.68)',
-                      border: '1px solid rgba(255, 255, 255, 0.16)',
-                      borderRadius: '10px',
-                      padding: '4px',
                     }}
                   >
                     <img 

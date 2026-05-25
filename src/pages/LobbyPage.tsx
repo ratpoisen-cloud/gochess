@@ -90,9 +90,11 @@ export default function LobbyPage() {
       
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
-          <Link to="/" className="text-[var(--font-size-sm)] font-bold tracking-[0.02em] uppercase no-underline">
-            <span className="text-[var(--accent-brand)]">го</span> шахматы
-          </Link>
+          <img
+            src={`${BASE}logo/gochess_wordmark_dark.svg`}
+            alt="GoChess"
+            className="h-[38px] w-auto"
+          />
           <div className="flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
             <div className="flex items-center gap-[var(--space-16)]">
               <button 
@@ -121,6 +123,11 @@ export default function LobbyPage() {
       </header>
 
       <main className="max-w-[1200px] mx-auto px-[var(--space-24)] pb-[var(--space-64)] flex-1 w-full flex flex-col justify-center gap-[10vh] md:gap-[12vh]">
+        <section className="text-center">
+          <h2 className="text-[clamp(2rem,5.5vw,3.6rem)] font-bold text-text tracking-tight leading-[1.05] uppercase">
+            <span className="text-[var(--accent-brand)]">Играй</span> в шахматы<br/>с друзьями
+          </h2>
+        </section>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)]">
           <button

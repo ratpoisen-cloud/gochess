@@ -23,9 +23,9 @@ export default function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-[var(--space-8)] p-[6px_12px] rounded-[var(--radius-8)] border border-[var(--border)] hover:border-[var(--accent-brand)] transition-colors focus:outline-none bg-[rgba(255,255,255,0.02)]"
+        className="flex items-center gap-[var(--space-8)] p-[6px_4px] focus:outline-none group"
       >
-        <span className="text-[var(--font-size-sm)] font-bold text-text uppercase tracking-widest">
+        <span className="text-[var(--font-size-sm)] font-bold text-text-secondary group-hover:text-text transition-colors uppercase tracking-widest">
           {user.displayName}
         </span>
       </button>

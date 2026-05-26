@@ -192,9 +192,9 @@ export const useGameStore = create<GameState>()(
         const { data: gameData, error: gameError } = await supabase
           .from('games')
           .insert({
-            white_player_id: gameType === 'bot' ? user.uid : user.uid,
+            white_player_id: user.uid,
             white_name: user.displayName,
-            black_name: gameType === 'bot' ? 'Бот' : 'Чёрные',
+            black_name: gameType === 'bot' ? 'Ичи' : 'Чёрные',
             game_type: gameType,
             bot_level: botLevel,
             pgn: game.pgn(),
@@ -218,8 +218,8 @@ export const useGameStore = create<GameState>()(
           captured: m.captured || null,
           promotion: m.promotion || null,
           san: m.san,
-          is_check: game.isCheck(),
-          is_checkmate: game.isCheckmate(),
+          is_check: false,
+          is_checkmate: false,
           fen_after: m.after,
         }))
 

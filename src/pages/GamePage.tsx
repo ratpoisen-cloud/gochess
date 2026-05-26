@@ -65,6 +65,7 @@ export default function GamePage() {
   const gameRef = useRef(game)
   const channelRef = useRef<any>(null)
   const lastPgnRef = useRef('')
+  const opponentJoinedRef = useRef(false)
 
   const getCheckSquare = (g: Chess): string | null => {
     if (!g.inCheck()) return null
@@ -143,45 +144,26 @@ export default function GamePage() {
           setPlayerColor('w')
           setOpponentName(data.black_name || '')
           setOpponentJoined(!!data.black_player_id)
+          opponentJoinedRef.current = !!data.black_player_id
           setIsMyTurn(data.turn === 'w')
         } else if (data.black_player_id === user.uid) {
           setPlayerColor('b')
           setOpponentName(data.white_name || '')
           setOpponentJoined(!!data.white_player_id)
+          opponentJoinedRef.current = !!data.white_player_id
           setIsMyTurn(data.turn === 'b')
-        } else if (!data.black_player_id) {
-          const { error: joinError } = await sb
-            .from('games')
-            .update({
-              black_player_id: user.uid,
-              black_name: user.displayName,
-            })
-            .eq('id', data.id)
-
-          if (joinError) {
-            if (!cancelled) {
-              setError('Не удалось присоединиться к игре (join)')
-              setLoading(false)
+        } else if (!data.black_player_id || !data.white_player_id) {
+          // Join via atomic RPC to prevent race conditions
+          const { data: joinResult, error: joinError } = await sb.rpc(
+            'join_game_player_with_color',
+            {
+              p_room_code: roomCode,
+              p_uid: user.uid,
+              p_name: user.displayName,
             }
-            return
-          }
+          )
 
-          if (!cancelled) {
-            setPlayerColor('b')
-            setOpponentName(data.white_name || '')
-            setOpponentJoined(!!data.white_player_id)
-            setIsMyTurn(false)
-          }
-        } else if (!data.white_player_id) {
-          const { error: joinError } = await sb
-            .from('games')
-            .update({
-              white_player_id: user.uid,
-              white_name: user.displayName,
-            })
-            .eq('id', data.id)
-
-          if (joinError) {
+          if (joinError || !joinResult) {
             if (!cancelled) {
               setError('Не удалось присоединиться к игре')
               setLoading(false)
@@ -189,11 +171,23 @@ export default function GamePage() {
             return
           }
 
+          let parsed: any
+          try { parsed = JSON.parse(typeof joinResult === 'string' ? joinResult : JSON.stringify(joinResult)) } catch { parsed = joinResult }
+          if (parsed.error) {
+            if (!cancelled) {
+              setError(parsed.error)
+              setLoading(false)
+            }
+            return
+          }
+
           if (!cancelled) {
-            setPlayerColor('w')
-            setOpponentName(data.black_name || '')
-            setOpponentJoined(!!data.black_player_id)
-            setIsMyTurn(true)
+            const color = (parsed.color || 'b') as 'w' | 'b'
+            setPlayerColor(color)
+            setOpponentName(parsed.opponent_name || '')
+            setOpponentJoined(false)
+            opponentJoinedRef.current = false
+            setIsMyTurn(color === 'w')
           }
         } else {
           if (!cancelled) {
@@ -243,35 +237,6 @@ export default function GamePage() {
     }
   }, [roomCode, user, updateGameState])
 
-  // Poll for opponent while waiting
-  useEffect(() => {
-    if (!gameId || !supabase || opponentJoined || loading) return
-
-    const sb = supabase!
-    const interval = setInterval(async () => {
-      const { data } = await sb
-        .from('games')
-        .select('white_player_id, black_player_id, white_name, black_name, turn')
-        .eq('id', gameId)
-        .single()
-
-      if (!data) return
-
-      if (playerColor === 'w' && data.black_player_id && !opponentJoined) {
-        setOpponentJoined(true)
-        setOpponentName(data.black_name || 'Соперник')
-        setIsMyTurn(data.turn === 'w')
-      }
-      if (playerColor === 'b' && data.white_player_id && !opponentJoined) {
-        setOpponentJoined(true)
-        setOpponentName(data.white_name || 'Соперник')
-        setIsMyTurn(data.turn === 'b')
-      }
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [gameId, opponentJoined, loading, playerColor])
-
   // Subscribe to Realtime
   useEffect(() => {
     if (!gameId || !supabase) return
@@ -284,13 +249,15 @@ export default function GamePage() {
           const newData = payload.new
           console.log('[Realtime] Update received:', newData)
 
-          if (playerColor === 'w' && newData.black_player_id && !opponentJoined) {
+          if (playerColor === 'w' && newData.black_player_id && !opponentJoinedRef.current) {
             setOpponentJoined(true)
+            opponentJoinedRef.current = true
             setOpponentName(newData.black_name || 'Соперник')
             setIsMyTurn(newData.turn === 'w')
           }
-          if (playerColor === 'b' && newData.white_player_id && !opponentJoined) {
+          if (playerColor === 'b' && newData.white_player_id && !opponentJoinedRef.current) {
             setOpponentJoined(true)
+            opponentJoinedRef.current = true
             setOpponentName(newData.white_name || 'Соперник')
             setIsMyTurn(newData.turn === 'b')
           }
@@ -345,7 +312,7 @@ export default function GamePage() {
     return () => {
       supabase?.removeChannel(channel)
     }
-  }, [gameId, user, playerColor, updateGameState, gameOver, addReaction, opponentJoined])
+  }, [gameId, user, playerColor, updateGameState, gameOver])
 
   const makeMove = useCallback((from: string, to: string, promotion?: string) => {
     if (!isMyTurn || !gameId || gameOver || !supabase) return false
@@ -361,6 +328,8 @@ export default function GamePage() {
 
       const newPgn = g.pgn()
       lastPgnRef.current = newPgn
+      const prevPgn = gameRef.current.pgn()
+      const wasMyTurn = isMyTurn
       updateGameState(g)
       setIsMyTurn(false)
 
@@ -387,9 +356,28 @@ export default function GamePage() {
           : 'draw'
       }
 
-      supabase.from('games').update(updateData).eq('id', gameId).then(({ error }) => {
-        if (error) console.error('Move sync error:', error)
-      })
+      // Sync to Supabase with retry (async, doesn't block UI)
+      ;(async () => {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { error } = await supabase!.from('games').update(updateData).eq('id', gameId!)
+          if (!error) {
+            useReactionStore.getState().resetMoveCounter()
+            return
+          }
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+          }
+        }
+        // All retries failed — rollback local state
+        try {
+          const rollback = new Chess()
+          if (prevPgn) rollback.loadPgn(prevPgn)
+          updateGameState(rollback)
+          lastPgnRef.current = prevPgn || ''
+          setIsMyTurn(wasMyTurn)
+          addToast('Ошибка синхронизации хода. Попробуйте ещё раз.', 'error')
+        } catch { /* ignore rollback errors */ }
+      })()
 
       if (!gameOverNow) {
         soundManager.play(result.captured ? 'capture' : 'move')
@@ -397,12 +385,11 @@ export default function GamePage() {
         soundManager.play('checkmate')
       }
 
-      useReactionStore.getState().resetMoveCounter()
       return true
     } catch {
       return false
     }
-  }, [isMyTurn, gameId, gameOver, supabase, updateGameState])
+  }, [isMyTurn, gameId, gameOver, supabase, updateGameState, addToast])
 
   const onDrop = useCallback((from: string, to: string) => {
     if (!isMyTurn || gameOver) return false
@@ -454,13 +441,17 @@ export default function GamePage() {
 
   const handleResign = async () => {
     if (!gameId || !supabase || !playerColor || gameOver) return
-    await supabase.from('games').update({
-      game_state: 'game_over',
-      winner: playerColor === 'w' ? 'black' : 'white',
-      message: 'resign',
-    }).eq('id', gameId)
-    setGameOver(true)
-    setResultText('Вы сдались')
+    try {
+      await supabase.from('games').update({
+        game_state: 'game_over',
+        winner: playerColor === 'w' ? 'black' : 'white',
+        message: 'resign',
+      }).eq('id', gameId)
+      setGameOver(true)
+      setResultText('Вы сдались')
+    } catch {
+      addToast('Ошибка при сдаче', 'error')
+    }
   }
 
   const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
@@ -468,6 +459,8 @@ export default function GamePage() {
     setReactionPos({ x: clientX, y: clientY })
     setShowReactionPicker(true)
   }
+
+  const localReactionsRef = useRef<Reaction[]>([])
 
   const handleEmojiSelect = async (emojiUrl: string) => {
     if (!gameId || !user || !supabase || !reactionSquare || !playerColor) return
@@ -489,89 +482,111 @@ export default function GamePage() {
     setShowReactionPicker(false)
     setReactionSquare(null)
 
-    const { data: gameData } = await supabase
-      .from('games')
-      .select('reactions')
-      .eq('id', gameId)
-      .single()
-
-    const existingReactions: Reaction[] = (gameData as any)?.reactions || []
-    const updatedReactions = [...existingReactions, reaction].slice(-20)
-
-    await supabase.from('games').update({
-      reactions: updatedReactions,
-    }).eq('id', gameId)
+    try {
+      // Track locally and write directly — no SELECT needed
+      localReactionsRef.current = [...localReactionsRef.current, reaction].slice(-20)
+      await supabase.from('games').update({
+        reactions: localReactionsRef.current,
+      }).eq('id', gameId)
+    } catch {
+      addToast('Ошибка отправки реакции', 'error')
+    }
   }
 
   const handleUndoRequest = async () => {
     if (!gameId || !user || !supabase || gameOver) return
     if (moveHistory.length === 0) return
-    const { error } = await supabase.from('games').update({
-      undo_request: { from_id: user.uid, created_at: Date.now() }
-    }).eq('id', gameId)
-    if (error) {
-      console.error('Undo request error:', error)
-      alert('Ошибка при отправке запроса: ' + error.message)
+    try {
+      const { error } = await supabase.from('games').update({
+        undo_request: { from_id: user.uid, created_at: Date.now() }
+      }).eq('id', gameId)
+      if (error) addToast('Ошибка при отправке запроса', 'error')
+    } catch {
+      addToast('Ошибка при отправке запроса', 'error')
     }
   }
 
   const handleAcceptUndo = async () => {
     if (!gameId || !user || !supabase || !undoRequest) return
-    const g = new Chess()
-    g.loadPgn(lastPgnRef.current)
-    g.undo()
-    
-    const newPgn = g.pgn()
-    const newFen = g.fen()
-    
-    await supabase.from('games').update({
-      pgn: newPgn,
-      fen: newFen,
-      turn: g.turn(),
-      undo_request: null
-    }).eq('id', gameId)
-    
-    updateGameState(g)
-    lastPgnRef.current = newPgn
-    setUndoRequest(null)
+    try {
+      const g = new Chess()
+      g.loadPgn(lastPgnRef.current)
+      g.undo()
+      
+      const newPgn = g.pgn()
+      const newFen = g.fen()
+      
+      await supabase.from('games').update({
+        pgn: newPgn,
+        fen: newFen,
+        turn: g.turn(),
+        undo_request: null
+      }).eq('id', gameId)
+      
+      updateGameState(g)
+      lastPgnRef.current = newPgn
+      setUndoRequest(null)
+    } catch {
+      addToast('Ошибка при отмене хода', 'error')
+    }
   }
 
   const handleRejectUndo = async () => {
     if (!gameId || !supabase) return
-    await supabase.from('games').update({ undo_request: null }).eq('id', gameId)
-    setUndoRequest(null)
+    try {
+      await supabase.from('games').update({ undo_request: null }).eq('id', gameId)
+      setUndoRequest(null)
+    } catch {
+      addToast('Ошибка сети', 'error')
+    }
   }
 
   const handleDrawRequest = async () => {
     if (!gameId || !user || !supabase || gameOver || !opponentJoined) return
-    await supabase.from('games').update({
-      draw_request: { from_id: user.uid, created_at: Date.now() }
-    }).eq('id', gameId)
+    try {
+      await supabase.from('games').update({
+        draw_request: { from_id: user.uid, created_at: Date.now() }
+      }).eq('id', gameId)
+    } catch {
+      addToast('Ошибка при предложении ничьей', 'error')
+    }
   }
 
   const handleAcceptDraw = async () => {
     if (!gameId || !supabase || !drawRequest) return
-    await supabase.from('games').update({
-      game_state: 'game_over',
-      winner: null,
-      message: 'draw',
-      draw_request: null
-    }).eq('id', gameId)
-    setDrawRequest(null)
+    try {
+      await supabase.from('games').update({
+        game_state: 'game_over',
+        winner: null,
+        message: 'draw',
+        draw_request: null
+      }).eq('id', gameId)
+      setDrawRequest(null)
+    } catch {
+      addToast('Ошибка при принятии ничьей', 'error')
+    }
   }
 
   const handleRejectDraw = async () => {
     if (!gameId || !supabase) return
-    await supabase.from('games').update({ draw_request: null }).eq('id', gameId)
-    setDrawRequest(null)
+    try {
+      await supabase.from('games').update({ draw_request: null }).eq('id', gameId)
+      setDrawRequest(null)
+    } catch {
+      addToast('Ошибка сети', 'error')
+    }
   }
 
   const handleRematchRequest = async () => {
     if (!gameId || !user || !supabase || !gameOver) return
-    const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
-    await supabase.from('games').update({
-      rematch_request: { from_id: user.uid, proposed_room_id: newCode, created_at: Date.now() }
-    }).eq('id', gameId)
+    try {
+      const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+      await supabase.from('games').update({
+        rematch_request: { from_id: user.uid, proposed_room_id: newCode, created_at: Date.now() }
+      }).eq('id', gameId)
+    } catch {
+      addToast('Ошибка при запросе реванша', 'error')
+    }
   }
 
   const handleAcceptRematch = async () => {
@@ -579,33 +594,44 @@ export default function GamePage() {
     
     const newRoomCode = rematchRequest.proposed_room_id
     
-    const { error: insertError } = await supabase.from('games').insert({
-      room_code: newRoomCode,
-      white_player_id: playerColor === 'b' ? user.uid : null,
-      white_name: playerColor === 'b' ? user.displayName : '',
-      black_player_id: playerColor === 'w' ? user.uid : null,
-      black_name: playerColor === 'w' ? user.displayName : '',
-      game_type: 'online',
-      pgn: new Chess().pgn(),
-      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-      turn: 'w',
-      game_state: 'playing',
-    })
+    try {
+      // Clear rematch_request first, then create new game
+      await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
+      
+      const { error: insertError } = await supabase.from('games').insert({
+        room_code: newRoomCode,
+        white_player_id: playerColor === 'b' ? user.uid : null,
+        white_name: playerColor === 'b' ? user.displayName : '',
+        black_player_id: playerColor === 'w' ? user.uid : null,
+        black_name: playerColor === 'w' ? user.displayName : '',
+        game_type: 'online',
+        pgn: new Chess().pgn(),
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        turn: 'w',
+        game_state: 'playing',
+      })
 
-    if (insertError) {
-      console.error('Rematch error:', insertError)
-      return
+      if (insertError) {
+        console.error('Rematch error:', insertError)
+        addToast('Ошибка при создании реванша', 'error')
+        return
+      }
+
+      setRematchRequest(null)
+      navigate(`/game/${newRoomCode}`)
+    } catch {
+      addToast('Ошибка при создании реванша', 'error')
     }
-
-    await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
-    setRematchRequest(null)
-    navigate(`/game/${newRoomCode}`)
   }
 
   const handleRejectRematch = async () => {
     if (!gameId || !supabase) return
-    await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
-    setRematchRequest(null)
+    try {
+      await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
+      setRematchRequest(null)
+    } catch {
+      addToast('Ошибка сети', 'error')
+    }
   }
 
   const statusClasses: Record<string, string> = {

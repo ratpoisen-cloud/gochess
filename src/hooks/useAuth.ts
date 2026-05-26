@@ -64,11 +64,20 @@ export function useAuth() {
       return
     }
 
+    let cancelled = false
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      handleUserChange(session?.user || null)
-      setLoading(false)
-    })
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (cancelled) return
+        handleUserChange(session?.user || null)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setError('Ошибка подключения к серверу')
+        setLoading(false)
+      })
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -76,7 +85,10 @@ export function useAuth() {
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [handleUserChange, setLoading])
 
   const signInWithGoogle = async () => {

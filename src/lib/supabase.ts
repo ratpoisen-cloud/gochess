@@ -9,5 +9,11 @@ if (!isConfigured) {
   console.warn('Supabase credentials not set. Auth features will be disabled.')
 }
 
-export const supabase = isConfigured ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null
+export const supabase = isConfigured
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      realtime: {
+        heartbeatIntervalMs: 15000,
+      },
+    })
+  : null
 export { isConfigured }

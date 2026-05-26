@@ -80,15 +80,19 @@ export default function LobbyPage() {
       setRecentGames([])
       return
     }
-    supabase
-      .from('games')
-      .select('*')
-      .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
-      .order('created_at', { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await supabase!
+          .from('games')
+          .select('*')
+          .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
+          .order('created_at', { ascending: false })
+          .limit(10)
         if (data) setRecentGames(data)
-      })
+      } catch {
+        console.error('Failed to load recent games')
+      }
+    })()
   }, [user])
 
   const handleGameClick = (game: any) => {

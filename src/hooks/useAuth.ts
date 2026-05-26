@@ -33,6 +33,9 @@ const mapAuthError = (err: any) => {
   if (message.includes('User already registered')) {
     return new Error('Эта почта уже зарегистрирована')
   }
+  if (message.includes('Email not confirmed')) {
+    return new Error('Подтвердите email перед входом. Проверьте почту.')
+  }
   return err
 }
 

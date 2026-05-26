@@ -38,6 +38,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return
     }
 
+    if (!isLogin && password.length < 6) {
+      addToast('Пароль должен быть не менее 6 символов', 'warning')
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     try {
       if (isLogin) {

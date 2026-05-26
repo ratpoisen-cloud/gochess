@@ -684,7 +684,7 @@ export default function GamePage() {
                 {/* Right: Turn Status */}
                 <div className="text-right">
                   <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                    isMyTurn ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
+                    isMyTurn ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
                   }`}>
                     {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
                   </span>

@@ -13,3 +13,5 @@ agents/tools/__pycache__/
 *.log
 Poisen Agent Studio.app/
 screenshots/
+opencode.json
+.opencode/

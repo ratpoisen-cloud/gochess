@@ -153,7 +153,12 @@ export default function GamePage() {
           opponentJoinedRef.current = !!data.white_player_id
           setIsMyTurn(data.turn === 'b')
         } else if (!data.black_player_id || !data.white_player_id) {
-          // Join via atomic RPC to prevent race conditions
+          // Try atomic RPC first, fall back to direct UPDATE
+          let joined = false
+          let joinColor: 'w' | 'b' = 'b'
+          let joinOpponent = ''
+
+          // Try RPC
           const { data: joinResult, error: joinError } = await sb.rpc(
             'join_game_player_with_color',
             {
@@ -163,7 +168,48 @@ export default function GamePage() {
             }
           )
 
-          if (joinError || !joinResult) {
+          if (!joinError && joinResult) {
+            let parsed: any
+            try { parsed = JSON.parse(typeof joinResult === 'string' ? joinResult : JSON.stringify(joinResult)) } catch { parsed = joinResult }
+            if (parsed && !parsed.error) {
+              joined = true
+              joinColor = (parsed.color || 'b') as 'w' | 'b'
+              joinOpponent = parsed.opponent_name || ''
+            }
+          }
+
+          // Fallback: direct UPDATE if RPC failed (e.g., PostgREST cache miss)
+          if (!joined) {
+            if (!data.black_player_id) {
+              const { error: updateError } = await sb
+                .from('games')
+                .update({
+                  black_player_id: user.uid,
+                  black_name: user.displayName,
+                })
+                .eq('id', data.id)
+              if (!updateError) {
+                joined = true
+                joinColor = 'b'
+                joinOpponent = data.white_name || ''
+              }
+            } else if (!data.white_player_id) {
+              const { error: updateError } = await sb
+                .from('games')
+                .update({
+                  white_player_id: user.uid,
+                  white_name: user.displayName,
+                })
+                .eq('id', data.id)
+              if (!updateError) {
+                joined = true
+                joinColor = 'w'
+                joinOpponent = data.black_name || ''
+              }
+            }
+          }
+
+          if (!joined) {
             if (!cancelled) {
               setError('Не удалось присоединиться к игре')
               setLoading(false)
@@ -171,23 +217,12 @@ export default function GamePage() {
             return
           }
 
-          let parsed: any
-          try { parsed = JSON.parse(typeof joinResult === 'string' ? joinResult : JSON.stringify(joinResult)) } catch { parsed = joinResult }
-          if (parsed.error) {
-            if (!cancelled) {
-              setError(parsed.error)
-              setLoading(false)
-            }
-            return
-          }
-
           if (!cancelled) {
-            const color = (parsed.color || 'b') as 'w' | 'b'
-            setPlayerColor(color)
-            setOpponentName(parsed.opponent_name || '')
+            setPlayerColor(joinColor)
+            setOpponentName(joinOpponent)
             setOpponentJoined(false)
             opponentJoinedRef.current = false
-            setIsMyTurn(color === 'w')
+            setIsMyTurn(joinColor === 'w')
           }
         } else {
           if (!cancelled) {

@@ -121,7 +121,7 @@ export default function GamePage() {
       try {
         const { data, error: fetchError } = await sb
           .from('games')
-          .select('*')
+          .select('id,room_code,pgn,game_state,turn,message,winner,white_player_id,black_player_id,white_name,black_name,undo_request,draw_request,rematch_request,reactions')
           .eq('room_code', roomCode)
           .maybeSingle()
 

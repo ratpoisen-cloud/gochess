@@ -75,24 +75,54 @@ export default function LobbyPage() {
     }
   }, [displayedChars, initialLoading, animationPhase])
 
+  const GAME_LIST_COLUMNS = 'id,room_code,fen,game_state,created_at,turn,message,game_type,winner,white_player_id,black_player_id,white_name,black_name'
+
   useEffect(() => {
     if (!user || !supabase) {
       setRecentGames([])
       return
     }
-    ;(async () => {
+
+    // Show cached games immediately
+    try {
+      const cached = localStorage.getItem(`gochess-recent-${user.uid}`)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed)) setRecentGames(parsed)
+      }
+    } catch { /* ignore */ }
+
+    let cancelled = false
+
+    const fetchWithRetry = async (attempt: number): Promise<void> => {
       try {
         const { data } = await supabase!
           .from('games')
-          .select('*')
+          .select(GAME_LIST_COLUMNS)
           .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
           .order('created_at', { ascending: false })
           .limit(10)
-        if (data) setRecentGames(data)
-      } catch {
-        console.error('Failed to load recent games')
+
+        if (cancelled) return
+
+        if (data) {
+          setRecentGames(data)
+          localStorage.setItem(`gochess-recent-${user.uid}`, JSON.stringify(data))
+        }
+      } catch (err) {
+        if (cancelled) return
+        if (attempt < 3) {
+          const delay = attempt === 1 ? 1000 : 2000
+          await new Promise(r => setTimeout(r, delay))
+          return fetchWithRetry(attempt + 1)
+        }
+        console.error('Failed to load recent games after 3 retries')
       }
-    })()
+    }
+
+    fetchWithRetry(1)
+
+    return () => { cancelled = true }
   }, [user])
 
   const handleGameClick = (game: any) => {

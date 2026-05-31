@@ -33,7 +33,7 @@ export default function ChessBoard({
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
-  const longPressTimer = useRef<any>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reactionEmojis = useReactionStore((s) => s.reactions)
 
   const handleContextMenu = useCallback((square: string, e: React.MouseEvent) => {
@@ -81,6 +81,7 @@ export default function ChessBoard({
 
   // Active moves: priority = selected > hover
   const activeMoveDetails = selectedSquare ? selectedMoveDetails : hoveredMoveDetails
+  const isCheckmate = game.isCheckmate()
 
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
@@ -136,14 +137,13 @@ export default function ChessBoard({
         customPieces={customPieces}
         animationDuration={animationDuration}
         customNotationStyle={{ fontSize: boardWidth ? Math.round(boardWidth / 64) : 12 }}
-        customSquare={({ square, children, style }: any) => {
+        customSquare={({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
           const activeMove = activeMoveDetails.find(m => m.to === square)
           const isActiveMove = !!activeMove
           const isActiveCapture = activeMove && (activeMove.flags.includes('c') || activeMove.flags.includes('e'))
           const isSelected = selectedSquare === square
           const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square)
           const isCheck = checkSquare === square
-          const isCheckmate = game.isCheckmate()
 
           return (
             <div
@@ -155,7 +155,7 @@ export default function ChessBoard({
                 ${isCheck ? 'highlight-check' : ''}
               `}
               onMouseEnter={() => {
-                const piece = game.get(square)
+                const piece = game.get(square as any)
                 if (piece) setHoveredSquare(square)
               }}
               onMouseLeave={() => setHoveredSquare(null)}

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Chess, type Move } from 'chess.js'
 import { supabase } from '@/lib/supabase'
+import type { RealtimeChannel } from '@supabase/realtime-js'
 import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
@@ -63,7 +64,7 @@ export default function GamePage() {
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
   const gameRef = useRef(game)
-  const channelRef = useRef<any>(null)
+  const channelRef = useRef<RealtimeChannel | null>(null)
   const lastPgnRef = useRef('')
   const opponentJoinedRef = useRef(false)
 
@@ -546,6 +547,7 @@ export default function GamePage() {
     try {
       const g = new Chess()
       g.loadPgn(lastPgnRef.current)
+      g.undo()
       g.undo()
       
       const newPgn = g.pgn()

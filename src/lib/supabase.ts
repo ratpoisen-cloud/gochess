@@ -12,7 +12,7 @@ if (!isConfigured) {
 export const supabase = isConfigured
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       db: {
-        timeout: 20000,
+        timeout: 60000,
       },
       realtime: {
         heartbeatIntervalMs: 15000,

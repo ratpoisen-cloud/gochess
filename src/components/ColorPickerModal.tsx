@@ -56,7 +56,7 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
     }
 
     try {
-      // Retry on unique constraint violation (room_code collision)
+      // Retry on any error (timeout, Cloudflare cold start, unique constraint)
       for (let attempt = 0; attempt < 3; attempt++) {
         const c = attempt === 0 ? code : generateRoomCode()
         const { error } = await supabase.from('games').insert({ ...roomData, room_code: c })
@@ -68,12 +68,15 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
           return
         }
 
-        // Only retry on unique violation (PostgreSQL code 23505)
-        if (error && error.code !== '23505') {
-          console.error('[Room] INSERT error:', error)
-          addToast('Ошибка создания комнаты', 'error')
-          setCreating(false)
-          return
+        console.error(`[Room] INSERT attempt ${attempt + 1} failed:`, error?.code || error?.message || error)
+
+        // Unique violation — retry with new room code
+        if (error && error.code === '23505') continue
+
+        // Network error / timeout — retry with backoff
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
+          continue
         }
       }
       addToast('Ошибка создания комнаты. Попробуйте ещё раз.', 'error')

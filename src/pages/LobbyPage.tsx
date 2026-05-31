@@ -81,6 +81,14 @@ export default function LobbyPage() {
     supabase.from('games').select('id').limit(1).maybeSingle()
   }, [])
 
+  // Keepalive WebSocket — prevents Supabase free tier from going cold
+  useEffect(() => {
+    if (!supabase) return
+    const channel = supabase!.channel('keepalive')
+    channel.subscribe()
+    return () => { supabase!.removeChannel(channel) }
+  }, [])
+
   const GAME_LIST_COLUMNS = 'id,room_code,fen,game_state,created_at,turn,message,game_type,winner,white_player_id,black_player_id,white_name,black_name'
 
   useEffect(() => {

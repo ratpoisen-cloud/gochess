@@ -75,6 +75,12 @@ export default function LobbyPage() {
     }
   }, [displayedChars, initialLoading, animationPhase])
 
+  // Warm up Supabase connection immediately — wakes up PostgREST + passes Cloudflare challenge
+  useEffect(() => {
+    if (!supabase) return
+    supabase.from('games').select('id').limit(1).maybeSingle()
+  }, [])
+
   const GAME_LIST_COLUMNS = 'id,room_code,fen,game_state,created_at,turn,message,game_type,winner,white_player_id,black_player_id,white_name,black_name'
 
   useEffect(() => {

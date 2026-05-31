@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { 
   onAuthStateChanged, 
   signInWithRedirect, 
+  getRedirectResult,
   GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -74,6 +75,18 @@ export function useAuth() {
 
     return () => unsubscribe()
   }, [handleUserChange, setLoading])
+
+  useEffect(() => {
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        handleUserChange(result.user)
+      }
+    }).catch((err) => {
+      if (err.code !== 'auth/no-such-provider') {
+        console.error('[Auth] Redirect result error:', err)
+      }
+    })
+  }, [handleUserChange])
 
   const signInWithGoogle = async () => {
     setError(null)

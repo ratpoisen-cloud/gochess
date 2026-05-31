@@ -501,6 +501,16 @@ export default function GamePage() {
     }
   }
 
+  if (loading && !user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-bg p-6 text-center">
+        <h2 className="text-xl font-bold text-text mb-4">Войдите, чтобы играть</h2>
+        <p className="text-text-secondary text-sm mb-6">Для игры по сети необходима авторизация</p>
+        <Button onClick={() => navigate('/')}>Вернуться в лобби</Button>
+      </div>
+    )
+  }
+
   if (loading) return <LoadingScreen isLoading={true} />
   if (error) {
     return (

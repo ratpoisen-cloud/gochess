@@ -118,7 +118,7 @@ export default function GamePage() {
     const sb = supabase!
     let cancelled = false
 
-    const load = async () => {
+    const load = async (attempt = 1) => {
       try {
         const { data, error: fetchError } = await sb
           .from('games')
@@ -258,6 +258,11 @@ export default function GamePage() {
       } catch (err) {
         console.error('[Game] Load exception:', err)
         if (!cancelled) {
+          if (attempt < 3) {
+            const delay = attempt === 1 ? 1000 : 2000
+            await new Promise(r => setTimeout(r, delay))
+            return load(attempt + 1)
+          }
           setError('Ошибка загрузки игры')
           setLoading(false)
         }
@@ -265,7 +270,7 @@ export default function GamePage() {
     }
 
     loadGameRef.current = load
-    load()
+    load(1)
 
     return () => {
       cancelled = true

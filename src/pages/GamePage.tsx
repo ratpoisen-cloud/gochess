@@ -64,6 +64,7 @@ export default function GamePage() {
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
   const gameRef = useRef(game)
+  const loadGameRef = useRef<(() => Promise<void>) | null>(null)
   const channelRef = useRef<RealtimeChannel | null>(null)
   const lastPgnRef = useRef('')
   const opponentJoinedRef = useRef(false)
@@ -263,6 +264,7 @@ export default function GamePage() {
       }
     }
 
+    loadGameRef.current = load
     load()
 
     return () => {
@@ -693,7 +695,14 @@ export default function GamePage() {
       <div className="min-h-[100dvh] flex items-center justify-center bg-bg">
         <div className="text-center space-y-[var(--space-16)]">
           <p className="text-[var(--danger)] text-[var(--font-size-sm)]">{error}</p>
-          <Button onClick={() => navigate('/')}>В лобби</Button>
+          <div className="flex gap-[var(--space-12)] justify-center">
+            <Button onClick={() => navigate('/')}>В лобби</Button>
+            <Button onClick={async () => {
+              setError(null)
+              setLoading(true)
+              await loadGameRef.current?.()
+            }}>Повторить</Button>
+          </div>
         </div>
       </div>
     )

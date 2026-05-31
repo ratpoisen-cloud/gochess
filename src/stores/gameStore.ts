@@ -8,6 +8,7 @@ import { useAuthStore } from './authStore'
 
 interface GameState {
   game: Chess
+  fen: string
   status: GameStatus
   currentTurn: Color
   selectedSquare: string | null
@@ -49,6 +50,7 @@ export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       game: new Chess(),
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       status: 'playing',
       currentTurn: 'w',
       selectedSquare: null,
@@ -61,8 +63,10 @@ export const useGameStore = create<GameState>()(
       checkSquare: null,
 
       initGame: () => {
+        const game = new Chess()
         set({
-          game: new Chess(),
+          game,
+          fen: game.fen(),
           status: 'playing',
           currentTurn: 'w',
           selectedSquare: null,
@@ -97,6 +101,7 @@ export const useGameStore = create<GameState>()(
           }
 
           set({
+            fen: game.fen(),
             status: game.isCheckmate() ? 'checkmate'
               : game.isStalemate() ? 'stalemate'
               : game.isDraw() ? 'draw'
@@ -158,6 +163,7 @@ export const useGameStore = create<GameState>()(
         const { game } = get()
         game.undo()
         set({
+          fen: game.fen(),
           status: game.inCheck() ? 'check' : 'playing',
           currentTurn: game.turn() as Color,
           moveHistory: game.history(),
@@ -235,13 +241,11 @@ export const useGameStore = create<GameState>()(
           try {
             const data = JSON.parse(str)
             const chess = new Chess()
-            if (data.state.moveHistory && Array.isArray(data.state.moveHistory)) {
+            if (data.state.fen) {
+              try { chess.load(data.state.fen) } catch { /* ignore */ }
+            } else if (data.state.moveHistory && Array.isArray(data.state.moveHistory)) {
               for (const m of data.state.moveHistory) {
-                try {
-                  chess.move(m)
-                } catch {
-                  break
-                }
+                try { chess.move(m) } catch { break }
               }
             }
             return {

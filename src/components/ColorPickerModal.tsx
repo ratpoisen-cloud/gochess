@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Modal from './Modal'
 import Button from './Button'
 import { useToast } from './Toast'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/firebase'
+import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 
 function generateRoomCode(): string {
@@ -30,7 +31,7 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
   const [tempColor, setTempColor] = useState<ColorChoice>('w')
 
   const handleStartGame = async () => {
-    if (!user || !supabase) {
+    if (!user) {
       addToast('Необходимо авторизоваться', 'warning')
       return
     }
@@ -41,49 +42,50 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
       ? (Math.random() < 0.5 ? 'w' : 'b')
       : tempColor
 
-    const code = generateRoomCode()
-    const roomData = {
-      room_code: code,
-      white_player_id: assignedColor === 'w' ? user.uid : null,
-      white_name: assignedColor === 'w' ? (user.displayName || 'Игрок') : '',
-      black_player_id: assignedColor === 'b' ? user.uid : null,
-      black_name: assignedColor === 'b' ? (user.displayName || 'Игрок') : '',
-      game_type: 'online',
-      pgn: '',
-      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-      game_state: 'active',
-      turn: 'w',
-    }
-
     try {
-      // Retry on any error (timeout, Cloudflare cold start, unique constraint)
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const c = attempt === 0 ? code : generateRoomCode()
-        const { error } = await supabase.from('games').insert({ ...roomData, room_code: c })
+      let code = ''
+      let isUnique = false
+      let attempts = 0
 
-        if (!error) {
-          setCreating(false)
-          onClose()
-          navigate(`/game/${c}`)
-          return
+      // Find a unique room code
+      while (!isUnique && attempts < 5) {
+        code = generateRoomCode()
+        const q = query(collection(db, 'games'), where('room_code', '==', code), limit(1))
+        const snapshot = await getDocs(q)
+        if (snapshot.empty) {
+          isUnique = true
         }
-
-        console.error(`[Room] INSERT attempt ${attempt + 1} failed:`, error?.code || error?.message || error)
-
-        // Unique violation — retry with new room code
-        if (error && error.code === '23505') continue
-
-        // Network error / timeout — retry with backoff
-        if (attempt < 2) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)))
-          continue
-        }
+        attempts++
       }
-      addToast('Ошибка создания комнаты. Попробуйте ещё раз.', 'error')
+
+      if (!isUnique) throw new Error('Не удалось сгенерировать уникальный код')
+
+      const roomData = {
+        room_code: code,
+        white_player_id: assignedColor === 'w' ? user.uid : null,
+        white_name: assignedColor === 'w' ? (user.displayName || 'Игрок') : '',
+        black_player_id: assignedColor === 'b' ? user.uid : null,
+        black_name: assignedColor === 'b' ? (user.displayName || 'Игрок') : '',
+        game_type: 'online',
+        pgn: '',
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        game_state: 'active',
+        turn: 'w',
+        created_at: serverTimestamp(),
+        reactions: [],
+        undo_request: null,
+        draw_request: null,
+        rematch_request: null
+      }
+
+      await addDoc(collection(db, 'games'), roomData)
+
       setCreating(false)
-    } catch (err) {
-      console.error('[Room] Exception:', err)
-      addToast('Ошибка создания комнаты', 'error')
+      onClose()
+      navigate(`/game/${code}`)
+    } catch (err: any) {
+      console.error('[Room] Error creating game:', err)
+      addToast('Ошибка создания комнаты: ' + (err.message || ''), 'error')
       setCreating(false)
     }
   }

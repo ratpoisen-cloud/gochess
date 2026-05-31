@@ -3,12 +3,12 @@ import { persist } from 'zustand/middleware'
 import { Chess, type Move } from 'chess.js'
 import type { GameStatus, Color } from '@/types'
 import { soundManager } from '@/lib/soundManager'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/firebase'
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuthStore } from './authStore'
 
 interface GameState {
   game: Chess
-  fen: string
   status: GameStatus
   currentTurn: Color
   selectedSquare: string | null
@@ -50,7 +50,6 @@ export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       game: new Chess(),
-      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       status: 'playing',
       currentTurn: 'w',
       selectedSquare: null,
@@ -63,10 +62,8 @@ export const useGameStore = create<GameState>()(
       checkSquare: null,
 
       initGame: () => {
-        const game = new Chess()
         set({
-          game,
-          fen: game.fen(),
+          game: new Chess(),
           status: 'playing',
           currentTurn: 'w',
           selectedSquare: null,
@@ -101,7 +98,6 @@ export const useGameStore = create<GameState>()(
           }
 
           set({
-            fen: game.fen(),
             status: game.isCheckmate() ? 'checkmate'
               : game.isStalemate() ? 'stalemate'
               : game.isDraw() ? 'draw'
@@ -163,7 +159,6 @@ export const useGameStore = create<GameState>()(
         const { game } = get()
         game.undo()
         set({
-          fen: game.fen(),
           status: game.inCheck() ? 'check' : 'playing',
           currentTurn: game.turn() as Color,
           moveHistory: game.history(),
@@ -183,7 +178,7 @@ export const useGameStore = create<GameState>()(
       saveGame: async (gameType, botLevel) => {
         const { game, status } = get()
         const user = useAuthStore.getState().user
-        if (!user || !supabase) return
+        if (!user) return
 
         const winner = status === 'checkmate'
           ? (game.turn() === 'w' ? 'black' : 'white')
@@ -195,41 +190,37 @@ export const useGameStore = create<GameState>()(
 
         const moves = game.history({ verbose: true }) as Move[]
 
-        const { data: gameData, error: gameError } = await supabase
-          .from('games')
-          .insert({
+        try {
+          const gameRef = await addDoc(collection(db, 'games'), {
             white_player_id: user.uid,
             white_name: user.displayName,
             black_name: gameType === 'bot' ? 'Ичи' : 'Чёрные',
             game_type: gameType,
-            bot_level: botLevel,
+            bot_level: botLevel || null,
             pgn: game.pgn(),
             fen: game.fen(),
             game_state: 'game_over',
             turn: game.turn(),
             winner,
             message,
+            created_at: serverTimestamp(),
+            // Store moves as a subcollection or nested array
+            // For simplicity in this migration, let's use a nested array for history
+            move_history_verbose: moves.map((m, i) => ({
+              move_number: i + 1,
+              from: m.from,
+              to: m.to,
+              piece: m.piece,
+              captured: m.captured || null,
+              promotion: m.promotion || null,
+              san: m.san,
+              fen_after: m.after,
+            }))
           })
-          .select('id')
-          .single()
-
-        if (gameError || !gameData) return
-
-        const moveRows = moves.map((m, i) => ({
-          game_id: gameData.id,
-          move_number: i + 1,
-          from_square: m.from,
-          to_square: m.to,
-          piece: m.piece,
-          captured: m.captured || null,
-          promotion: m.promotion || null,
-          san: m.san,
-          is_check: false,
-          is_checkmate: false,
-          fen_after: m.after,
-        }))
-
-        await supabase.from('moves').insert(moveRows)
+          console.log('[Store] Game saved to Firestore:', gameRef.id)
+        } catch (err) {
+          console.error('[Store] Error saving game:', err)
+        }
       },
     }),
     {
@@ -241,11 +232,13 @@ export const useGameStore = create<GameState>()(
           try {
             const data = JSON.parse(str)
             const chess = new Chess()
-            if (data.state.fen) {
-              try { chess.load(data.state.fen) } catch { /* ignore */ }
-            } else if (data.state.moveHistory && Array.isArray(data.state.moveHistory)) {
+            if (data.state.moveHistory && Array.isArray(data.state.moveHistory)) {
               for (const m of data.state.moveHistory) {
-                try { chess.move(m) } catch { break }
+                try {
+                  chess.move(m)
+                } catch {
+                  break
+                }
               }
             }
             return {
@@ -261,12 +254,11 @@ export const useGameStore = create<GameState>()(
           }
         },
         setItem: (name, value) => {
-          // Serialize only the state, the game object will be handled by FEN/history during hydration
           localStorage.setItem(name, JSON.stringify(value))
         },
         removeItem: (name) => localStorage.removeItem(name),
       },
-      // @ts-expect-error - partialize excludes 'game' which is required by GameState type
+      // @ts-expect-error - partialize excludes 'game'
       partialize: (state) => {
         const { game, ...rest } = state
         return rest

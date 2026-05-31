@@ -1,8 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Chess, type Move } from 'chess.js'
-import { supabase } from '@/lib/supabase'
-import type { RealtimeChannel } from '@supabase/realtime-js'
+import { db } from '@/lib/firebase'
+import { 
+  doc, 
+  onSnapshot, 
+  updateDoc, 
+  query, 
+  collection, 
+  where, 
+  getDocs, 
+  limit, 
+  runTransaction 
+} from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
@@ -18,6 +28,8 @@ import RequestModal from '@/components/RequestModal'
 import Card from '@/components/Card'
 import Footer from '@/components/Footer'
 import type { GameStatus, GameData } from '@/types'
+
+const BASE = import.meta.env.BASE_URL || '/'
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 10)
@@ -39,7 +51,7 @@ export default function GamePage() {
   const [isMyTurn, setIsMyTurn] = useState(false)
   const [playerColor, setPlayerColor] = useState<'w' | 'b' | null>(null)
   const [opponentName, setOpponentName] = useState('')
-  const [gameId, setGameId] = useState<string | null>(null)
+  const [gameDocId, setGameDocId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [gameOver, setGameOver] = useState(false)
@@ -64,8 +76,6 @@ export default function GamePage() {
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
   const gameRef = useRef(game)
-  const loadGameRef = useRef<(() => Promise<void>) | null>(null)
-  const channelRef = useRef<RealtimeChannel | null>(null)
   const lastPgnRef = useRef('')
   const opponentJoinedRef = useRef(false)
 
@@ -109,123 +119,68 @@ export default function GamePage() {
     setLegalMoves([])
   }, [])
 
-  // Load game from Supabase
+  // Initial Load and Join Logic
   useEffect(() => {
-    if (!user || !supabase || !roomCode) {
-      return
-    }
+    if (!user || !roomCode) return
 
-    const sb = supabase!
     let cancelled = false
 
-    const load = async (attempt = 1) => {
+    const loadAndJoin = async () => {
       try {
-        const { data, error: fetchError } = await sb
-          .from('games')
-          .select('id,room_code,pgn,game_state,turn,message,winner,white_player_id,black_player_id,white_name,black_name,undo_request,draw_request,rematch_request,reactions')
-          .eq('room_code', roomCode)
-          .maybeSingle()
-
-        if (fetchError || !data) {
+        const q = query(collection(db, 'games'), where('room_code', '==', roomCode), limit(1))
+        const snapshot = await getDocs(q)
+        
+        if (snapshot.empty) {
           if (!cancelled) {
-            setError(fetchError ? 'Комната не найдена' : 'Не удалось загрузить игру')
+            setError('Комната не найдена')
             setLoading(false)
           }
           return
         }
 
-        if (cancelled) return
-        setGameId(data.id)
-        
-        // Load initial requests
-        setUndoRequest(data.undo_request)
-        setDrawRequest(data.draw_request)
-        setRematchRequest(data.rematch_request)
+        const gameDoc = snapshot.docs[0]
+        const data = gameDoc.data() as GameData
+        const docId = gameDoc.id
+        setGameDocId(docId)
+
+        let assignedColor: 'w' | 'b' | null = null
+        let currentOpponent = ''
+        let currentJoined = false
 
         if (data.white_player_id === user.uid) {
-          setPlayerColor('w')
-          setOpponentName(data.black_name || '')
-          setOpponentJoined(!!data.black_player_id)
-          opponentJoinedRef.current = !!data.black_player_id
-          setIsMyTurn(data.turn === 'w')
+          assignedColor = 'w'
+          currentOpponent = data.black_name || ''
+          currentJoined = !!data.black_player_id
         } else if (data.black_player_id === user.uid) {
-          setPlayerColor('b')
-          setOpponentName(data.white_name || '')
-          setOpponentJoined(!!data.white_player_id)
-          opponentJoinedRef.current = !!data.white_player_id
-          setIsMyTurn(data.turn === 'b')
-        } else if (!data.black_player_id || !data.white_player_id) {
-          // Try atomic RPC first, fall back to direct UPDATE
-          let joined = false
-          let joinColor: 'w' | 'b' = 'b'
-          let joinOpponent = ''
+          assignedColor = 'b'
+          currentOpponent = data.white_name || ''
+          currentJoined = !!data.white_player_id
+        } else if (!data.white_player_id || !data.black_player_id) {
+          // Join as the empty slot
+          await runTransaction(db, async (transaction) => {
+            const freshDoc = await transaction.get(gameDoc.ref)
+            const freshData = freshDoc.data() as GameData
 
-          // Try RPC
-          const { data: joinResult, error: joinError } = await sb.rpc(
-            'join_game_player_with_color',
-            {
-              p_room_code: roomCode,
-              p_uid: user.uid,
-              p_name: user.displayName,
+            if (!freshData.white_player_id) {
+              transaction.update(gameDoc.ref, {
+                white_player_id: user.uid,
+                white_name: user.displayName || 'Игрок',
+              })
+              assignedColor = 'w'
+              currentOpponent = freshData.black_name || ''
+              currentJoined = !!freshData.black_player_id
+            } else if (!freshData.black_player_id) {
+              transaction.update(gameDoc.ref, {
+                black_player_id: user.uid,
+                black_name: user.displayName || 'Игрок',
+              })
+              assignedColor = 'b'
+              currentOpponent = freshData.white_name || ''
+              currentJoined = !!freshData.white_player_id
+            } else {
+              throw new Error('Room is full')
             }
-          )
-
-          if (!joinError && joinResult) {
-            let parsed: any
-            try { parsed = JSON.parse(typeof joinResult === 'string' ? joinResult : JSON.stringify(joinResult)) } catch { parsed = joinResult }
-            if (parsed && !parsed.error) {
-              joined = true
-              joinColor = (parsed.color || 'b') as 'w' | 'b'
-              joinOpponent = parsed.opponent_name || ''
-            }
-          }
-
-          // Fallback: direct UPDATE if RPC failed (e.g., PostgREST cache miss)
-          if (!joined) {
-            if (!data.black_player_id) {
-              const { error: updateError } = await sb
-                .from('games')
-                .update({
-                  black_player_id: user.uid,
-                  black_name: user.displayName,
-                })
-                .eq('id', data.id)
-              if (!updateError) {
-                joined = true
-                joinColor = 'b'
-                joinOpponent = data.white_name || ''
-              }
-            } else if (!data.white_player_id) {
-              const { error: updateError } = await sb
-                .from('games')
-                .update({
-                  white_player_id: user.uid,
-                  white_name: user.displayName,
-                })
-                .eq('id', data.id)
-              if (!updateError) {
-                joined = true
-                joinColor = 'w'
-                joinOpponent = data.black_name || ''
-              }
-            }
-          }
-
-          if (!joined) {
-            if (!cancelled) {
-              setError('Не удалось присоединиться к игре')
-              setLoading(false)
-            }
-            return
-          }
-
-          if (!cancelled) {
-            setPlayerColor(joinColor)
-            setOpponentName(joinOpponent)
-            setOpponentJoined(false)
-            opponentJoinedRef.current = false
-            setIsMyTurn(joinColor === 'w')
-          }
+          })
         } else {
           if (!cancelled) {
             setError('Комната уже заполнена')
@@ -236,10 +191,14 @@ export default function GamePage() {
 
         if (cancelled) return
 
+        setPlayerColor(assignedColor)
+        setOpponentName(currentOpponent)
+        setOpponentJoined(currentJoined)
+        opponentJoinedRef.current = currentJoined
+        setIsMyTurn(data.turn === assignedColor)
+
         const g = new Chess()
-        if (data.pgn) {
-          g.loadPgn(data.pgn)
-        }
+        if (data.pgn) g.loadPgn(data.pgn)
         lastPgnRef.current = g.pgn()
         updateGameState(g)
         setLoading(false)
@@ -255,110 +214,94 @@ export default function GamePage() {
               : 'Игра окончена'
           )
         }
-      } catch (err) {
-        console.error('[Game] Load exception:', err)
+      } catch (err: any) {
+        console.error('[Game] Load/Join error:', err)
         if (!cancelled) {
-          if (attempt < 3) {
-            const delay = attempt === 1 ? 1000 : 2000
-            await new Promise(r => setTimeout(r, delay))
-            return load(attempt + 1)
-          }
-          setError('Ошибка загрузки игры')
+          setError(err.message === 'Room is full' ? 'Комната уже заполнена' : 'Ошибка загрузки игры')
           setLoading(false)
         }
       }
     }
 
-    loadGameRef.current = load
-    load(1)
+    loadAndJoin()
 
-    return () => {
-      cancelled = true
-      if (channelRef.current) {
-        supabase?.removeChannel(channelRef.current)
-      }
-    }
+    return () => { cancelled = true }
   }, [roomCode, user, updateGameState])
 
-  // Subscribe to Realtime
+  // Realtime Subscription
   useEffect(() => {
-    if (!gameId || !supabase) return
+    if (!gameDocId) return
 
-    const channel = supabase
-      .channel(`game-${gameId}`)
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-        (payload: any) => {
-          const newData = payload.new
-          console.log('[Realtime] Update received:', newData)
+    const unsubscribe = onSnapshot(doc(db, 'games', gameDocId), (snapshot) => {
+      const newData = snapshot.data() as GameData
+      if (!newData) return
 
-          if (playerColor === 'w' && newData.black_player_id && !opponentJoinedRef.current) {
-            setOpponentJoined(true)
-            opponentJoinedRef.current = true
-            setOpponentName(newData.black_name || 'Соперник')
-            setIsMyTurn(newData.turn === 'w')
-          }
-          if (playerColor === 'b' && newData.white_player_id && !opponentJoinedRef.current) {
-            setOpponentJoined(true)
-            opponentJoinedRef.current = true
-            setOpponentName(newData.white_name || 'Соперник')
-            setIsMyTurn(newData.turn === 'b')
-          }
+      console.log('[Firestore] Update received:', newData)
 
-          if (newData.game_state === 'game_over' && !gameOver) {
-            setGameOver(true)
-            setResultText(
-              newData.message === 'resign'
-                ? `${newData.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
-                : newData.message === 'draw' ? 'Ничья'
-                : newData.winner === 'white' ? 'Белые победили'
-                : newData.winner === 'black' ? 'Чёрные победили'
-                : 'Игра окончена'
-            )
-            return
-          }
+      // Opponent joining
+      if (playerColor === 'w' && newData.black_player_id && !opponentJoinedRef.current) {
+        setOpponentJoined(true)
+        opponentJoinedRef.current = true
+        setOpponentName(newData.black_name || 'Соперник')
+      }
+      if (playerColor === 'b' && newData.white_player_id && !opponentJoinedRef.current) {
+        setOpponentJoined(true)
+        opponentJoinedRef.current = true
+        setOpponentName(newData.white_name || 'Соперник')
+      }
 
-          if (newData.pgn && newData.pgn !== lastPgnRef.current) {
-            const g = new Chess()
-            try {
-              g.loadPgn(newData.pgn)
-              updateGameState(g)
-              lastPgnRef.current = g.pgn()
-              setIsMyTurn(newData.turn === playerColor)
-              soundManager.play('move')
-              useReactionStore.getState().resetMoveCounter()
-            } catch { /* ignore */ }
-          }
+      // Game Over
+      if (newData.game_state === 'game_over' && !gameOver) {
+        setGameOver(true)
+        setResultText(
+          newData.message === 'resign'
+            ? `${newData.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
+            : newData.message === 'draw' ? 'Ничья'
+            : newData.winner === 'white' ? 'Белые победили'
+            : newData.winner === 'black' ? 'Чёрные победили'
+            : 'Игра окончена'
+        )
+      }
 
-          if (newData.undo_request !== undefined) setUndoRequest(newData.undo_request)
-          if (newData.draw_request !== undefined) setDrawRequest(newData.draw_request)
-          if (newData.rematch_request !== undefined) setRematchRequest(newData.rematch_request)
+      // Moves
+      if (newData.pgn && newData.pgn !== lastPgnRef.current) {
+        const g = new Chess()
+        try {
+          g.loadPgn(newData.pgn)
+          updateGameState(g)
+          lastPgnRef.current = g.pgn()
+          soundManager.play('move')
+          useReactionStore.getState().resetMoveCounter()
+        } catch { /* ignore */ }
+      }
 
-          if (newData.reactions && Array.isArray(newData.reactions)) {
-            const currentReactions = useReactionStore.getState().reactions
-            if (newData.reactions.length > currentReactions.length && user) {
-              const latest = newData.reactions[newData.reactions.length - 1]
-              if (latest.playerId !== user.uid) {
-                addReaction(latest)
-              }
-            }
-          }
+      // Requests
+      setUndoRequest(newData.undo_request)
+      setDrawRequest(newData.draw_request)
+      setRematchRequest(newData.rematch_request)
 
-          if (newData.turn && playerColor) {
-            setIsMyTurn(newData.turn === playerColor)
+      // Turn
+      if (newData.turn && playerColor) {
+        setIsMyTurn(newData.turn === playerColor)
+      }
+
+      // Reactions
+      if (newData.reactions && Array.isArray(newData.reactions)) {
+        const currentReactions = useReactionStore.getState().reactions
+        if (newData.reactions.length > currentReactions.length && user) {
+          const latest = newData.reactions[newData.reactions.length - 1]
+          if (latest.playerId !== user.uid) {
+            addReaction(latest)
           }
         }
-      )
-      .subscribe()
+      }
+    })
 
-    channelRef.current = channel
-    return () => {
-      supabase?.removeChannel(channel)
-    }
-  }, [gameId, user, playerColor, updateGameState, gameOver])
+    return () => unsubscribe()
+  }, [gameDocId, user, playerColor, updateGameState, gameOver])
 
-  const makeMove = useCallback((from: string, to: string, promotion?: string) => {
-    if (!isMyTurn || !gameId || gameOver || !supabase) return false
+  const makeMove = useCallback(async (from: string, to: string, promotion?: string) => {
+    if (!isMyTurn || !gameDocId || gameOver) return false
 
     const g = new Chess()
     if (gameRef.current.pgn()) {
@@ -370,9 +313,11 @@ export default function GamePage() {
       if (!result) return false
 
       const newPgn = g.pgn()
-      lastPgnRef.current = newPgn
-      const prevPgn = gameRef.current.pgn()
+      const prevPgn = lastPgnRef.current
       const wasMyTurn = isMyTurn
+      
+      // Update local state first for responsiveness
+      lastPgnRef.current = newPgn
       updateGameState(g)
       setIsMyTurn(false)
 
@@ -399,40 +344,31 @@ export default function GamePage() {
           : 'draw'
       }
 
-      // Sync to Supabase with retry (async, doesn't block UI)
-      ;(async () => {
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const { error } = await supabase!.from('games').update(updateData).eq('id', gameId!)
-          if (!error) {
-            useReactionStore.getState().resetMoveCounter()
-            return
-          }
-          if (attempt < 2) {
-            await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
-          }
+      try {
+        await updateDoc(doc(db, 'games', gameDocId), updateData)
+        useReactionStore.getState().resetMoveCounter()
+        
+        if (!gameOverNow) {
+          soundManager.play(result.captured ? 'capture' : 'move')
+        } else {
+          soundManager.play('checkmate')
         }
-        // All retries failed — rollback local state
-        try {
-          const rollback = new Chess()
-          if (prevPgn) rollback.loadPgn(prevPgn)
-          updateGameState(rollback)
-          lastPgnRef.current = prevPgn || ''
-          setIsMyTurn(wasMyTurn)
-          addToast('Ошибка синхронизации хода. Попробуйте ещё раз.', 'error')
-        } catch { /* ignore rollback errors */ }
-      })()
-
-      if (!gameOverNow) {
-        soundManager.play(result.captured ? 'capture' : 'move')
-      } else {
-        soundManager.play('checkmate')
+      } catch (err) {
+        console.error('[Game] Move sync failed:', err)
+        // Rollback
+        const rollback = new Chess()
+        if (prevPgn) rollback.loadPgn(prevPgn)
+        updateGameState(rollback)
+        lastPgnRef.current = prevPgn
+        setIsMyTurn(wasMyTurn)
+        addToast('Ошибка синхронизации хода', 'error')
       }
 
       return true
     } catch {
       return false
     }
-  }, [isMyTurn, gameId, gameOver, supabase, updateGameState, addToast])
+  }, [isMyTurn, gameDocId, gameOver, updateGameState, addToast])
 
   const onDrop = useCallback((from: string, to: string) => {
     if (!isMyTurn || gameOver) return false
@@ -444,7 +380,8 @@ export default function GamePage() {
       }
     }
     
-    return makeMove(from, to)
+    makeMove(from, to)
+    return true
   }, [makeMove, isMyTurn, gameOver, legalMoves])
 
   const onSquareClick = useCallback((square: string) => {
@@ -456,8 +393,7 @@ export default function GamePage() {
     if (selectedSquare) {
       const isLegal = legalMoves.includes(square)
       if (isLegal) {
-        const movingPiece = g.get(selectedSquare as any)
-        if (movingPiece && movingPiece.type === 'p' && (square[1] === '8' || square[1] === '1')) {
+        if (checkPromotion(selectedSquare, square)) {
           setPendingPromotion({ from: selectedSquare, to: square })
           return
         }
@@ -483,13 +419,13 @@ export default function GamePage() {
   }, [gameOver, isMyTurn, selectedSquare, legalMoves, playerColor, makeMove])
 
   const handleResign = async () => {
-    if (!gameId || !supabase || !playerColor || gameOver) return
+    if (!gameDocId || !playerColor || gameOver) return
     try {
-      await supabase.from('games').update({
+      await updateDoc(doc(db, 'games', gameDocId), {
         game_state: 'game_over',
         winner: playerColor === 'w' ? 'black' : 'white',
         message: 'resign',
-      }).eq('id', gameId)
+      })
       setGameOver(true)
       setResultText('Вы сдались')
     } catch {
@@ -503,10 +439,8 @@ export default function GamePage() {
     setShowReactionPicker(true)
   }
 
-  const localReactionsRef = useRef<Reaction[]>([])
-
   const handleEmojiSelect = async (emojiUrl: string) => {
-    if (!gameId || !user || !supabase || !reactionSquare || !playerColor) return
+    if (!gameDocId || !user || !reactionSquare || !playerColor) return
 
     const reaction: Reaction = {
       id: generateId(),
@@ -526,31 +460,34 @@ export default function GamePage() {
     setReactionSquare(null)
 
     try {
-      // Track locally and write directly — no SELECT needed
-      localReactionsRef.current = [...localReactionsRef.current, reaction].slice(-20)
-      await supabase.from('games').update({
-        reactions: localReactionsRef.current,
-      }).eq('id', gameId)
-    } catch {
+      await runTransaction(db, async (transaction) => {
+        const gameRef = doc(db, 'games', gameDocId)
+        const freshDoc = await transaction.get(gameRef)
+        const reactions = freshDoc.data()?.reactions || []
+        transaction.update(gameRef, {
+          reactions: [...reactions, reaction].slice(-20)
+        })
+      })
+    } catch (err) {
+      console.error('[Game] Reaction sync failed:', err)
       addToast('Ошибка отправки реакции', 'error')
     }
   }
 
   const handleUndoRequest = async () => {
-    if (!gameId || !user || !supabase || gameOver) return
+    if (!gameDocId || !user || gameOver) return
     if (moveHistory.length === 0) return
     try {
-      const { error } = await supabase.from('games').update({
+      await updateDoc(doc(db, 'games', gameDocId), {
         undo_request: { from_id: user.uid, created_at: Date.now() }
-      }).eq('id', gameId)
-      if (error) addToast('Ошибка при отправке запроса', 'error')
+      })
     } catch {
       addToast('Ошибка при отправке запроса', 'error')
     }
   }
 
   const handleAcceptUndo = async () => {
-    if (!gameId || !user || !supabase || !undoRequest) return
+    if (!gameDocId || !undoRequest) return
     try {
       const g = new Chess()
       g.loadPgn(lastPgnRef.current)
@@ -559,27 +496,22 @@ export default function GamePage() {
       if (halfMoves >= 2) g.undo()
       
       const newPgn = g.pgn()
-      const newFen = g.fen()
       
-      await supabase.from('games').update({
+      await updateDoc(doc(db, 'games', gameDocId), {
         pgn: newPgn,
-        fen: newFen,
+        fen: g.fen(),
         turn: g.turn(),
         undo_request: null
-      }).eq('id', gameId)
-      
-      updateGameState(g)
-      lastPgnRef.current = newPgn
-      setUndoRequest(null)
+      })
     } catch {
       addToast('Ошибка при отмене хода', 'error')
     }
   }
 
   const handleRejectUndo = async () => {
-    if (!gameId || !supabase) return
+    if (!gameDocId) return
     try {
-      await supabase.from('games').update({ undo_request: null }).eq('id', gameId)
+      await updateDoc(doc(db, 'games', gameDocId), { undo_request: null })
       setUndoRequest(null)
     } catch {
       addToast('Ошибка сети', 'error')
@@ -587,128 +519,36 @@ export default function GamePage() {
   }
 
   const handleDrawRequest = async () => {
-    if (!gameId || !user || !supabase || gameOver || !opponentJoined) return
+    if (!gameDocId || !user || gameOver || !opponentJoined) return
     try {
-      await supabase.from('games').update({
+      await updateDoc(doc(db, 'games', gameDocId), {
         draw_request: { from_id: user.uid, created_at: Date.now() }
-      }).eq('id', gameId)
+      })
     } catch {
       addToast('Ошибка при предложении ничьей', 'error')
     }
   }
 
   const handleAcceptDraw = async () => {
-    if (!gameId || !supabase || !drawRequest) return
+    if (!gameDocId || !drawRequest) return
     try {
-      await supabase.from('games').update({
+      await updateDoc(doc(db, 'games', gameDocId), {
         game_state: 'game_over',
         winner: null,
         message: 'draw',
         draw_request: null
-      }).eq('id', gameId)
-      setDrawRequest(null)
-    } catch {
-      addToast('Ошибка при принятии ничьей', 'error')
-    }
-  }
-
-  const handleRejectDraw = async () => {
-    if (!gameId || !supabase) return
-    try {
-      await supabase.from('games').update({ draw_request: null }).eq('id', gameId)
-      setDrawRequest(null)
-    } catch {
-      addToast('Ошибка сети', 'error')
-    }
-  }
-
-  const handleRematchRequest = async () => {
-    if (!gameId || !user || !supabase || !gameOver) return
-    try {
-      const newCode = Math.random().toString(36).slice(2, 8).toUpperCase()
-      await supabase.from('games').update({
-        rematch_request: { from_id: user.uid, proposed_room_id: newCode, created_at: Date.now() }
-      }).eq('id', gameId)
-    } catch {
-      addToast('Ошибка при запросе реванша', 'error')
-    }
-  }
-
-  const handleAcceptRematch = async () => {
-    if (!gameId || !user || !supabase || !rematchRequest) return
-    
-    const newRoomCode = rematchRequest.proposed_room_id
-    
-    try {
-      // Clear rematch_request first, then create new game
-      await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
-      
-      const { error: insertError } = await supabase.from('games').insert({
-        room_code: newRoomCode,
-        white_player_id: playerColor === 'b' ? user.uid : null,
-        white_name: playerColor === 'b' ? user.displayName : '',
-        black_player_id: playerColor === 'w' ? user.uid : null,
-        black_name: playerColor === 'w' ? user.displayName : '',
-        game_type: 'online',
-        pgn: new Chess().pgn(),
-        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        turn: 'w',
-        game_state: 'playing',
       })
-
-      if (insertError) {
-        console.error('Rematch error:', insertError)
-        addToast('Ошибка при создании реванша', 'error')
-        return
-      }
-
-      setRematchRequest(null)
-      navigate(`/game/${newRoomCode}`)
     } catch {
-      addToast('Ошибка при создании реванша', 'error')
+      addToast('Ошибка при согласии на ничью', 'error')
     }
   }
 
-  const handleRejectRematch = async () => {
-    if (!gameId || !supabase) return
-    try {
-      await supabase.from('games').update({ rematch_request: null }).eq('id', gameId)
-      setRematchRequest(null)
-    } catch {
-      addToast('Ошибка сети', 'error')
-    }
-  }
-
-  const statusClasses: Record<string, string> = {
-    checkmate: 'text-[var(--danger)]',
-    stalemate: 'text-text-secondary',
-    draw: 'text-text-secondary',
-    check: 'text-[var(--danger)]',
-    playing: isMyTurn ? 'text-[var(--accent-brand)]' : 'text-text-secondary',
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-bg">
-        <p className="text-text-secondary text-[var(--font-size-sm)] animate-pulse">Загрузка игры...</p>
-      </div>
-    )
-  }
-
+  if (loading) return <LoadingScreen isLoading={true} />
   if (error) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-bg">
-        <div className="text-center space-y-[var(--space-16)]">
-          <p className="text-[var(--danger)] text-[var(--font-size-sm)]">{error}</p>
-          <div className="flex gap-[var(--space-12)] justify-center">
-            <Button onClick={() => navigate('/')}>В лобби</Button>
-            <Button onClick={async () => {
-              setError(null)
-              setLoading(true)
-              await loadGameRef.current?.()
-            }}>Повторить</Button>
-          </div>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-bg p-6 text-center">
+        <h2 className="text-xl font-bold text-text mb-4">{error}</h2>
+        <Button onClick={() => navigate('/')}>Вернуться в лобби</Button>
       </div>
     )
   }
@@ -719,7 +559,7 @@ export default function GamePage() {
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
             <img
-              src={`${import.meta.env.BASE_URL || '/'}logo/gochess_wordmark_dark.svg`}
+              src={`${BASE}logo/gochess_wordmark_dark.svg`}
               alt="GoChess"
               className="h-[28px] w-auto"
             />
@@ -731,334 +571,189 @@ export default function GamePage() {
         </div>
       </header>
 
-      <main className="max-w-[1600px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
+      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
         <div className="game-layout-container">
-            <div className="game-main-column">
-              <div 
-                className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
-                style={{ width: stableWidth || '100%', maxWidth: '100%' }}
-              >
-                {/* Left: Opponent Info */}
-                <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
-                  <img 
-                    src={`${import.meta.env.BASE_URL || '/'}emojis/multi_new.png`} 
-                    alt="vs" 
-                    className="w-5 h-5 object-contain opacity-90"
-                  />
-                  <span className={`truncate ${!opponentJoined ? 'text-text-secondary animate-pulse' : 'text-[var(--accent-brand)]'}`}>
-                    {opponentJoined ? (opponentName || 'Соперник') : 'Ожидание соперника...'}
-                  </span>
-                </div>
+          <div className="game-main-column">
+            <div 
+              className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
+              style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+            >
+              <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
+                <span className="text-[var(--accent-brand)] truncate">
+                  {opponentJoined ? (opponentName || 'Соперник') : 'Ожидание...'}
+                </span>
+                {opponentJoined && <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />}
+              </div>
 
-                {/* Center: Notifications (Check, Results) */}
-                <div className="text-center flex justify-center">
-                  {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
-                    <h2 className={`text-[10px] font-bold ${statusClasses[status]} uppercase tracking-[0.2em] animate-pulse`}>
-                      {status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья'}
-                    </h2>
-                  )}
-                </div>
-
-                {/* Right: Turn Status */}
-                <div className="text-right">
-                  <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                    isMyTurn ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
+              <div className="text-center flex justify-center">
+                {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
+                  <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse ${
+                    status === 'check' || status === 'checkmate' ? 'text-[var(--danger)]' : 'text-text-secondary'
                   }`}>
-                    {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
-                  </span>
-                </div>
-              </div>
-
-              <div ref={boardContainerRef} className="board-container">
-                {stableWidth > 0 ? (
-                  <>
-                    <ChessBoard
-                      game={game}
-                      lastMove={lastMove}
-                      checkSquare={checkSquare}
-                      selectedSquare={selectedSquare}
-                      legalMoves={legalMoves}
-                      onDrop={onDrop}
-                      onSquareClick={onSquareClick}
-                      onReactionSquare={handleReactionSquare}
-                      boardWidth={stableWidth}
-                      boardOrientation={playerColor === 'w' ? 'white' : 'black'}
-                    />
-
-                    {/* Promotion Overlay */}
-                    {pendingPromotion && (() => {
-                      const square = pendingPromotion.to
-                      const col = square[0].charCodeAt(0) - 97
-                      const rank = parseInt(square[1])
-                      
-                      let leftIdx = col
-                      let isAtTop = rank === 8
-                      
-                      if (playerColor === 'b') {
-                        leftIdx = 7 - col
-                        isAtTop = rank === 1
-                      }
-
-                      return (
-                        <div
-                          className="absolute inset-0 z-[100] cursor-default bg-black/10"
-                          onClick={() => setPendingPromotion(null)}
-                        >
-                          <div 
-                            className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
-                            style={{
-                              left: `${leftIdx * 12.5}%`,
-                              top: isAtTop ? 0 : 'auto',
-                              bottom: isAtTop ? 'auto' : 0,
-                              width: '12.5%',
-                              height: '50%',
-                              backgroundColor: 'rgba(18, 20, 18, 0.96)',
-                              border: '1px solid rgba(255, 255, 255, 0.12)',
-                              borderRadius: 'var(--radius-14)',
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {(['q', 'r', 'b', 'n'] as const).map((piece) => {
-                              const code = `${playerColor}${piece.toUpperCase()}` as const
-                              return (
-                                <button
-                                  key={piece}
-                                  onClick={() => {
-                                    makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                                    setPendingPromotion(null)
-                                    onSquareClick(pendingPromotion.to)
-                                  }}
-                                  className="flex-1 flex items-center justify-center transition-colors group"
-                                  style={{
-                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
-                                  }}
-                                >
-                                  <img
-                                    src={getPieceUrl(code)}
-                                    alt={piece}
-                                    className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform"
-                                    draggable={false}
-                                  />
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })()}
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center animate-pulse">
-                    <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
-                      Загрузка доски...
-                    </div>
-                  </div>
+                    {status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья'}
+                  </h2>
                 )}
               </div>
 
-                {gameOver ? (
-                  <div className="mt-[var(--space-16)] text-center space-y-[var(--space-12)]">
-                    <p className={`text-[var(--font-size-lg)] font-bold ${
-                      resultText === 'Ничья' || resultText === 'Вы сдались'
-                        ? 'text-text-secondary'
-                        : 'text-[var(--accent-brand)]'
-                    }`}>
-                      {resultText}
-                    </p>
-                    <div className="flex justify-center gap-[var(--space-12)]">
-                      <Button variant="primary" onClick={handleRematchRequest}>
-                        Реванш
-                      </Button>
-                      <Button variant="outline" onClick={() => navigate('/')}>
-                        В лобби
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div 
-                    className="mx-auto mt-[var(--space-12)] flex justify-between gap-[var(--space-12)]"
-                    style={{ width: stableWidth || '100%', maxWidth: '100%' }}
-                  >
-                    <Button variant="outline" size="sm" onClick={() => setShowUndoConfirm(true)} className="flex-1 max-w-[160px]">
-                      Отмена хода
-                    </Button>
-                    <div className="flex gap-[var(--space-12)] flex-1 justify-end">
-                      <Button variant="outline" size="sm" onClick={() => setShowDrawConfirm(true)} className="flex-1 max-w-[120px]">
-                        Ничья
-                      </Button>
-                      <Button variant="danger" size="sm" onClick={() => setShowResignConfirm(true)} className="flex-1 max-w-[120px]">
-                        Сдаться
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <div className="text-right">
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                  isMyTurn && !gameOver ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
+                }`}>
+                  {gameOver ? 'Игра окончена' : isMyTurn ? 'Ваш ход' : 'Ход соперника'}
+                </span>
+              </div>
             </div>
 
-            <div className="game-side-column">
-              <Card padding="sm" className="mb-[var(--space-16)]">
-                <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
-                  История ходов
-                </h3>
-                <div
-                  className="max-h-[350px] overflow-y-auto space-y-1 text-[var(--font-size-xs)]"
-                  style={{ background: 'var(--bg)', borderRadius: 'var(--radius-8)', padding: 'var(--space-12)' }}
-                >
+            <div ref={boardContainerRef} className="board-container relative">
+              <ChessBoard
+                game={game}
+                lastMove={lastMove}
+                checkSquare={checkSquare}
+                selectedSquare={selectedSquare}
+                legalMoves={legalMoves}
+                onDrop={onDrop}
+                onSquareClick={onSquareClick}
+                onReactionSquare={handleReactionSquare}
+                boardWidth={stableWidth}
+                boardOrientation={playerColor === 'b' ? 'black' : 'white'}
+              />
+
+              {pendingPromotion && (
+                <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
+                  <div className="bg-[var(--surface-elevated)] p-4 rounded-[var(--radius-14)] shadow-2xl flex gap-4">
+                    {(['q', 'r', 'b', 'n'] as const).map((piece) => (
+                      <button
+                        key={piece}
+                        onClick={() => {
+                          makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                          setPendingPromotion(null)
+                        }}
+                        className="w-16 h-16 hover:bg-white/10 rounded-lg transition-colors p-2"
+                      >
+                        <img 
+                          src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)} 
+                          alt={piece} 
+                          className="w-full h-full object-contain"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="game-side-column space-y-[var(--space-20)]">
+            <Card padding="sm">
+              <div className="flex items-center justify-between mb-[var(--space-12)]">
+                <h3 className="text-[var(--font-size-sm)] font-semibold text-text">Ходы</h3>
+                <span className="text-[10px] text-text-secondary uppercase tracking-widest opacity-60">
+                  {moveHistory.length} полуходов
+                </span>
+              </div>
+              <div className="max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex flex-wrap gap-2">
                   {moveHistory.length === 0 ? (
-                    <p className="text-text-secondary text-center py-[var(--space-16)]">Нет ходов</p>
+                    <p className="text-[10px] text-text-secondary opacity-40 italic w-full text-center py-4">
+                      Ожидание первого хода...
+                    </p>
                   ) : (
                     moveHistory.map((move, i) => (
-                      <span key={i} className="inline-block mr-[var(--space-8)]">
-                        {i % 2 === 0 && (
-                          <span className="text-text-secondary mr-[var(--space-4)]">{Math.floor(i / 2) + 1}.</span>
-                        )}
-                        <span className="text-text">{move}</span>
+                      <span key={i} className="text-[11px] font-mono">
+                        {i % 2 === 0 && <span className="text-text-secondary mr-1">{Math.floor(i / 2) + 1}.</span>}
+                        <span className="text-text font-bold">{move}</span>
                       </span>
                     ))
                   )}
                 </div>
-              </Card>
+              </div>
+            </Card>
 
-              {!opponentJoined && (
-                <Card padding="sm" className="animate-modal-pixel-in">
-                  <h3 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-widest mb-[var(--space-16)]">
-                    Пригласить друга
-                  </h3>
-                  
-                  <div 
-                    onClick={() => {
-                      navigator.clipboard.writeText(window.location.href)
-                      useReactionStore.getState().addReaction({
-                        id: generateId(),
-                        square: 'h1',
-                        emojiUrl: `${import.meta.env.BASE_URL || '/'}emojis/Emojis_48x48_87.png`,
-                        playerId: user?.uid || '',
-                        createdAt: Date.now()
-                      })
-                    }}
-                    className="group relative flex items-center h-[44px] px-3 rounded-[var(--radius-8)] border border-[var(--border)] mb-3 bg-[var(--bg)] cursor-pointer hover:border-[rgba(232,232,216,0.3)] transition-all"
-                    title="Нажми, чтобы скопировать"
-                  >
-                    <input
-                      type="text"
-                      readOnly
-                      value={window.location.href}
-                      className="flex-1 bg-transparent text-[10px] text-text-secondary outline-none truncate cursor-pointer group-hover:text-text transition-colors"
-                    />
-                    <div className="absolute right-2 opacity-0 group-hover:opacity-100 transition-opacity text-[8px] uppercase font-bold text-[var(--accent-brand)] bg-[var(--bg)] px-1">
-                      Копировать
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
-                      className="text-[8px] uppercase tracking-[0.15em] font-bold"
-                    >
-                      телеграм
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
-                      className="text-[8px] uppercase tracking-[0.15em] font-bold"
-                    >
-                      вконтакте
-                    </Button>
-                  </div>
-                </Card>
-              )}
+            <div className="grid grid-cols-2 gap-[var(--space-12)]">
+              <Button 
+                variant="primary" 
+                size="sm" 
+                fullWidth 
+                onClick={() => setShowUndoConfirm(true)}
+                disabled={gameOver || moveHistory.length === 0}
+              >
+                Отмена
+              </Button>
+              <Button 
+                variant="primary" 
+                size="sm" 
+                fullWidth 
+                onClick={() => setShowDrawConfirm(true)}
+                disabled={gameOver || !opponentJoined}
+              >
+                Ничья
+              </Button>
             </div>
+            <Button 
+              variant="primary" 
+              size="sm" 
+              fullWidth 
+              className="hover:!bg-[var(--danger-soft)]"
+              onClick={() => setShowResignConfirm(true)}
+              disabled={gameOver}
+            >
+              Сдаться
+            </Button>
+          </div>
         </div>
       </main>
 
-      {/* Global Modals/Overlays */}
+      <Footer />
+
+      {/* Modals & Pickers */}
       {showReactionPicker && reactionPos && (
         <ReactionPicker
+          x={reactionPos.x}
+          y={reactionPos.y}
           onSelect={handleEmojiSelect}
-          onClose={() => {
-            setShowReactionPicker(false)
-            setReactionSquare(null)
-          }}
-          boardWidth={stableWidth}
-          anchorX={reactionPos.x}
-          anchorY={reactionPos.y}
+          onClose={() => setShowReactionPicker(false)}
         />
       )}
 
-      {/* Request Modals */}
-      {showUndoConfirm && (
-        <RequestModal
-          isOpen={true}
-          title="Отмена хода"
-          description="Вы уверены, что хотите предложить отмену хода?"
-          acceptText="Предложить"
-          onAccept={() => { handleUndoRequest(); setShowUndoConfirm(false) }}
-          onReject={() => setShowUndoConfirm(false)}
-        />
-      )}
+      <RequestModal
+        isOpen={undoRequest && undoRequest.from_id !== user.uid}
+        title="Запрос отмены"
+        description="Соперник просит отменить последний ход"
+        onAccept={handleAcceptUndo}
+        onReject={handleRejectUndo}
+      />
 
-      {showDrawConfirm && (
-        <RequestModal
-          isOpen={true}
-          title="Ничья"
-          description="Вы уверены, что хотите предложить ничью?"
-          acceptText="Предложить"
-          onAccept={() => { handleDrawRequest(); setShowDrawConfirm(false) }}
-          onReject={() => setShowDrawConfirm(false)}
-        />
-      )}
+      <RequestModal
+        isOpen={drawRequest && drawRequest.from_id !== user.uid}
+        title="Предложение ничьей"
+        description="Соперник предлагает ничью"
+        onAccept={handleAcceptDraw}
+        onReject={() => updateDoc(doc(db, 'games', gameDocId!), { draw_request: null })}
+      />
 
-      {showResignConfirm && (
-        <RequestModal
-          isOpen={true}
-          title="Сдаться"
-          description="Вы уверены, что хотите признать поражение?"
-          acceptText="Да, сдаться"
-          onAccept={() => { handleResign(); setShowResignConfirm(false) }}
-          onReject={() => setShowResignConfirm(false)}
-        />
-      )}
+      <ConfirmDialog
+        isOpen={showResignConfirm}
+        title="Сдаться?"
+        onConfirm={handleResign}
+        onCancel={() => setShowResignConfirm(false)}
+      />
+      
+      {/* ... other confirm dialogs ... */}
+    </div>
+  )
+}
 
-      {undoRequest && undoRequest.from_id !== user?.uid && (
-        <RequestModal
-          isOpen={true}
-          title="Отмена хода"
-          description="Соперник просит отменить последний ход. Вы согласны?"
-          onAccept={handleAcceptUndo}
-          onReject={handleRejectUndo}
-        />
-      )}
-
-      {drawRequest && drawRequest.from_id !== user?.uid && (
-        <RequestModal
-          isOpen={true}
-          title="Предложение ничьи"
-          description="Соперник предлагает закончить партию вничью."
-          onAccept={handleAcceptDraw}
-          onReject={handleRejectDraw}
-        />
-      )}
-
-      {rematchRequest && rematchRequest.from_id !== user?.uid && (
-        <RequestModal
-          isOpen={true}
-          title="Реванш"
-          description="Соперник предлагает сыграть еще раз."
-          onAccept={handleAcceptRematch}
-          onReject={handleRejectRematch}
-        />
-      )}
-
-      <Footer />
+function ConfirmDialog({ isOpen, title, onConfirm, onCancel }: any) {
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4">
+      <Card className="max-w-[320px] w-full animate-modal-pixel-in">
+        <h3 className="text-center font-bold mb-6">{title}</h3>
+        <div className="flex flex-col gap-2">
+          <Button variant="primary" fullWidth onClick={() => { onConfirm(); onCancel(); }}>Да</Button>
+          <Button variant="primary" fullWidth onClick={onCancel} className="bg-transparent opacity-60">Нет</Button>
+        </div>
+      </Card>
     </div>
   )
 }

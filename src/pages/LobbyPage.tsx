@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase'
+import { db } from '@/lib/firebase'
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
@@ -75,68 +76,50 @@ export default function LobbyPage() {
     }
   }, [displayedChars, initialLoading, animationPhase])
 
-  // Warm up Supabase connection immediately — wakes up PostgREST + passes Cloudflare challenge
   useEffect(() => {
-    if (!supabase) return
-    supabase.from('games').select('id').limit(1).maybeSingle()
-  }, [])
-
-  // Keepalive WebSocket — prevents Supabase free tier from going cold
-  useEffect(() => {
-    if (!supabase) return
-    const channel = supabase!.channel('keepalive')
-    channel.subscribe()
-    return () => { supabase!.removeChannel(channel) }
-  }, [])
-
-  const GAME_LIST_COLUMNS = 'id,room_code,fen,game_state,created_at,turn,message,game_type,winner,white_player_id,black_player_id,white_name,black_name'
-
-  useEffect(() => {
-    if (!user || !supabase) {
+    if (!user) {
       setRecentGames([])
       return
     }
-
-    // Show cached games immediately
-    try {
-      const cached = localStorage.getItem(`gochess-recent-${user.uid}`)
-      if (cached) {
-        const parsed = JSON.parse(cached)
-        if (Array.isArray(parsed)) setRecentGames(parsed)
-      }
-    } catch { /* ignore */ }
-
-    let cancelled = false
-
-    const fetchWithRetry = async (attempt: number): Promise<void> => {
+    
+    const loadRecentGames = async () => {
       try {
-        const { data } = await supabase!
-          .from('games')
-          .select(GAME_LIST_COLUMNS)
-          .or(`white_player_id.eq.${user.uid},black_player_id.eq.${user.uid}`)
-          .order('created_at', { ascending: false })
-          .limit(10)
+        const gamesRef = collection(db, 'games')
+        const qWhite = query(
+          gamesRef, 
+          where('white_player_id', '==', user.uid),
+          orderBy('created_at', 'desc'),
+          limit(10)
+        )
+        const qBlack = query(
+          gamesRef, 
+          where('black_player_id', '==', user.uid),
+          orderBy('created_at', 'desc'),
+          limit(10)
+        )
 
-        if (cancelled) return
+        const [whiteSnap, blackSnap] = await Promise.all([
+          getDocs(qWhite),
+          getDocs(qBlack)
+        ])
 
-        if (data) {
-          setRecentGames(data)
-          localStorage.setItem(`gochess-recent-${user.uid}`, JSON.stringify(data))
-        }
+        const combined = [
+          ...whiteSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+          ...blackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        ]
+        
+        // Sort combined and limit again
+        const sorted = combined
+          .sort((a: any, b: any) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
+          .slice(0, 10)
+
+        setRecentGames(sorted)
       } catch (err) {
-        if (cancelled) return
-        if (attempt < 3) {
-          const delay = attempt === 1 ? 1000 : 2000
-          await new Promise(r => setTimeout(r, delay))
-          return fetchWithRetry(attempt + 1)
-        }
-        console.error('Failed to load recent games after 3 retries')
+        console.error('[Lobby] Failed to load recent games:', err)
       }
     }
 
-    fetchWithRetry(1)
-
-    return () => { cancelled = true }
+    loadRecentGames()
   }, [user])
 
   const handleGameClick = (game: any) => {
@@ -146,7 +129,6 @@ export default function LobbyPage() {
   }
 
   useEffect(() => {
-    // Simulate initial app load for the cool splash screen effect
     const timer = setTimeout(() => {
       setInitialLoading(false)
     }, 1200)
@@ -283,7 +265,7 @@ export default function LobbyPage() {
                       <div className="flex items-center justify-between mb-[var(--space-4)]">
                         <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
                           {isOnline && isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
-                          {g.white_name} vs {g.black_name}
+                          {g.white_name || '...'} vs {g.black_name || '...'}
                         </span>
                         <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                           g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
@@ -291,32 +273,13 @@ export default function LobbyPage() {
                           {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
                         </span>
                       </div>
-                      
-                      <div className="text-[9px] text-text-secondary flex flex-wrap items-center gap-x-[var(--space-12)] gap-y-[var(--space-4)]">
-                        <span>
-                          {g.game_type === 'bot' ? '🤖 Ичи' : g.game_type === 'local' ? '🎮 Локальная' : ''}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-text-secondary opacity-50">
+                          {isOnline ? 'Онлайн' : g.game_type === 'bot' ? 'Против Ичи' : 'Локально'}
                         </span>
-                        <span>{new Date(g.created_at).toLocaleDateString()}</span>
-                        {g.message && <span className="capitalize text-[var(--accent-brand)]">{g.message}</span>}
-                        {isOnline && isActive && (() => {
-                          const currentUid = user?.uid
-                          const whiteId = g.white_player_id
-                          const blackId = g.black_player_id
-                          const turn = (g.turn || 'w').toLowerCase()
-                          
-                          const isMyTurn = (turn === 'w' && currentUid === whiteId) || 
-                                           (turn === 'b' && currentUid === blackId)
-                          
-                          return (
-                            <span className={`font-bold ${
-                              isMyTurn 
-                                ? 'text-[var(--accent-brand)] animate-pulse' 
-                                : 'text-[var(--text)] opacity-60'
-                            }`}>
-                              {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
-                            </span>
-                          )
-                        })()}
+                        <span className="text-[10px] text-text-secondary opacity-50">
+                          {g.created_at ? new Date(g.created_at.seconds * 1000).toLocaleDateString() : ''}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -325,13 +288,12 @@ export default function LobbyPage() {
             </div>
           </section>
         )}
-
       </main>
-
-      <Footer />
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <ColorPickerModal isOpen={isColorPickerOpen} onClose={() => setIsColorPickerOpen(false)} />
+      
+      <Footer />
     </div>
   )
 }

@@ -11,10 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.43.4",
     "chess.js": "^1.0.0-beta.8",
+    "firebase": "^12.14.0",
     "lucide-react": "^0.395.0",
-    "pg": "^8.21.0",
     "react": "^18.3.1",
     "react-chessboard": "^4.7.2",
     "react-dom": "^18.3.1",
@@ -32,6 +31,7 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.7",
+    "firebase-tools": "^15.19.0",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.2.2",

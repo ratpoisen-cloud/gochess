@@ -3,7 +3,6 @@ import Modal from './Modal'
 import Button from './Button'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from './Toast'
-import { isConfigured } from '@/lib/supabase'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -17,19 +16,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false)
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth()
   const { addToast } = useToast()
-
-  if (!isConfigured) {
-    return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Авторизация" description="Функция временно недоступна">
-        <div className="text-center py-[var(--space-20)]">
-          <p className="text-text-secondary text-[var(--font-size-sm)] mb-[var(--space-16)]">
-            Авторизация через Supabase ещё не настроена.
-          </p>
-          <Button variant="outline" onClick={onClose}>Закрыть</Button>
-        </div>
-      </Modal>
-    )
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,14 +37,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         addToast('Успешный вход!', 'success')
         onClose()
       } else {
-        const data = await signUpWithEmail(email, password)
-        if (data.session) {
-          addToast('Аккаунт создан и выполнен вход!', 'success')
-          onClose()
-        } else {
-          addToast('Аккаунт создан. Пожалуйста, подтвердите ваш email.', 'info')
-          onClose()
-        }
+        await signUpWithEmail(email, password)
+        addToast('Аккаунт создан и выполнен вход!', 'success')
+        onClose()
       }
     } catch (err: any) {
       addToast(err.message || 'Произошла ошибка', 'error')

@@ -51,6 +51,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleGoogleLogin = async () => {
     try {
       await signInWithGoogle()
+      onClose()
     } catch (err: any) {
       addToast(err.message || 'Ошибка входа через Google', 'error')
     }

@@ -72,7 +72,7 @@ export default function SettingsPage() {
 
     setIsUpdating(true)
     try {
-      await updateProfile({ full_name: displayName })
+      await updateProfile({ displayName })
       addToast('Профиль обновлён', 'success')
     } catch (err: any) {
       addToast('Ошибка обновления: ' + (err.message || err), 'error')

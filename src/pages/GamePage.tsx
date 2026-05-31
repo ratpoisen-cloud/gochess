@@ -13,6 +13,7 @@ import {
   limit, 
   runTransaction 
 } from 'firebase/firestore'
+import LoadingScreen from '@/components/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
@@ -55,7 +56,6 @@ export default function GamePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [gameOver, setGameOver] = useState(false)
-  const [resultText, setResultText] = useState('')
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
@@ -63,13 +63,10 @@ export default function GamePage() {
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const { addToast } = useToast()
   
-  const [showUndoConfirm, setShowUndoConfirm] = useState(false)
-  const [showDrawConfirm, setShowDrawConfirm] = useState(false)
   const [showResignConfirm, setShowResignConfirm] = useState(false)
 
   const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
   const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
-  const [rematchRequest, setRematchRequest] = useState<GameData['rematch_request']>(null)
   
   const addReaction = useReactionStore((s) => s.addReaction)
 
@@ -205,14 +202,6 @@ export default function GamePage() {
 
         if (data.game_state === 'game_over') {
           setGameOver(true)
-          setResultText(
-            data.message === 'resign'
-              ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
-              : data.message === 'draw' ? 'Ничья'
-              : data.winner === 'white' ? 'Белые победили'
-              : data.winner === 'black' ? 'Чёрные победили'
-              : 'Игра окончена'
-          )
         }
       } catch (err: any) {
         console.error('[Game] Load/Join error:', err)
@@ -253,14 +242,7 @@ export default function GamePage() {
       // Game Over
       if (newData.game_state === 'game_over' && !gameOver) {
         setGameOver(true)
-        setResultText(
-          newData.message === 'resign'
-            ? `${newData.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
-            : newData.message === 'draw' ? 'Ничья'
-            : newData.winner === 'white' ? 'Белые победили'
-            : newData.winner === 'black' ? 'Чёрные победили'
-            : 'Игра окончена'
-        )
+        soundManager.play('checkmate')
       }
 
       // Moves
@@ -278,7 +260,6 @@ export default function GamePage() {
       // Requests
       setUndoRequest(newData.undo_request)
       setDrawRequest(newData.draw_request)
-      setRematchRequest(newData.rematch_request)
 
       // Turn
       if (newData.turn && playerColor) {
@@ -427,7 +408,7 @@ export default function GamePage() {
         message: 'resign',
       })
       setGameOver(true)
-      setResultText('Вы сдались')
+      addToast('Вы сдались', 'info')
     } catch {
       addToast('Ошибка при сдаче', 'error')
     }
@@ -474,18 +455,6 @@ export default function GamePage() {
     }
   }
 
-  const handleUndoRequest = async () => {
-    if (!gameDocId || !user || gameOver) return
-    if (moveHistory.length === 0) return
-    try {
-      await updateDoc(doc(db, 'games', gameDocId), {
-        undo_request: { from_id: user.uid, created_at: Date.now() }
-      })
-    } catch {
-      addToast('Ошибка при отправке запроса', 'error')
-    }
-  }
-
   const handleAcceptUndo = async () => {
     if (!gameDocId || !undoRequest) return
     try {
@@ -515,17 +484,6 @@ export default function GamePage() {
       setUndoRequest(null)
     } catch {
       addToast('Ошибка сети', 'error')
-    }
-  }
-
-  const handleDrawRequest = async () => {
-    if (!gameDocId || !user || gameOver || !opponentJoined) return
-    try {
-      await updateDoc(doc(db, 'games', gameDocId), {
-        draw_request: { from_id: user.uid, created_at: Date.now() }
-      })
-    } catch {
-      addToast('Ошибка при предложении ничьей', 'error')
     }
   }
 
@@ -674,7 +632,12 @@ export default function GamePage() {
                 variant="primary" 
                 size="sm" 
                 fullWidth 
-                onClick={() => setShowUndoConfirm(true)}
+                onClick={() => {
+                  if (!gameDocId || !user || gameOver || moveHistory.length === 0) return
+                  updateDoc(doc(db, 'games', gameDocId), {
+                    undo_request: { from_id: user.uid, created_at: Date.now() }
+                  }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
+                }}
                 disabled={gameOver || moveHistory.length === 0}
               >
                 Отмена
@@ -683,7 +646,12 @@ export default function GamePage() {
                 variant="primary" 
                 size="sm" 
                 fullWidth 
-                onClick={() => setShowDrawConfirm(true)}
+                onClick={() => {
+                  if (!gameDocId || !user || gameOver || !opponentJoined) return
+                  updateDoc(doc(db, 'games', gameDocId), {
+                    draw_request: { from_id: user.uid, created_at: Date.now() }
+                  }).catch(() => addToast('Ошибка при предложении ничьей', 'error'))
+                }}
                 disabled={gameOver || !opponentJoined}
               >
                 Ничья
@@ -708,15 +676,15 @@ export default function GamePage() {
       {/* Modals & Pickers */}
       {showReactionPicker && reactionPos && (
         <ReactionPicker
-          x={reactionPos.x}
-          y={reactionPos.y}
+          anchorX={reactionPos.x}
+          anchorY={reactionPos.y}
           onSelect={handleEmojiSelect}
           onClose={() => setShowReactionPicker(false)}
         />
       )}
 
       <RequestModal
-        isOpen={undoRequest && undoRequest.from_id !== user.uid}
+        isOpen={!!(undoRequest && user && undoRequest.from_id !== user.uid)}
         title="Запрос отмены"
         description="Соперник просит отменить последний ход"
         onAccept={handleAcceptUndo}
@@ -724,11 +692,11 @@ export default function GamePage() {
       />
 
       <RequestModal
-        isOpen={drawRequest && drawRequest.from_id !== user.uid}
+        isOpen={!!(drawRequest && user && drawRequest.from_id !== user.uid)}
         title="Предложение ничьей"
         description="Соперник предлагает ничью"
         onAccept={handleAcceptDraw}
-        onReject={() => updateDoc(doc(db, 'games', gameDocId!), { draw_request: null })}
+        onReject={() => gameDocId && updateDoc(doc(db, 'games', gameDocId), { draw_request: null })}
       />
 
       <ConfirmDialog

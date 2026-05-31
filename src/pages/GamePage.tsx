@@ -547,8 +547,9 @@ export default function GamePage() {
     try {
       const g = new Chess()
       g.loadPgn(lastPgnRef.current)
+      const halfMoves = g.history().length
       g.undo()
-      g.undo()
+      if (halfMoves >= 2) g.undo()
       
       const newPgn = g.pgn()
       const newFen = g.fen()

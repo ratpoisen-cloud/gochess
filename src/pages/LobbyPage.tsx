@@ -88,14 +88,14 @@ export default function LobbyPage() {
         const qWhite = query(
           gamesRef, 
           where('white_player_id', '==', user.uid),
-          orderBy('last_move_time', 'desc'),
-          limit(10)
+          orderBy('created_at', 'desc'),
+          limit(20)
         )
         const qBlack = query(
           gamesRef, 
           where('black_player_id', '==', user.uid),
-          orderBy('last_move_time', 'desc'),
-          limit(10)
+          orderBy('created_at', 'desc'),
+          limit(20)
         )
 
         const [whiteSnap, blackSnap] = await Promise.all([
@@ -108,9 +108,15 @@ export default function LobbyPage() {
           ...blackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
         ]
         
-        // Sort combined and limit again
+        // Sort by last_move_time client-side, fallback to created_at for old games
+        const getMs = (doc: any): number => {
+          const val = doc.last_move_time ?? doc.created_at
+          if (!val) return 0
+          if (typeof val === 'number') return val
+          return val.seconds * 1000
+        }
         const sorted = combined
-          .sort((a: any, b: any) => (b.last_move_time || 0) - (a.last_move_time || 0))
+          .sort((a: any, b: any) => getMs(b) - getMs(a))
           .slice(0, 10)
 
         setRecentGames(sorted)

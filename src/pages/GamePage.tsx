@@ -596,51 +596,49 @@ export default function GamePage() {
             </div>
 
             <div ref={boardContainerRef} className="board-container relative">
-              {stableWidth > 0 ? (
-                <>
-                  <ChessBoard
-                    game={game}
-                    lastMove={lastMove}
-                    checkSquare={checkSquare}
-                    selectedSquare={selectedSquare}
-                    legalMoves={legalMoves}
-                    onDrop={onDrop}
-                    onSquareClick={onSquareClick}
-                    onReactionSquare={handleReactionSquare}
-                    boardWidth={stableWidth}
-                    boardOrientation={playerColor === 'b' ? 'black' : 'white'}
-                  />
+              {(() => {
+                const fb = boardContainerRef.current?.clientWidth || 600
+                const w = stableWidth > 0 ? stableWidth : fb
+                return (
+                  <>
+                    <ChessBoard
+                      game={game}
+                      lastMove={lastMove}
+                      checkSquare={checkSquare}
+                      selectedSquare={selectedSquare}
+                      legalMoves={legalMoves}
+                      onDrop={onDrop}
+                      onSquareClick={onSquareClick}
+                      onReactionSquare={handleReactionSquare}
+                      boardWidth={w}
+                      boardOrientation={playerColor === 'b' ? 'black' : 'white'}
+                    />
 
-                  {pendingPromotion && (
-                    <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
-                      <div className="bg-[var(--surface-elevated)] p-4 rounded-[var(--radius-14)] shadow-2xl flex gap-4">
-                        {(['q', 'r', 'b', 'n'] as const).map((piece) => (
-                          <button
-                            key={piece}
-                            onClick={() => {
-                              makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                              setPendingPromotion(null)
-                            }}
-                            className="w-16 h-16 hover:bg-white/10 rounded-lg transition-colors p-2"
-                          >
-                            <img 
-                              src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)} 
-                              alt={piece} 
-                              className="w-full h-full object-contain"
-                            />
-                          </button>
-                        ))}
+                    {pendingPromotion && (
+                      <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
+                        <div className="bg-[var(--surface-elevated)] p-4 rounded-[var(--radius-14)] shadow-2xl flex gap-4">
+                          {(['q', 'r', 'b', 'n'] as const).map((piece) => (
+                            <button
+                              key={piece}
+                              onClick={() => {
+                                makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                                setPendingPromotion(null)
+                              }}
+                              className="w-16 h-16 hover:bg-white/10 rounded-lg transition-colors p-2"
+                            >
+                              <img 
+                                src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)} 
+                                alt={piece} 
+                                className="w-full h-full object-contain"
+                              />
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="w-full h-full aspect-square flex items-center justify-center bg-[var(--surface-elevated)] rounded-12 animate-pulse">
-                  <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
-                    Загрузка шахматной доски...
-                  </div>
-                </div>
-              )}
+                    )}
+                  </>
+                )
+              })()}
             </div>
             
             {gameOver && resultText && (

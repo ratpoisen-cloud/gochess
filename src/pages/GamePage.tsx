@@ -10,6 +10,7 @@ import {
   collection, 
   where, 
   getDocs, 
+  getDoc, 
   limit, 
   runTransaction 
 } from 'firebase/firestore'
@@ -480,11 +481,19 @@ export default function GamePage() {
   const handleAcceptUndo = async () => {
     if (!gameDocId || !undoRequest) return
     try {
+      const snap = await getDoc(doc(db, 'games', gameDocId))
+      const data = snap.data()
+      const requestorColor = undoRequest.from_id === data?.white_player_id ? 'w' : 'b'
+
       const g = new Chess()
       g.loadPgn(lastPgnRef.current)
-      const halfMoves = g.history().length
-      g.undo()
-      if (halfMoves >= 2) g.undo()
+
+      if (requestorColor === g.turn()) {
+        g.undo()
+        g.undo()
+      } else {
+        g.undo()
+      }
       
       await updateDoc(doc(db, 'games', gameDocId), {
         pgn: g.pgn(),

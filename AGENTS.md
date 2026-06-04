@@ -154,7 +154,6 @@ src/
 |-----------|------|----------|
 | 🔴 Крит | `useAuth.ts:115` | `uploadAvatar` вызывает `updateProfile` которая определена ниже — не доступна в замыкании |
 | 🔴 Крит | `gameStore.ts` | `persist` с Chess instance — антипаттерн для мультиплеера, стейт должен приходить с сервера |
-| 🟡 Сред | `BotPage.tsx:36-38` | Бот делает случайные ходы — уровни сложности (easy/medium/hard) не влияют на игру |
 | 🟡 Сред | `ChessBoard.tsx:42,115` | `as any` касты для chess.js API — нужно обновить типы |
 | 🟡 Сред | `gameStore.ts:149-160` | `undoMove` отменяет 1 ход, для takeback нужно отменить 2 хода (свой + соперника) |
 | 🟢 Низ | `vite.config.ts:7` | Хардкод `base: '/gochess/'` — сломает локальный dev |
@@ -177,6 +176,7 @@ src/
 | ✅ Исправлен вылет useBoardStore | `LocalPage.tsx`, `BotPage.tsx` | Устранена ошибка `ReferenceError: useBoardStore is not defined` в модалке превращения путём корректного импорта и инициализации стора в компонентах. |
 | ✅ Не загружалась страница игры (LoadingScreen бесконечно) | `GamePage.tsx` | `authLoading` блокировал рендер даже после `loading = false`. Убрана проверка `if (authLoading) return <LoadingScreen />` — LoadingScreen управляется только стейтом `loading`. |
 | ✅ Последние партии не грузились в лобби | `LobbyPage.tsx`, `firestore.indexes.json` | После смены `orderBy('created_at')` на `orderBy('last_move_time')` запрос перестал возвращать документы без поля `last_move_time` (старые игры). Исправлено: убран `orderBy` из Firestore-запроса, сортировка клиентская по `last_move_time` с fallback на `created_at`. |
+| ✅ Бот ходит случайно, уровни не работают | `BotPage.tsx`, `src/lib/botEngine.ts`, `public/engine/` | Подключён Stockfish 18 (WASM + Web Worker). Уровни: easy (depth=3, skill=0, 50ms), medium (depth=5, skill=2, 100ms), hard (depth=8, skill=4, 220ms). Fallback на случайный ход при ошибке движка. |
 
 ## 🧠 Извлечённые уроки (Firebase)
 

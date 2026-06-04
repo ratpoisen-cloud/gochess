@@ -31,10 +31,10 @@ export default function SettingsDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[320px] bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
+        <div className="absolute right-0 max-sm:right-auto max-sm:left-[var(--space-12)] top-full mt-2 w-[320px] max-sm:w-[calc(100vw-24px)] bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
           <div className="p-[var(--space-16)]">
             <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-[var(--accent-brand)]">Тема доски</h3>
-            <div className="grid grid-cols-3 gap-[var(--space-8)] mb-[var(--space-16)]">
+            <div className="grid grid-cols-3 max-sm:grid-cols-2 gap-[var(--space-8)] mb-[var(--space-16)]">
               {Object.values(BOARD_THEMES).map((theme) => {
                 const isActive = selectedTheme === theme.id
                 return (

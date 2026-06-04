@@ -521,8 +521,6 @@ export default function GamePage() {
   }
 
   // Render logic
-  if (authLoading) return <LoadingScreen isLoading={true} />
-  
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-bg p-6 text-center">

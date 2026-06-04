@@ -88,13 +88,13 @@ export default function LobbyPage() {
         const qWhite = query(
           gamesRef, 
           where('white_player_id', '==', user.uid),
-          orderBy('created_at', 'desc'),
+          orderBy('last_move_time', 'desc'),
           limit(10)
         )
         const qBlack = query(
           gamesRef, 
           where('black_player_id', '==', user.uid),
-          orderBy('created_at', 'desc'),
+          orderBy('last_move_time', 'desc'),
           limit(10)
         )
 
@@ -110,7 +110,7 @@ export default function LobbyPage() {
         
         // Sort combined and limit again
         const sorted = combined
-          .sort((a: any, b: any) => (b.created_at?.seconds || 0) - (a.created_at?.seconds || 0))
+          .sort((a: any, b: any) => (b.last_move_time || 0) - (a.last_move_time || 0))
           .slice(0, 10)
 
         setRecentGames(sorted)
@@ -278,7 +278,13 @@ export default function LobbyPage() {
                           {isOnline ? 'Онлайн' : g.game_type === 'bot' ? 'Против Ичи' : 'Локально'}
                         </span>
                         <span className="text-[10px] text-text-secondary opacity-50">
-                          {g.created_at ? new Date(g.created_at.seconds * 1000).toLocaleDateString() : ''}
+                          {g.last_move_time
+                            ? new Date(
+                                typeof g.last_move_time === 'number'
+                                  ? g.last_move_time
+                                  : g.last_move_time.seconds * 1000
+                              ).toLocaleDateString()
+                            : ''}
                         </span>
                       </div>
                     </div>

@@ -337,6 +337,7 @@ export default function GamePage() {
         pgn: newPgn,
         fen: g.fen(),
         turn: g.turn(),
+        last_move_time: Date.now(),
       }
 
       if (gameOverNow) {
@@ -489,6 +490,7 @@ export default function GamePage() {
         pgn: g.pgn(),
         fen: g.fen(),
         turn: g.turn(),
+        last_move_time: Date.now(),
         undo_request: null
       })
     } catch {

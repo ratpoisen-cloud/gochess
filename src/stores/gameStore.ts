@@ -204,6 +204,7 @@ export const useGameStore = create<GameState>()(
             winner,
             message,
             created_at: serverTimestamp(),
+            last_move_time: serverTimestamp(),
             // Store moves as a subcollection or nested array
             // For simplicity in this migration, let's use a nested array for history
             move_history_verbose: moves.map((m, i) => ({

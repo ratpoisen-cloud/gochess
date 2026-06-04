@@ -5,7 +5,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "white_player_id", "order": "ASCENDING" },
-        { "fieldPath": "created_at", "order": "DESCENDING" }
+        { "fieldPath": "last_move_time", "order": "DESCENDING" }
       ]
     },
     {
@@ -13,7 +13,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "black_player_id", "order": "ASCENDING" },
-        { "fieldPath": "created_at", "order": "DESCENDING" }
+        { "fieldPath": "last_move_time", "order": "DESCENDING" }
       ]
     }
   ],

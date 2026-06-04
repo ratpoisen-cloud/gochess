@@ -87,6 +87,7 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
         game_state: 'active',
         turn: 'w',
         created_at: serverTimestamp(),
+        last_move_time: serverTimestamp(),
         reactions: [],
         undo_request: null,
         draw_request: null,

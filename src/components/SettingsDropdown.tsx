@@ -35,7 +35,22 @@ export default function SettingsDropdown() {
       </button>
 
       {isOpen && (
-        <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-1/3 sm:top-full sm:mt-2 w-auto sm:w-[320px] bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
+        <>
+          {/* Mobile backdrop */}
+          <div className="fixed sm:hidden inset-0 bg-black/40 z-40" onClick={() => setIsOpen(false)} />
+          
+          {/* Dropdown panel */}
+          <div className="
+            fixed sm:absolute
+            left-3 right-3 sm:left-auto sm:right-0
+            top-[10vh] sm:top-full
+            sm:mt-2
+            max-h-[80vh] sm:max-h-none
+            overflow-y-auto sm:overflow-visible
+            w-auto sm:w-[320px]
+            bg-[var(--bg)] border border-[var(--border)]
+            rounded-[var(--radius-8)] z-50 animate-dropdown-in
+          ">
           <div className="p-[var(--space-16)]">
             <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-[var(--accent-brand)]">Тема доски</h3>
             <div className="grid grid-cols-3 max-sm:grid-cols-2 gap-[var(--space-8)] mb-[var(--space-16)]">
@@ -99,8 +114,9 @@ export default function SettingsDropdown() {
               })}
             </div>
           </div>
-        </div>
-      )}
-    </div>
+          </div>
+          </>
+        )}
+      </div>
   )
 }

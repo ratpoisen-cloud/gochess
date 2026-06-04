@@ -175,6 +175,31 @@ src/
 | ✅ Превращение пешки (интегрированный пикер) | `GamePage.tsx`, `BotPage.tsx`, `LocalPage.tsx`, `ChessBoard.tsx` | Вместо центральной модалки реализован вертикальный пикер прямо на доске, привязанный к клетке превращения. Использует нативные ассеты фигур и адаптируется под разворот доски. Исправлен баг блокировки хода при drag-and-drop на последнюю горизонталь. |
 | ✅ Расширенный локальный режим | `LocalPage.tsx` | Добавлены имена игроков, режимы «Авто-разворот» и «Лицом к лицу» (поворот черных фигур на 180° через свойство `rotate`). Интегрированы кнопки управления: Undo (отмена хода), Draw (ничья), Resign (сдача). |
 | ✅ Исправлен вылет useBoardStore | `LocalPage.tsx`, `BotPage.tsx` | Устранена ошибка `ReferenceError: useBoardStore is not defined` в модалке превращения путём корректного импорта и инициализации стора в компонентах. |
+| ✅ Не загружалась страница игры (LoadingScreen бесконечно) | `GamePage.tsx` | `authLoading` блокировал рендер даже после `loading = false`. Убрана проверка `if (authLoading) return <LoadingScreen />` — LoadingScreen управляется только стейтом `loading`. |
+| ✅ Последние партии не грузились в лобби | `LobbyPage.tsx`, `firestore.indexes.json` | После смены `orderBy('created_at')` на `orderBy('last_move_time')` запрос перестал возвращать документы без поля `last_move_time` (старые игры). Исправлено: убран `orderBy` из Firestore-запроса, сортировка клиентская по `last_move_time` с fallback на `created_at`. |
+
+## 🧠 Извлечённые уроки (Firebase)
+
+### 1. Firestore: `orderBy` исключает документы без поля
+Если документ не имеет поля, указанного в `orderBy`, он **не возвращается** в результатах запроса (даже если соответствует `where`). **Решение:** сортировать на клиенте, использовать Firestore только для фильтрации.
+
+### 2. Firestore: составные индексы не нужны для `where` без `orderBy`
+`query(collection, where('field', '==', value))` работает сразу — используются авто-созданные одно-полевые индексы. **Решение:** избегать `orderBy` в Firestore, если порядок можно задать на клиенте.
+
+### 3. Firestore: `serverTimestamp()` vs `Date.now()`
+`serverTimestamp()` — Firestore Timestamp (`.seconds`, `.nanoseconds`). `Date.now()` — число ms. При клиентской сортировке нужно обрабатывать оба типа: `typeof val === 'number' ? val : val.seconds * 1000`.
+
+### 4. GitHub Pages: Google OAuth блокируется COOP
+`signInWithPopup` на GitHub Pages падает с `Cross-Origin-Opener-Policy`. GitHub Pages не даёт настроить COOP/COEP заголовки. **Решение:** использовать `signInWithRedirect` (было отклонено пользователем) или email/password как основной метод входа.
+
+### 5. GitHub Pages: SPA роутинг
+Для SPA на GitHub Pages нужно иметь `public/404.html`, который Vite копирует в `dist/` как fallback для всех маршрутов. Без него маршруты вида `/game/XFNAJT` отдают 404.
+
+### 6. Zustand persist + несериализуемые объекты
+Не использовать `persist` для стейтов, содержащих экземпляры классов (например, `Chess` из chess.js). persist пытается сериализовать в JSON — `Chess` методы теряются. **Решение:** хранить FEN/PGN строки в сторе, создавать `new Chess()` на лету.
+
+### 7. React 18: `authLoading` блокирует рендер
+Если в компоненте есть `useEffect`, который меняет `authLoading` (глобальный стейт), и рендер проверяет `authLoading` до `user`/`loading`, возникает race condition — LoadingScreen может застрять. **Решение:** проверять `authLoading` только в эффектах, не в рендере.
 
 ## 🚀 Запуск
 

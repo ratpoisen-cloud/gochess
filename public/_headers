@@ -12,6 +12,10 @@
 /pieces/*
   Cache-Control: public, max-age=3600
 
+# Engine — cache
+/engine/*
+  Cache-Control: public, max-age=3600
+
 # HTML — never cache
 /*.html
   Cache-Control: no-cache

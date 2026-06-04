@@ -10,6 +10,7 @@ import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import Footer from '@/components/Footer'
+import { createBotEngine } from '@/lib/botEngine'
 import type { BotLevel } from '@/types'
 
 import { useBoardStore } from '@/stores/boardStore'
@@ -32,6 +33,7 @@ export default function BotPage() {
   
   const gameRef = useRef(game)
   const savedRef = useRef(false)
+  const botEngineRef = useRef<ReturnType<typeof createBotEngine> | null>(null)
   
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
@@ -50,6 +52,15 @@ export default function BotPage() {
     }
   }, [isGameOver, saveGame, level])
 
+  useEffect(() => {
+    return () => {
+      if (botEngineRef.current) {
+        botEngineRef.current.destroy()
+        botEngineRef.current = null
+      }
+    }
+  }, [])
+
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = game.get(from as any)
     if (piece?.type !== 'p') return false
@@ -61,14 +72,46 @@ export default function BotPage() {
   // Bot Turn Logic
   useEffect(() => {
     if (!isGameOver && currentTurn !== playerColor && !isBotThinking && !isLevelModalOpen && !pendingPromotion) {
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
         setIsBotThinking(true)
         const currentGame = gameRef.current
-        const moves = currentGame.moves({ verbose: true })
-        if (moves.length > 0 && !currentGame.isGameOver()) {
-          const randomMove = moves[Math.floor(Math.random() * moves.length)]
-          makeMove(randomMove.from, randomMove.to, randomMove.promotion)
+        if (currentGame.isGameOver()) {
+          setIsBotThinking(false)
+          return
         }
+
+        const engine = botEngineRef.current
+        if (engine) {
+          try {
+            const bestMove = await engine.getBestMove(currentGame.fen())
+            if (bestMove && bestMove !== '(none)') {
+              const from = bestMove.slice(0, 2)
+              const to = bestMove.slice(2, 4)
+              const promotion = bestMove.length > 4 ? bestMove.slice(4, 5) : undefined
+              makeMove(from, to, promotion)
+            } else {
+              const moves = currentGame.moves({ verbose: true })
+              if (moves.length > 0) {
+                const fallback = moves[Math.floor(Math.random() * moves.length)]
+                makeMove(fallback.from, fallback.to, fallback.promotion)
+              }
+            }
+          } catch (err) {
+            console.error('[Bot] Engine error, using fallback:', err)
+            const moves = currentGame.moves({ verbose: true })
+            if (moves.length > 0) {
+              const fallback = moves[Math.floor(Math.random() * moves.length)]
+              makeMove(fallback.from, fallback.to, fallback.promotion)
+            }
+          }
+        } else {
+          const moves = currentGame.moves({ verbose: true })
+          if (moves.length > 0) {
+            const randomMove = moves[Math.floor(Math.random() * moves.length)]
+            makeMove(randomMove.from, randomMove.to, randomMove.promotion)
+          }
+        }
+
         setIsBotThinking(false)
       }, 600)
       return () => clearTimeout(timer)
@@ -106,6 +149,10 @@ export default function BotPage() {
       ? (Math.random() > 0.5 ? 'w' : 'b') 
       : tempColor
     
+    if (botEngineRef.current) {
+      botEngineRef.current.destroy()
+    }
+    botEngineRef.current = createBotEngine(selectedLevel)
     setPlayerColor(finalColor)
     setLevel(selectedLevel)
     resetGame()

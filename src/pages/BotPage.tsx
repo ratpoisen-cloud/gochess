@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore } from '@/stores/gameStore'
@@ -22,7 +22,8 @@ export default function BotPage() {
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
-    resetGame, saveGame, playerColor, setPlayerColor 
+    resetGame, saveGame, playerColor, setPlayerColor,
+    createBotGameDoc, updateBotGameDoc, botGameDocId, loadBotGameFromFirestore 
   } = useGameStore()
   
   const [isLevelModalOpen, setIsLevelModalOpen] = useState(true)
@@ -30,6 +31,9 @@ export default function BotPage() {
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  const [isGameLoading, setIsGameLoading] = useState(true)
+  
+  const [searchParams] = useSearchParams()
   
   const gameRef = useRef(game)
   const savedRef = useRef(false)
@@ -51,6 +55,34 @@ export default function BotPage() {
       savedRef.current = false
     }
   }, [isGameOver, saveGame, level])
+
+  useEffect(() => {
+    if (botGameDocId && !isGameOver && moveHistory.length > 0) {
+      updateBotGameDoc()
+    }
+  }, [moveHistory.length, botGameDocId, isGameOver, updateBotGameDoc])
+
+  useEffect(() => {
+    const gameId = searchParams.get('game')
+    if (!gameId) {
+      setIsGameLoading(false)
+      return
+    }
+
+    loadBotGameFromFirestore(gameId).then((result) => {
+      if (result) {
+        setLevel(result.level as BotLevel)
+        setPlayerColor(result.playerColor)
+        setIsLevelModalOpen(false)
+
+        if (botEngineRef.current) {
+          botEngineRef.current.destroy()
+        }
+        botEngineRef.current = createBotEngine(result.level as BotLevel)
+      }
+      setIsGameLoading(false)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
@@ -144,7 +176,7 @@ export default function BotPage() {
     selectSquare(square)
   }
 
-  const handleStartGame = (selectedLevel: BotLevel) => {
+  const handleStartGame = async (selectedLevel: BotLevel) => {
     const finalColor = tempColor === 'random' 
       ? (Math.random() > 0.5 ? 'w' : 'b') 
       : tempColor
@@ -157,6 +189,8 @@ export default function BotPage() {
     setLevel(selectedLevel)
     resetGame()
     setIsLevelModalOpen(false)
+
+    await createBotGameDoc(selectedLevel)
   }
 
   const statusClasses = {
@@ -165,6 +199,14 @@ export default function BotPage() {
     draw: 'text-text-secondary',
     check: 'text-[var(--danger)]',
     playing: isBotThinking ? 'text-[var(--accent-brand)] animate-pulse' : currentTurn === playerColor ? 'text-[var(--accent-brand)]' : 'text-text opacity-60',
+  }
+
+  if (isGameLoading && searchParams.get('game')) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center bg-bg">
+        <div className="text-[var(--accent-brand)] animate-pulse text-sm">Загрузка партии...</div>
+      </div>
+    )
   }
 
   return (

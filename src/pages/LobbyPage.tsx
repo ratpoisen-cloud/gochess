@@ -129,6 +129,8 @@ export default function LobbyPage() {
   const handleGameClick = (game: any) => {
     if (game.game_type === 'online' && game.room_code) {
       navigate(`/game/${game.room_code}`)
+    } else if (game.game_type === 'bot' && game.game_state === 'active' && game.id) {
+      navigate(`/bot?game=${game.id}`)
     }
   }
 
@@ -252,7 +254,7 @@ export default function LobbyPage() {
                     key={g.id} 
                     onClick={() => handleGameClick(g)}
                     className={`p-[var(--space-12)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 flex gap-[var(--space-16)] items-center ${
-                      isOnline && isActive 
+                      (isOnline && isActive) || (g.game_type === 'bot' && isActive)
                         ? 'cursor-pointer active:scale-[0.98]' 
                         : ''
                     }`}
@@ -269,6 +271,7 @@ export default function LobbyPage() {
                       <div className="flex items-center justify-between mb-[var(--space-4)]">
                         <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
                           {isOnline && isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
+                          {(g.game_type === 'bot' && isActive) && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
                           {g.white_name || '...'} vs {g.black_name || '...'}
                         </span>
                         <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
@@ -279,7 +282,13 @@ export default function LobbyPage() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-text-secondary opacity-50">
-                          {isOnline ? 'Онлайн' : g.game_type === 'bot' ? 'Против Ичи' : 'Локально'}
+                          {isActive && g.game_type === 'bot' 
+                            ? 'Продолжить' 
+                            : isOnline 
+                              ? 'Онлайн' 
+                              : g.game_type === 'bot' 
+                                ? 'Против Ичи' 
+                                : 'Локально'}
                         </span>
                         <span className="text-[10px] text-text-secondary opacity-50">
                           {g.last_move_time

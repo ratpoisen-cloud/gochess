@@ -9,13 +9,17 @@ export default function SettingsDropdown() {
   const { selectedTheme, selectedPieceSet, setSelectedTheme, setSelectedPieceSet } = useBoardStore()
 
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setIsOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   return (
@@ -31,7 +35,7 @@ export default function SettingsDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 max-sm:right-auto max-sm:left-[var(--space-12)] top-full mt-2 w-[320px] max-sm:w-[calc(100vw-24px)] bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
+        <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-1/3 sm:top-full sm:mt-2 w-auto sm:w-[320px] bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] z-50 animate-dropdown-in">
           <div className="p-[var(--space-16)]">
             <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-[var(--accent-brand)]">Тема доски</h3>
             <div className="grid grid-cols-3 max-sm:grid-cols-2 gap-[var(--space-8)] mb-[var(--space-16)]">

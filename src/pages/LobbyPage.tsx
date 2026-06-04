@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { db } from '@/lib/firebase'
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
+import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
@@ -88,13 +88,11 @@ export default function LobbyPage() {
         const qWhite = query(
           gamesRef, 
           where('white_player_id', '==', user.uid),
-          orderBy('created_at', 'desc'),
           limit(20)
         )
         const qBlack = query(
           gamesRef, 
           where('black_player_id', '==', user.uid),
-          orderBy('created_at', 'desc'),
           limit(20)
         )
 

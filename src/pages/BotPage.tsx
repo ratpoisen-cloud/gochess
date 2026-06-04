@@ -201,14 +201,6 @@ export default function BotPage() {
     playing: isBotThinking ? 'text-[var(--accent-brand)] animate-pulse' : currentTurn === playerColor ? 'text-[var(--accent-brand)]' : 'text-text opacity-60',
   }
 
-  if (isGameLoading && searchParams.get('game')) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-bg">
-        <div className="text-[var(--accent-brand)] animate-pulse text-sm">Загрузка партии...</div>
-      </div>
-    )
-  }
-
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
@@ -269,7 +261,11 @@ export default function BotPage() {
               ref={boardContainerRef}
               className="board-container"
             >
-              {stableWidth > 0 ? (
+              {isGameLoading && searchParams.get('game') ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-[var(--accent-brand)] animate-pulse text-sm">Загрузка партии...</div>
+                </div>
+              ) : stableWidth > 0 ? (
                 <>
                   <ChessBoard
                     game={game}

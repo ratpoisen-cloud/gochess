@@ -54,6 +54,7 @@ export default function LobbyPage() {
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<any[]>([])
+  const [gameFilter, setGameFilter] = useState<'all' | 'online' | 'bot' | 'local'>('all')
   const [displayedChars, setDisplayedChars] = useState(0)
   const [animationPhase, setAnimationPhase] = useState<'typing' | 'logo'>('typing')
   
@@ -241,11 +242,30 @@ export default function LobbyPage() {
 
         {user && recentGames.length > 0 && (
           <section className="mt-[var(--space-48)]">
-            <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-20)] uppercase tracking-widest text-center">
+            <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-12)] uppercase tracking-widest text-center">
               Последние партии
             </h3>
+            
+            <div className="flex justify-center gap-[var(--space-20)] mb-[var(--space-24)]">
+              {(['all', 'online', 'bot', 'local'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setGameFilter(f)}
+                  className={`text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
+                    gameFilter === f 
+                      ? 'text-[var(--accent-brand)] scale-110' 
+                      : 'text-text-secondary opacity-60 hover:opacity-100'
+                  }`}
+                >
+                  {f === 'all' ? 'Все' : f === 'online' ? 'Онлайн' : f === 'bot' ? 'С ботом' : 'Локально'}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
-              {recentGames.map((g) => {
+              {recentGames
+                .filter(g => gameFilter === 'all' || g.game_type === gameFilter)
+                .map((g) => {
                 const isOnline = g.game_type === 'online'
                 const isActive = g.game_state !== 'game_over'
                 

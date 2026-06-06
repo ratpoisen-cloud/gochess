@@ -261,7 +261,7 @@ export const useGameStore = create<GameState>()(
             legalMoves: [],
             moveHistory: chess.history(),
             isGameOver: chess.isGameOver(),
-            lastMove: null,
+            lastMove: (() => { const h = chess.history({ verbose: true }); return h.length > 0 ? { from: h[h.length - 1].from, to: h[h.length - 1].to } : null })(),
             checkSquare: getCheckSquare(chess),
             botGameDocId: docId,
             playerColor,

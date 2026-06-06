@@ -117,8 +117,9 @@ export default function GamePage() {
         : g.inCheck() ? 'check'
         : 'playing'
     )
+    const newHistory = g.history({ verbose: true }) as { from: string; to: string }[]
     setMoveHistory(g.history())
-    setLastMove(null)
+    setLastMove(newHistory.length > 0 ? { from: newHistory[newHistory.length - 1].from, to: newHistory[newHistory.length - 1].to } : null)
     setCheckSquare(getCheckSquare(g))
     setSelectedSquare(null)
     setLegalMoves([])

@@ -9,6 +9,7 @@ interface BotProfile {
 }
 
 const LEVELS: Record<BotLevel, BotProfile> = {
+  'very-easy': { skill: 0, depth: 1, movetime: 200 },
   easy: { skill: 0, depth: 3, movetime: 50 },
   medium: { skill: 2, depth: 5, movetime: 100 },
   hard: { skill: 4, depth: 8, movetime: 220 },

@@ -4,7 +4,7 @@ export type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
 
 export type GameStatus = 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw'
 
-export type BotLevel = 'easy' | 'medium' | 'hard'
+export type BotLevel = 'very-easy' | 'easy' | 'medium' | 'hard'
 
 export interface User {
   uid: string

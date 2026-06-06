@@ -234,7 +234,7 @@ export default function BotPage() {
                   className="w-5 h-5 object-contain opacity-90"
                 />
                 <span className="text-[var(--accent-brand)] truncate">
-                  Ичи {level === 'easy' ? 'легкий' : level === 'medium' ? 'средний' : 'сложный'}
+                  Ичи {level === 'very-easy' ? 'очень легкий' : level === 'easy' ? 'легкий' : level === 'medium' ? 'средний' : 'сложный'}
                 </span>
               </div>
 
@@ -428,6 +428,13 @@ export default function BotPage() {
               Сложность
             </label>
             <div className="space-y-2">
+              <Button 
+                fullWidth 
+                onClick={() => handleStartGame('very-easy')}
+                variant="primary"
+              >
+                Очень лёгкий
+              </Button>
               <Button 
                 fullWidth 
                 onClick={() => handleStartGame('easy')}

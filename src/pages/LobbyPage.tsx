@@ -249,6 +249,14 @@ export default function LobbyPage() {
                 const isOnline = g.game_type === 'online'
                 const isActive = g.game_state !== 'game_over'
                 
+                // Determine turn status
+                const isUserWhite = g.white_player_id === user.uid
+                const isUserBlack = g.black_player_id === user.uid
+                const isMyTurn = isActive && (
+                  (g.turn === 'w' && isUserWhite) || 
+                  (g.turn === 'b' && isUserBlack)
+                )
+
                 return (
                   <div 
                     key={g.id} 
@@ -270,20 +278,21 @@ export default function LobbyPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-[var(--space-4)]">
                         <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
-                          {isOnline && isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
-                          {(g.game_type === 'bot' && isActive) && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" title="Активная игра" />}
+                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" />}
                           {g.white_name || '...'} vs {g.black_name || '...'}
                         </span>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                          g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
-                        }`}>
-                          {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
-                        </span>
+                        {!isActive && (
+                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
+                            g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
+                          }`}>
+                            {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-text-secondary opacity-50">
-                          {isActive && g.game_type === 'bot' 
-                            ? 'Продолжить' 
+                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? (isMyTurn ? 'text-[var(--accent-brand)]' : 'text-text-secondary opacity-60') : 'text-text-secondary opacity-40'}`}>
+                          {isActive 
+                            ? (isMyTurn ? 'Ваш ход' : 'Ход соперника')
                             : isOnline 
                               ? 'Онлайн' 
                               : g.game_type === 'bot' 
@@ -291,11 +300,11 @@ export default function LobbyPage() {
                                 : 'Локально'}
                         </span>
                         <span className="text-[10px] text-text-secondary opacity-50">
-                          {g.last_move_time
+                          {g.created_at
                             ? new Date(
-                                typeof g.last_move_time === 'number'
-                                  ? g.last_move_time
-                                  : g.last_move_time.seconds * 1000
+                                typeof g.created_at === 'string'
+                                  ? g.created_at
+                                  : g.created_at.seconds * 1000
                               ).toLocaleDateString()
                             : ''}
                         </span>

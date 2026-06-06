@@ -71,6 +71,7 @@ export default function GamePage() {
   
   const { addToast } = useToast()
   const [showResignConfirm, setShowResignConfirm] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
   const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
@@ -660,6 +661,55 @@ export default function GamePage() {
           </div>
 
           <div className="game-side-column space-y-[var(--space-20)]">
+            {!opponentJoined && (
+              <Card padding="sm" className="border-[var(--accent-brand)] shadow-[0_0_20px_rgba(126,184,126,0.1)]">
+                <div className="flex items-center justify-between mb-[var(--space-12)]">
+                  <h3 className="text-[var(--font-size-sm)] font-bold text-[var(--accent-brand)] uppercase tracking-widest">Пригласить друга</h3>
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent-brand)] animate-pulse" />
+                </div>
+                <div className="space-y-[var(--space-12)]">
+                  <div className="flex items-center gap-[var(--space-8)] p-[var(--space-8)] rounded-[var(--radius-8)] bg-[rgba(0,0,0,0.2)] border border-[var(--border)]">
+                    <input
+                      type="text"
+                      readOnly
+                      value={window.location.href}
+                      className="flex-1 min-w-0 bg-transparent text-[10px] text-text-secondary outline-none truncate select-all font-mono"
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href)
+                        setCopied(true)
+                        addToast('Ссылка скопирована', 'success')
+                        setTimeout(() => setCopied(false), 2000)
+                      }}
+                      className="shrink-0 px-2 py-1 rounded-[var(--radius-4)] text-[9px] font-bold uppercase tracking-wider transition-all"
+                      style={{
+                        background: copied ? 'var(--success)' : 'var(--accent-brand)',
+                        color: 'black'
+                      }}
+                    >
+                      {copied ? 'OK' : 'Копия'}
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
+                      className="flex-1 py-2 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.03)] border border-[var(--border)] text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)] transition-all"
+                    >
+                      Telegram
+                    </button>
+                    <button 
+                      onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
+                      className="flex-1 py-2 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.03)] border border-[var(--border)] text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)] transition-all"
+                    >
+                      ВКонтакте
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             <Card padding="sm">
               <div className="flex items-center justify-between mb-[var(--space-12)]">
                 <h3 className="text-[var(--font-size-sm)] font-semibold text-text">Ходы</h3>

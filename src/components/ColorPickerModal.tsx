@@ -204,7 +204,7 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
                 type="text"
                 readOnly
                 value={roomUrl}
-                className="flex-1 bg-transparent text-text text-[var(--font-size-xs)] outline-none truncate select-all"
+                className="flex-1 min-w-0 bg-transparent text-text text-[var(--font-size-xs)] outline-none truncate select-all"
                 onClick={(e) => (e.target as HTMLInputElement).select()}
               />
               <button
@@ -218,6 +218,21 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
                 }}
               >
                 {copied ? 'Скопировано' : 'Копировать'}
+              </button>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(roomUrl)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
+                className="flex-1 p-[var(--space-8)] rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.03)] border border-[var(--border)] text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)] transition-all"
+              >
+                Telegram
+              </button>
+              <button 
+                onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(roomUrl)}`, '_blank')}
+                className="flex-1 p-[var(--space-8)] rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.03)] border border-[var(--border)] text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)] transition-all"
+              >
+                ВКонтакте
               </button>
             </div>
             

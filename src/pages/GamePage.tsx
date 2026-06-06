@@ -747,7 +747,7 @@ export default function GamePage() {
                     undo_request: { from_id: user.uid, created_at: Date.now() }
                   }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
                 }}
-                disabled={gameOver || moveHistory.length === 0}
+                disabled={gameOver || moveHistory.length === 0 || (!!(undoRequest && user && undoRequest.from_id === user.uid))}
               >
                 Отмена
               </Button>

@@ -61,10 +61,15 @@ export default function BotPage() {
 
       if (status === 'checkmate') {
         const loserColor = currentTurn
+        const winnerColor = currentTurn === 'w' ? 'b' : 'w'
         const kingSq = getKingSquare(game, loserColor as any)
+        const winnerKingSq = getKingSquare(game, winnerColor as any)
         setEndGameState({
           defeated: kingSq,
-          emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []
+          emojis: [
+            ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []),
+            ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
+          ]
         })
       } else if (status === 'stalemate' || status === 'draw') {
         setEndGameState({

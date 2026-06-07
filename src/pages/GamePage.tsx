@@ -265,17 +265,27 @@ export default function GamePage() {
 
           if (newData.message === 'resign') {
             const loserColor = newData.winner === 'white' ? 'b' : 'w'
+            const winnerColor = newData.winner === 'white' ? 'w' : 'b'
             const kingSq = getKingSquare(currentGame, loserColor)
+            const winnerKingSq = getKingSquare(currentGame, winnerColor)
             setEndGameState({
               defeated: kingSq,
-              emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/surrender.png` }] : []
+              emojis: [
+                ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/surrender.png` }] : []),
+                ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
+              ]
             })
           } else if (newData.message === 'checkmate') {
             const loserColor = currentGame.turn()
+            const winnerColor = currentGame.turn() === 'w' ? 'b' : 'w'
             const kingSq = getKingSquare(currentGame, loserColor)
+            const winnerKingSq = getKingSquare(currentGame, winnerColor)
             setEndGameState({
               defeated: kingSq,
-              emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []
+              emojis: [
+                ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []),
+                ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
+              ]
             })
           } else if (newData.message === 'draw' || newData.message === 'stalemate') {
             setEndGameState({

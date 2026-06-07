@@ -251,7 +251,7 @@ export default function BotPage() {
         </div>
       </header>
 
-      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
+      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-48)] max-sm:py-[var(--space-24)] flex-1 w-full">
         <div className="game-layout-container">
           <div className="game-main-column">
             <div 

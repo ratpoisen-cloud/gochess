@@ -39,7 +39,8 @@ export default function LocalPage() {
   const [resultText, setResultText] = useState('')
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
-  
+  const [winnerKingPos, setWinnerKingPos] = useState<{ x: number; y: number } | null>(null)
+
   // Setup States
   const [whiteName, setWhiteName] = useState(user?.displayName || 'Игрок 1')
   const [blackName, setBlackName] = useState('Гость')
@@ -93,6 +94,15 @@ export default function LocalPage() {
               ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
             ]
           })
+
+          // Always explode from center in local mode
+          if (stableWidth > 0) {
+            setWinnerKingPos({
+              x: stableWidth / 2,
+              y: stableWidth / 2
+            })
+          }
+
           setResultText(currentTurn === 'w' ? `Победа чёрных (${blackName})` : `Победа белых (${whiteName})`)
         } else if (status === 'stalemate' || status === 'draw') {
           setEndGameState({
@@ -110,7 +120,7 @@ export default function LocalPage() {
       savedRef.current = false
       setEndGameState(null)
     }
-  }, [isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame, game])
+  }, [isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame, game, stableWidth])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     if (isActuallyGameOver) return false
@@ -150,6 +160,14 @@ export default function LocalPage() {
         ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
       ]
     })
+
+    // Always explode from center in local mode
+    if (stableWidth > 0) {
+      setWinnerKingPos({
+        x: stableWidth / 2,
+        y: stableWidth / 2
+      })
+    }
     
     setResultText(`Сдача. Победа ${winner}`)
     setManualGameOver(true)
@@ -176,6 +194,7 @@ export default function LocalPage() {
     setManualGameOver(false)
     setResultText('')
     setEndGameState(null)
+    setWinnerKingPos(null)
     savedRef.current = false
   }
 
@@ -227,7 +246,6 @@ export default function LocalPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
-      {isVictory && <PixelConfetti />}
       {/* Inject face-to-face rotation styles if needed */}
       {boardView === 'face-to-face' && (
         <style>
@@ -296,8 +314,9 @@ export default function LocalPage() {
 
             <div
               ref={boardContainerRef}
-              className="board-container"
+              className="board-container relative overflow-hidden"
             >
+              {isVictory && <PixelConfetti origin={winnerKingPos} />}
               {stableWidth > 0 ? (
                 <>
                   <ChessBoard

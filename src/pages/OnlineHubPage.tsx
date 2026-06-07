@@ -13,6 +13,7 @@ import UserMenu from '@/components/UserMenu'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import Footer from '@/components/Footer'
 import Modal from '@/components/Modal'
+import ColorPickerModal from '@/components/ColorPickerModal'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -25,6 +26,7 @@ export default function OnlineHubPage() {
 
   const [gameMode, setGameMode] = useState<GameMode>('classic')
   const [activeTab, setActiveTab] = useState<'recent' | 'online'>('recent')
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<AppUser[]>([])
   const [recentPlayers, setRecentPlayers] = useState<AppUser[]>([])
 
@@ -225,6 +227,20 @@ export default function OnlineHubPage() {
             </button>
           </div>
 
+          <div className="mb-[var(--space-48)]">
+            <Button 
+              size="lg" 
+              fullWidth 
+              onClick={() => setIsColorPickerOpen(true)}
+              className="py-6 shadow-[0_0_20px_rgba(126,184,126,0.1)] hover:shadow-[0_0_30px_rgba(126,184,126,0.2)]"
+            >
+              Создать закрытую комнату
+            </Button>
+            <p className="mt-4 text-[9px] text-text-secondary uppercase tracking-[0.2em] opacity-40">
+              Создай комнату и отправь ссылку другу напрямую
+            </p>
+          </div>
+
           {/* Player Tabs */}
           <div className="flex gap-8 mb-[var(--space-24)] border-b border-[var(--border)] px-4">
             <button
@@ -305,6 +321,11 @@ export default function OnlineHubPage() {
         </Modal>
       )}
 
+      <ColorPickerModal 
+        isOpen={isColorPickerOpen} 
+        onClose={() => setIsColorPickerOpen(false)} 
+        gameMode={gameMode}
+      />
       <Footer />
     </div>
   )

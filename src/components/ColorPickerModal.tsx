@@ -7,6 +7,8 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 
+import type { GameMode } from '@/types'
+
 const BASE = import.meta.env.BASE_URL || '/'
 
 function generateRoomCode(): string {
@@ -21,11 +23,12 @@ function generateRoomCode(): string {
 interface ColorPickerModalProps {
   isOpen: boolean
   onClose: () => void
+  gameMode?: GameMode
 }
 
 type ColorChoice = 'w' | 'b' | 'random'
 
-export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalProps) {
+export default function ColorPickerModal({ isOpen, onClose, gameMode = 'classic' }: ColorPickerModalProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { addToast } = useToast()
@@ -82,6 +85,7 @@ export default function ColorPickerModal({ isOpen, onClose }: ColorPickerModalPr
         black_player_id: assignedColor === 'b' ? user.uid : null,
         black_name: assignedColor === 'b' ? (user.displayName || 'Игрок') : '',
         game_type: 'online',
+        game_mode: gameMode,
         pgn: '',
         fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         game_state: 'active',

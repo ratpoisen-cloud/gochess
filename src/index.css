@@ -147,13 +147,6 @@
   box-shadow: none;
 }
 
-@media (max-width: 640px) {
-  .board-container {
-    max-width: 100%;
-    border-radius: 0;
-  }
-}
-
 /* Let react-chessboard control its own size via boardWidth prop */
 .board-container > div,
 .board-container [role="presentation"] {

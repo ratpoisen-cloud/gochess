@@ -16,6 +16,8 @@ interface ChessBoardProps {
   boardWidth?: number
   boardOrientation?: 'white' | 'black'
   animationDuration?: number
+  defeatedKingSquare?: string | null
+  endGameEmojis?: { square: string; url: string }[]
 }
 
 export default function ChessBoard({
@@ -29,6 +31,8 @@ export default function ChessBoard({
   boardWidth,
   boardOrientation = 'white',
   animationDuration = 200,
+  defeatedKingSquare,
+  endGameEmojis = [],
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -168,8 +172,8 @@ export default function ChessBoard({
                 style={{ 
                   width: '100%', 
                   height: '100%', 
-                  transform: (isCheckmate && isCheck) ? 'rotate(90deg)' : 'none',
-                  transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transform: (defeatedKingSquare === square || (isCheckmate && isCheck)) ? 'rotate(90deg)' : 'none',
+                  transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
                   transformOrigin: 'center center',
                   display: 'flex',
                   alignItems: 'center',
@@ -181,6 +185,30 @@ export default function ChessBoard({
               </div>
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}
+              
+              {/* End Game Emojis */}
+              {endGameEmojis.filter(e => e.square === square).map((e, i) => (
+                <div
+                  key={`endgame-${i}`}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]"
+                >
+                  <div 
+                    className="animate-bounce-subtle flex items-center justify-center"
+                    style={{
+                      width: '60%',
+                      height: '60%',
+                      filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'
+                    }}
+                  >
+                    <img 
+                      src={e.url} 
+                      alt="endgame-status" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </div>
+              ))}
+
               {reactionEmojis.filter((r) => r.square === square).slice(-1).map((r) => (
                 <div
                   key={r.id}

@@ -1,7 +1,7 @@
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import ChessBoard from '@/components/board/ChessBoard'
-import { useGameStore } from '@/stores/gameStore'
+import { useGameStore, getKingSquare } from '@/stores/gameStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
@@ -14,6 +14,8 @@ import { createBotEngine } from '@/lib/botEngine'
 import type { BotLevel } from '@/types'
 
 import { useBoardStore } from '@/stores/boardStore'
+
+const BASE = import.meta.env.BASE_URL || '/'
 
 export default function BotPage() {
   const { user } = useAuth()
@@ -32,6 +34,7 @@ export default function BotPage() {
   const [isBotThinking, setIsBotThinking] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [isGameLoading, setIsGameLoading] = useState(true)
+  const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
   
   const [searchParams] = useSearchParams()
   
@@ -50,11 +53,33 @@ export default function BotPage() {
     if (isGameOver && !savedRef.current) {
       savedRef.current = true
       saveGame('bot', level)
+
+      // Calculate End Game King Effects
+      const whiteKingSquare = getKingSquare(game, 'w')
+      const blackKingSquare = getKingSquare(game, 'b')
+
+      if (status === 'checkmate') {
+        const loserColor = currentTurn
+        const kingSq = getKingSquare(game, loserColor as any)
+        setEndGameState({
+          defeated: kingSq,
+          emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/checkmate.png` }] : []
+        })
+      } else if (status === 'stalemate' || status === 'draw') {
+        setEndGameState({
+          defeated: null,
+          emojis: [
+            ...(whiteKingSquare ? [{ square: whiteKingSquare, url: `${BASE}emojis/end game/draw.png` }] : []),
+            ...(blackKingSquare ? [{ square: blackKingSquare, url: `${BASE}emojis/end game/draw.png` }] : [])
+          ]
+        })
+      }
     }
     if (!isGameOver) {
       savedRef.current = false
+      setEndGameState(null)
     }
-  }, [isGameOver, saveGame, level])
+  }, [isGameOver, saveGame, level, game, status, currentTurn])
 
   useEffect(() => {
     if (botGameDocId && !isGameOver && moveHistory.length > 0) {
@@ -277,6 +302,8 @@ export default function BotPage() {
                     onSquareClick={onSquareClick}
                     boardWidth={stableWidth}
                     boardOrientation={playerColor === 'b' ? 'black' : 'white'}
+                    defeatedKingSquare={endGameState?.defeated}
+                    endGameEmojis={endGameState?.emojis}
                   />
 
                   {/* Promotion Overlay */}

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
-import { useGameStore } from '@/stores/gameStore'
+import { useGameStore, getKingSquare } from '@/stores/gameStore'
 import { useState, useEffect, useRef } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
@@ -16,6 +16,8 @@ import { useToast } from '@/components/Toast'
 import { useAuth } from '@/hooks/useAuth'
 
 import { useBoardStore } from '@/stores/boardStore'
+
+const BASE = import.meta.env.BASE_URL || '/'
 
 type BoardView = 'standard' | 'autoflip' | 'face-to-face'
 
@@ -35,6 +37,7 @@ export default function LocalPage() {
   const [manualGameOver, setManualGameOver] = useState(false)
   const [resultText, setResultText] = useState('')
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
   
   // Setup States
   const [whiteName, setWhiteName] = useState(user?.displayName || 'Игрок 1')
@@ -71,19 +74,36 @@ export default function LocalPage() {
       savedRef.current = true
       saveGame('local')
       
-      // If it was an automatic game over, set the result text
+      // If it was an automatic game over, set the result text and end game state
       if (isGameOver && !manualGameOver) {
+        const whiteKingSquare = getKingSquare(game, 'w')
+        const blackKingSquare = getKingSquare(game, 'b')
+
         if (status === 'checkmate') {
+          const loserColor = currentTurn
+          const kingSq = getKingSquare(game, loserColor as any)
+          setEndGameState({
+            defeated: kingSq,
+            emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/checkmate.png` }] : []
+          })
           setResultText(currentTurn === 'w' ? `Победа чёрных (${blackName})` : `Победа белых (${whiteName})`)
-        } else {
+        } else if (status === 'stalemate' || status === 'draw') {
+          setEndGameState({
+            defeated: null,
+            emojis: [
+              ...(whiteKingSquare ? [{ square: whiteKingSquare, url: `${BASE}emojis/end game/draw.png` }] : []),
+              ...(blackKingSquare ? [{ square: blackKingSquare, url: `${BASE}emojis/end game/draw.png` }] : [])
+            ]
+          })
           setResultText('Ничья')
         }
       }
     }
     if (!isActuallyGameOver) {
       savedRef.current = false
+      setEndGameState(null)
     }
-  }, [isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame])
+  }, [isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame, game])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     if (isActuallyGameOver) return false
@@ -111,11 +131,30 @@ export default function LocalPage() {
 
   const handleResign = () => {
     const winner = currentTurn === 'w' ? blackName : whiteName
+    const loserColor = currentTurn
+    const kingSq = getKingSquare(game, loserColor as any)
+    
+    setEndGameState({
+      defeated: kingSq,
+      emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/surrender.png` }] : []
+    })
+    
     setResultText(`Сдача. Победа ${winner}`)
     setManualGameOver(true)
   }
 
   const handleDraw = () => {
+    const whiteKingSquare = getKingSquare(game, 'w')
+    const blackKingSquare = getKingSquare(game, 'b')
+    
+    setEndGameState({
+      defeated: null,
+      emojis: [
+        ...(whiteKingSquare ? [{ square: whiteKingSquare, url: `${BASE}emojis/end game/draw.png` }] : []),
+        ...(blackKingSquare ? [{ square: blackKingSquare, url: `${BASE}emojis/end game/draw.png` }] : [])
+      ]
+    })
+    
     setResultText('Ничья по соглашению')
     setManualGameOver(true)
   }
@@ -124,6 +163,7 @@ export default function LocalPage() {
     resetGame()
     setManualGameOver(false)
     setResultText('')
+    setEndGameState(null)
     savedRef.current = false
   }
 
@@ -258,6 +298,8 @@ export default function LocalPage() {
                     onReactionSquare={handleReactionSquare}
                     boardWidth={stableWidth}
                     boardOrientation={boardOrientation}
+                    defeatedKingSquare={endGameState?.defeated}
+                    endGameEmojis={endGameState?.emojis}
                   />
                   
                   {/* Promotion Overlay */}

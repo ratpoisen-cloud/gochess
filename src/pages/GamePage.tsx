@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
 import { useBoardStore } from '@/stores/boardStore'
+import { getKingSquare } from '@/stores/gameStore'
 import { soundManager } from '@/lib/soundManager'
 import ChessBoard from '@/components/board/ChessBoard'
 import Button from '@/components/Button'
@@ -72,6 +73,7 @@ export default function GamePage() {
   const { addToast } = useToast()
   const [showResignConfirm, setShowResignConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
 
   const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
   const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
@@ -246,10 +248,48 @@ export default function GamePage() {
           setGameOver(true)
           setResultText(parseResult(newData))
           soundManager.play('checkmate')
+
+          // Calculate End Game King Effects
+          const currentGame = new Chess()
+          if (newData.pgn) {
+            try { currentGame.loadPgn(newData.pgn) } catch (e) {
+              if (newData.fen) currentGame.load(newData.fen)
+            }
+          } else if (newData.fen) {
+            currentGame.load(newData.fen)
+          }
+
+          const whiteKingSquare = getKingSquare(currentGame, 'w')
+          const blackKingSquare = getKingSquare(currentGame, 'b')
+
+          if (newData.message === 'resign') {
+            const loserColor = newData.winner === 'white' ? 'b' : 'w'
+            const kingSq = getKingSquare(currentGame, loserColor)
+            setEndGameState({
+              defeated: kingSq,
+              emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/surrender.png` }] : []
+            })
+          } else if (newData.message === 'checkmate') {
+            const loserColor = currentGame.turn()
+            const kingSq = getKingSquare(currentGame, loserColor)
+            setEndGameState({
+              defeated: kingSq,
+              emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/checkmate.png` }] : []
+            })
+          } else if (newData.message === 'draw' || newData.message === 'stalemate') {
+            setEndGameState({
+              defeated: null,
+              emojis: [
+                ...(whiteKingSquare ? [{ square: whiteKingSquare, url: `${BASE}emojis/end game/draw.png` }] : []),
+                ...(blackKingSquare ? [{ square: blackKingSquare, url: `${BASE}emojis/end game/draw.png` }] : [])
+              ]
+            })
+          }
         }
       } else {
         setGameOver(false)
         setResultText('')
+        setEndGameState(null)
       }
 
       // Sync PGN / Move history
@@ -608,23 +648,22 @@ export default function GamePage() {
             </div>
 
             <div ref={boardContainerRef} className="board-container relative">
-              {(() => {
-                const fb = boardContainerRef.current?.clientWidth || 600
-                const w = stableWidth > 0 ? stableWidth : fb
-                return (
-                  <>
-                    <ChessBoard
-                      game={game}
-                      lastMove={lastMove}
-                      checkSquare={checkSquare}
-                      selectedSquare={selectedSquare}
-                      legalMoves={legalMoves}
-                      onDrop={onDrop}
-                      onSquareClick={onSquareClick}
-                      onReactionSquare={handleReactionSquare}
-                      boardWidth={w}
-                      boardOrientation={playerColor === 'b' ? 'black' : 'white'}
-                    />
+              {stableWidth > 0 ? (
+                <>
+                  <ChessBoard
+                    game={game}
+                    lastMove={lastMove}
+                    checkSquare={checkSquare}
+                    selectedSquare={selectedSquare}
+                    legalMoves={legalMoves}
+                    onDrop={onDrop}
+                    onSquareClick={onSquareClick}
+                    onReactionSquare={handleReactionSquare}
+                    boardWidth={stableWidth}
+                    boardOrientation={playerColor === 'b' ? 'black' : 'white'}
+                    defeatedKingSquare={endGameState?.defeated}
+                    endGameEmojis={endGameState?.emojis}
+                  />
 
                     {pendingPromotion && (
                       <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
@@ -649,8 +688,13 @@ export default function GamePage() {
                       </div>
                     )}
                   </>
-                )
-              })()}
+                ) : (
+                  <div className="w-full h-full aspect-square flex items-center justify-center bg-[var(--surface-elevated)] rounded-12 animate-pulse">
+                    <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
+                      Загрузка шахматной доски...
+                    </div>
+                  </div>
+                )}
             </div>
             
             {gameOver && resultText && (

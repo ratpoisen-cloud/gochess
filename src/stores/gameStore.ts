@@ -34,6 +34,20 @@ interface GameState {
   saveGame: (gameType: 'bot' | 'local' | 'online', botLevel?: string) => Promise<void>
 }
 
+export const getKingSquare = (game: Chess, color: 'w' | 'b'): string | null => {
+  const board = game.board()
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c]
+      if (piece && piece.type === 'k' && piece.color === color) {
+        const files = 'abcdefgh'
+        return `${files[c]}${8 - r}`
+      }
+    }
+  }
+  return null
+}
+
 const getCheckSquare = (game: Chess): string | null => {
   if (!game.inCheck()) return null
   const turn = game.turn()

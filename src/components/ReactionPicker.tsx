@@ -55,7 +55,7 @@ export default function ReactionPicker({ onSelect, onClose, boardWidth, anchorX,
         }}
       >
         <div
-          className="grid grid-cols-4 sm:grid-cols-8 gap-1.5 p-2"
+          className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 p-2"
           style={{
             width: pickerWidth,
             backgroundColor: 'rgba(18, 20, 18, 0.96)',

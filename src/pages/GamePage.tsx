@@ -20,6 +20,7 @@ import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
 import { useBoardStore } from '@/stores/boardStore'
 import { getKingSquare } from '@/stores/gameStore'
+import { getVisibleSquares } from '@/lib/chessFog'
 import { soundManager } from '@/lib/soundManager'
 import ChessBoard from '@/components/board/ChessBoard'
 import Button from '@/components/Button'
@@ -32,7 +33,7 @@ import Card from '@/components/Card'
 import Footer from '@/components/Footer'
 import AuthModal from '@/components/AuthModal'
 import PixelConfetti from '@/components/PixelConfetti'
-import type { GameStatus, GameData } from '@/types'
+import type { GameStatus, GameData, GameMode } from '@/types'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -68,6 +69,8 @@ export default function GamePage() {
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
   const [opponentJoined, setOpponentJoined] = useState(false)
+  const [gameMode, setGameMode] = useState<GameMode>('classic')
+  const [visibleSquares, setVisibleSquares] = useState<string[] | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   
@@ -241,6 +244,7 @@ export default function GamePage() {
       setPlayerColor(myColor)
       setOpponentName(opponent)
       setOpponentJoined(joined)
+      setGameMode(newData.game_mode || 'classic')
       opponentJoinedRef.current = joined
 
       // Game Over logic
@@ -312,6 +316,12 @@ export default function GamePage() {
           lastPgnRef.current = g.pgn()
           soundManager.play('move')
           useReactionStore.getState().resetMoveCounter()
+
+          if (newData.game_mode === 'fog_of_war' && myColor) {
+            setVisibleSquares(getVisibleSquares(g, myColor))
+          } else {
+            setVisibleSquares(null)
+          }
         } catch (e) {
           console.error('[Game] PGN load error:', e)
         }
@@ -320,6 +330,12 @@ export default function GamePage() {
         const g = new Chess()
         updateGameState(g)
         lastPgnRef.current = ''
+
+        if (newData.game_mode === 'fog_of_war' && myColor) {
+          setVisibleSquares(getVisibleSquares(g, myColor))
+        } else {
+          setVisibleSquares(null)
+        }
       }
 
       // Turn management
@@ -377,6 +393,10 @@ export default function GamePage() {
       lastPgnRef.current = newPgn
       updateGameState(g)
       setIsMyTurn(false)
+      
+      if (gameMode === 'fog_of_war' && playerColor) {
+        setVisibleSquares(getVisibleSquares(g, playerColor))
+      }
 
       const isCheckmate = g.isCheckmate()
       const isStalemate = g.isStalemate()
@@ -638,6 +658,9 @@ export default function GamePage() {
                   {opponentJoined ? (opponentName || 'Соперник') : 'Ожидание...'}
                 </span>
                 {opponentJoined && <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />}
+                {gameMode === 'fog_of_war' && (
+                  <span className="text-[8px] bg-[rgba(255,255,255,0.05)] px-1.5 py-0.5 rounded border border-[var(--border)] text-text-secondary uppercase tracking-tighter">FoW</span>
+                )}
               </div>
 
               <div className="text-center flex justify-center">
@@ -675,6 +698,7 @@ export default function GamePage() {
                     boardOrientation={playerColor === 'b' ? 'black' : 'white'}
                     defeatedKingSquare={endGameState?.defeated}
                     endGameEmojis={endGameState?.emojis}
+                    visibleSquares={visibleSquares}
                   />
 
                     {pendingPromotion && (

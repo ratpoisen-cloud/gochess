@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { usePresence } from '@/hooks/usePresence'
+import { useChallenges } from '@/hooks/useChallenges'
+import { useToast } from '@/components/Toast'
 import { db } from '@/lib/firebase'
-import { collection, query, where, limit, getDocs } from 'firebase/firestore'
+import { collection, query, where, limit, getDocs, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
 import ColorPickerModal from '@/components/ColorPickerModal'
 import BoardPreview from '@/components/board/BoardPreview'
+import Modal from '@/components/Modal'
+import Button from '@/components/Button'
 import Footer from '@/components/Footer'
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -50,7 +55,43 @@ function HubTile({ to, icon, title, description, variant = 'secondary' }: HubTil
 export default function LobbyPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  usePresence()
+  const { incomingChallenges, declineChallenge } = useChallenges()
+  const { addToast } = useToast()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+
+  const handleAcceptChallenge = async (challenge: any) => {
+    try {
+      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+      const gameRef = await addDoc(collection(db, 'games'), {
+        room_code: roomCode,
+        white_player_id: challenge.fromId,
+        black_player_id: user?.uid,
+        white_name: challenge.fromName,
+        black_name: user?.displayName || 'Игрок',
+        pgn: '',
+        fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        game_state: 'playing',
+        game_type: 'online',
+        game_mode: challenge.mode,
+        turn: 'w',
+        winner: null,
+        message: null,
+        last_move_time: Date.now(),
+        created_at: serverTimestamp(),
+        reactions: []
+      })
+
+      await updateDoc(doc(db, 'challenges', challenge.id), {
+        status: 'accepted',
+        gameId: gameRef.id
+      })
+
+      navigate(`/game/${gameRef.id}`)
+    } catch (err) {
+      addToast('Ошибка при принятии вызова', 'error')
+    }
+  }
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<any[]>([])
@@ -201,13 +242,18 @@ export default function LobbyPage() {
           <button
             onClick={() => {
               if (user) {
-                setIsColorPickerOpen(true)
+                navigate('/online')
               } else {
                 setIsAuthModalOpen(true)
               }
             }}
-            className="group flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile cursor-pointer text-left w-full"
+            className="group relative flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile cursor-pointer text-left w-full"
           >
+            {incomingChallenges.length > 0 && (
+              <div className="absolute top-4 right-4 flex items-center justify-center w-6 h-6 bg-[var(--danger)] text-white text-[10px] font-bold rounded-full animate-bounce z-10 shadow-lg">
+                {incomingChallenges.length}
+              </div>
+            )}
             <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
               <img 
                 src={`${BASE}emojis/multi_new.png`} 
@@ -220,7 +266,7 @@ export default function LobbyPage() {
               По сети
             </h3>
             <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[170px] opacity-60 group-hover:opacity-100 transition-opacity">
-              Пригласи друга по ссылке и играй онлайн
+              Пригласи друга или брось вызов игрокам онлайн
             </p>
           </button>
 
@@ -341,6 +387,28 @@ export default function LobbyPage() {
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
       <ColorPickerModal isOpen={isColorPickerOpen} onClose={() => setIsColorPickerOpen(false)} />
       
+      {/* Incoming Challenge Notification Modal */}
+      {incomingChallenges.length > 0 && (
+        <Modal
+          isOpen={true}
+          onClose={() => {}}
+          title="Новый вызов!"
+        >
+          <div className="space-y-6 pt-4 text-center">
+             <div className="text-[var(--font-size-md)] font-bold text-text mb-2">
+               {incomingChallenges[0].fromName}
+             </div>
+             <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-6">
+               Приглашает вас в {incomingChallenges[0].mode === 'classic' ? 'Классику' : 'Туман войны'}
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+                <Button variant="primary" onClick={() => handleAcceptChallenge(incomingChallenges[0])}>Принять</Button>
+                <Button variant="outline" onClick={() => declineChallenge(incomingChallenges[0].id)} className="bg-transparent opacity-60">Отклонить</Button>
+             </div>
+          </div>
+        </Modal>
+      )}
+
       <Footer />
     </div>
   )

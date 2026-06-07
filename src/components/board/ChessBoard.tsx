@@ -18,6 +18,7 @@ interface ChessBoardProps {
   animationDuration?: number
   defeatedKingSquare?: string | null
   endGameEmojis?: { square: string; url: string }[]
+  visibleSquares?: string[] | null
 }
 
 export default function ChessBoard({
@@ -33,6 +34,7 @@ export default function ChessBoard({
   animationDuration = 200,
   defeatedKingSquare,
   endGameEmojis = [],
+  visibleSquares = null,
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -178,11 +180,25 @@ export default function ChessBoard({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  zIndex: 1
+                  zIndex: 1,
+                  opacity: (visibleSquares && !visibleSquares.includes(square)) ? 0 : 1
                 }}
               >
                 {children}
               </div>
+              
+              {/* Fog of War Overlay */}
+              {visibleSquares && !visibleSquares.includes(square) && (
+                <div 
+                  className="absolute inset-0 z-10 pointer-events-none"
+                  style={{ 
+                    background: 'rgba(5, 6, 7, 0.85)',
+                    backdropFilter: 'blur(2px)',
+                    imageRendering: 'pixelated'
+                  }}
+                />
+              )}
+
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}
               

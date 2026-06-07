@@ -7,6 +7,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 const GamePage = lazy(() => import('./pages/GamePage'))
 const BotPage = lazy(() => import('./pages/BotPage'))
 const LocalPage = lazy(() => import('./pages/LocalPage'))
+const OnlineHubPage = lazy(() => import('./pages/OnlineHubPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 const AgentLogsPage = lazy(() => import('./pages/AgentLogsPage'))
 
@@ -17,6 +18,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LobbyPage />} />
           <Route path="/game/:roomCode" element={<GamePage />} />
+          <Route path="/online" element={<OnlineHubPage />} />
           <Route path="/bot" element={<BotPage />} />
           <Route path="/local" element={<LocalPage />} />
           <Route path="/settings" element={<SettingsPage />} />

@@ -167,7 +167,7 @@ export default function OnlineHubPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
-      <header className="px-[var(--space-24)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
+      <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
             <img

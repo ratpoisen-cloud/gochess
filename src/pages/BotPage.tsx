@@ -10,6 +10,7 @@ import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import Footer from '@/components/Footer'
+import PixelConfetti from '@/components/PixelConfetti'
 import { createBotEngine } from '@/lib/botEngine'
 import type { BotLevel } from '@/types'
 
@@ -63,7 +64,7 @@ export default function BotPage() {
         const kingSq = getKingSquare(game, loserColor as any)
         setEndGameState({
           defeated: kingSq,
-          emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/checkmate.png` }] : []
+          emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []
         })
       } else if (status === 'stalemate' || status === 'draw') {
         setEndGameState({
@@ -228,6 +229,7 @@ export default function BotPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
+      {isGameOver && status !== 'draw' && status !== 'stalemate' && <PixelConfetti />}
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">

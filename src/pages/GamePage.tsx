@@ -31,6 +31,7 @@ import RequestModal from '@/components/RequestModal'
 import Card from '@/components/Card'
 import Footer from '@/components/Footer'
 import AuthModal from '@/components/AuthModal'
+import PixelConfetti from '@/components/PixelConfetti'
 import type { GameStatus, GameData } from '@/types'
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -274,7 +275,7 @@ export default function GamePage() {
             const kingSq = getKingSquare(currentGame, loserColor)
             setEndGameState({
               defeated: kingSq,
-              emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/checkmate.png` }] : []
+              emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []
             })
           } else if (newData.message === 'draw' || newData.message === 'stalemate') {
             setEndGameState({
@@ -598,6 +599,7 @@ export default function GamePage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
+      {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && <PixelConfetti />}
       <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">

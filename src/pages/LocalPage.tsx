@@ -14,6 +14,7 @@ import ReactionPicker from '@/components/ReactionPicker'
 import Footer from '@/components/Footer'
 import { useToast } from '@/components/Toast'
 import { useAuth } from '@/hooks/useAuth'
+import PixelConfetti from '@/components/PixelConfetti'
 
 import { useBoardStore } from '@/stores/boardStore'
 
@@ -60,6 +61,7 @@ export default function LocalPage() {
   }, [])
 
   const isActuallyGameOver = isGameOver || manualGameOver
+  const isVictory = isActuallyGameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности')
 
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = game.get(from as any)
@@ -84,7 +86,7 @@ export default function LocalPage() {
           const kingSq = getKingSquare(game, loserColor as any)
           setEndGameState({
             defeated: kingSq,
-            emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/checkmate.png` }] : []
+            emojis: kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []
           })
           setResultText(currentTurn === 'w' ? `Победа чёрных (${blackName})` : `Победа белых (${whiteName})`)
         } else if (status === 'stalemate' || status === 'draw') {
@@ -215,6 +217,7 @@ export default function LocalPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
+      {isVictory && <PixelConfetti />}
       {/* Inject face-to-face rotation styles if needed */}
       {boardView === 'face-to-face' && (
         <style>

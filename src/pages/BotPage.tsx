@@ -293,6 +293,7 @@ export default function BotPage() {
               ref={boardContainerRef}
               className="board-container"
             >
+              <div className="max-sm:-mx-[var(--space-24)]">
               {isGameLoading && searchParams.get('game') ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-[var(--accent-brand)] animate-pulse text-sm">Загрузка партии...</div>
@@ -389,6 +390,7 @@ export default function BotPage() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
 

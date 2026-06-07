@@ -712,8 +712,9 @@ export default function GamePage() {
               </div>
             </div>
 
-            <div ref={boardContainerRef} className="board-container relative">
-              {stableWidth > 0 ? (
+            <div className="max-sm:-mx-[var(--space-24)]">
+              <div ref={boardContainerRef} className="board-container relative">
+                {stableWidth > 0 ? (
                 <>
                   <ChessBoard
                     game={game}
@@ -761,6 +762,7 @@ export default function GamePage() {
                     </div>
                   </div>
                 )}
+              </div>
             </div>
             
             {gameOver && resultText && (

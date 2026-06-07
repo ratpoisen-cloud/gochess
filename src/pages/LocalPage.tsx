@@ -316,6 +316,7 @@ export default function LocalPage() {
               ref={boardContainerRef}
               className="board-container relative overflow-hidden"
             >
+              <div className="max-sm:-mx-[var(--space-24)]">
               {isVictory && <PixelConfetti origin={winnerKingPos} />}
               {stableWidth > 0 ? (
                 <>
@@ -412,6 +413,7 @@ export default function LocalPage() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
             {isActuallyGameOver ? (

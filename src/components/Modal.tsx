@@ -36,11 +36,12 @@ export default function Modal({ isOpen, onClose, title, description, children, m
       aria-modal="true"
     >
       <div
-        className="animate-modal-pixel-in text-center text-[var(--font-size-sm)] leading-[1.55] rounded-[var(--radius-14)] p-[var(--space-24)] border border-[rgba(255,255,255,0.08)] shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+        className="animate-modal-pixel-in text-center text-[var(--font-size-sm)] leading-[1.55] rounded-[var(--radius-14)] p-[var(--space-24)] border border-[rgba(255,255,255,0.08)] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-y-auto custom-scrollbar"
         style={{
           background: 'rgba(13, 13, 13, 0.95)',
           maxWidth: maxWidth || 'min(92vw, 360px)',
           width: '90%',
+          maxHeight: '90dvh'
         }}
         onClick={(e) => e.stopPropagation()}
       >

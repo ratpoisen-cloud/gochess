@@ -21,6 +21,8 @@ interface ChessBoardProps {
   visibleSquares?: string[] | null
 }
 
+const BASE = import.meta.env.BASE_URL || '/'
+
 export default function ChessBoard({
   game,
   lastMove,
@@ -144,12 +146,26 @@ export default function ChessBoard({
         animationDuration={animationDuration}
         customNotationStyle={{ fontSize: boardWidth ? Math.round(boardWidth / 64) : 12 }}
         customSquare={({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
+          const isSquareVisible = !visibleSquares || visibleSquares.includes(square)
+          
+          // Calculate monolithic background position
+          const fileIdx = square.charCodeAt(0) - 97; // a=0, b=1...
+          const rankIdx = 8 - parseInt(square[1], 10); // 8=0, 7=1...
+          const x = boardOrientation === 'black' ? 7 - fileIdx : fileIdx;
+          const y = boardOrientation === 'black' ? 7 - rankIdx : rankIdx;
+          
+          // With backgroundSize: 1200%, the image is 12x the size of a square.
+          // The formula to align background-position percentage: (index / (total_units - 1)) * 100
+          const bgX = (x / 11) * 100;
+          const bgY = (y / 11) * 100;
+
           const activeMove = activeMoveDetails.find(m => m.to === square)
-          const isActiveMove = !!activeMove
-          const isActiveCapture = activeMove && (activeMove.flags.includes('c') || activeMove.flags.includes('e'))
-          const isSelected = selectedSquare === square
-          const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square)
-          const isCheck = checkSquare === square
+          // ONLY highlight if square is visible
+          const isActiveMove = !!activeMove && isSquareVisible
+          const isActiveCapture = activeMove && (activeMove.flags.includes('c') || activeMove.flags.includes('e')) && isSquareVisible
+          const isSelected = selectedSquare === square && isSquareVisible
+          const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square) && isSquareVisible
+          const isCheck = checkSquare === square && isSquareVisible
 
           return (
             <div
@@ -175,29 +191,34 @@ export default function ChessBoard({
                   width: '100%', 
                   height: '100%', 
                   transform: (defeatedKingSquare === square || (isCheckmate && isCheck)) ? 'rotate(90deg)' : 'none',
-                  transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+                  transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease-in-out',
                   transformOrigin: 'center center',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   zIndex: 1,
-                  opacity: (visibleSquares && !visibleSquares.includes(square)) ? 0 : 1
+                  opacity: isSquareVisible ? 1 : 0
                 }}
               >
                 {children}
               </div>
               
-              {/* Fog of War Overlay */}
-              {visibleSquares && !visibleSquares.includes(square) && (
-                <div 
-                  className="absolute inset-0 z-10 pointer-events-none"
-                  style={{ 
-                    background: 'rgba(5, 6, 7, 0.85)',
-                    backdropFilter: 'blur(2px)',
-                    imageRendering: 'pixelated'
-                  }}
-                />
-              )}
+              {/* Fog of War Overlay - Standardized 'Ocean-style' Monolithic Fog */}
+              <div 
+                className="absolute inset-0 z-10 pointer-events-none transition-opacity duration-700 ease-in-out"
+                style={{ 
+                  backgroundColor: '#1a1c2c', // Fixed deep Ocean-style blue-gray
+                  backgroundImage: `url(${BASE}engine/fog.svg)`,
+                  backgroundSize: '1200%',
+                  backgroundRepeat: 'repeat',
+                  backgroundPosition: `${bgX}% ${bgY}%`,
+                  backgroundBlendMode: 'overlay',
+                  filter: 'grayscale(1) contrast(1.1) brightness(0.9)',
+                  imageRendering: 'pixelated',
+                  opacity: isSquareVisible ? 0 : 1,
+                  display: visibleSquares ? 'block' : 'none'
+                }}
+              />
 
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}

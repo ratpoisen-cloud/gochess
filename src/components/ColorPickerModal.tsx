@@ -7,7 +7,8 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore'
 import { useAuth } from '@/hooks/useAuth'
 
-import type { GameMode } from '@/types'
+import type { GameMode, User as AppUser } from '@/types'
+import { useChallenges } from '@/hooks/useChallenges'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -24,18 +25,26 @@ interface ColorPickerModalProps {
   isOpen: boolean
   onClose: () => void
   gameMode?: GameMode
+  recentPlayers?: AppUser[]
 }
 
 type ColorChoice = 'w' | 'b' | 'random'
 
-export default function ColorPickerModal({ isOpen, onClose, gameMode = 'classic' }: ColorPickerModalProps) {
+export default function ColorPickerModal({ 
+  isOpen, 
+  onClose, 
+  gameMode = 'classic',
+  recentPlayers = [] 
+}: ColorPickerModalProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { addToast } = useToast()
+  const { sendChallenge } = useChallenges()
   
   const [step, setStep] = useState<'picker' | 'link'>('picker')
   const [creating, setCreating] = useState(false)
   const [tempColor, setTempColor] = useState<ColorChoice>('w')
+  const [pendingChallenge, setPendingChallenge] = useState<string | null>(null)
   
   const [roomUrl, setRoomUrl] = useState('')
   const [roomCode, setRoomCode] = useState('')
@@ -46,8 +55,21 @@ export default function ColorPickerModal({ isOpen, onClose, gameMode = 'classic'
       setStep('picker')
       setCreating(false)
       setCopied(false)
+      setPendingChallenge(null)
     }
   }, [isOpen])
+
+  const handleChallenge = async (toUser: AppUser) => {
+    try {
+      setPendingChallenge(toUser.uid)
+      await sendChallenge(toUser.uid, gameMode)
+      addToast(`Вызов отправлен ${toUser.displayName}`, 'success')
+      setTimeout(() => setPendingChallenge(null), 5000)
+    } catch (err) {
+      addToast('Ошибка при отправке вызова', 'error')
+      setPendingChallenge(null)
+    }
+  }
 
   const handleStartGame = async () => {
     if (!user) {
@@ -180,16 +202,53 @@ export default function ColorPickerModal({ isOpen, onClose, gameMode = 'classic'
                 onClick={handleStartGame}
                 variant="primary"
                 disabled={creating}
+                className="shadow-[0_0_15px_rgba(126,184,126,0.1)]"
               >
-                {creating ? 'Создание...' : 'Создать комнату'}
+                {creating ? 'Создание...' : 'Создать комнату по ссылке'}
               </Button>
 
-              <div className="pt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
+              {recentPlayers.length > 0 && (
+                <div className="pt-6 mt-6 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] block text-center mb-4">
+                    Пригласить друга
+                  </label>
+                  <div className="max-h-[220px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                    {recentPlayers.map(p => (
+                      <div 
+                        key={p.uid}
+                        className="flex items-center justify-between p-3 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.02)] border border-[var(--border)] hover:border-[var(--accent-brand)] transition-colors group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-[var(--radius-4)] bg-surface border border-[var(--border)] flex items-center justify-center font-bold text-[10px] text-[var(--accent-brand)] overflow-hidden">
+                            {p.photoURL ? (
+                              <img src={p.photoURL} alt={p.displayName} className="w-full h-full object-cover" />
+                            ) : p.displayName[0].toUpperCase()}
+                          </div>
+                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-text transition-colors">
+                            {p.displayName}
+                          </span>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleChallenge(p)}
+                          disabled={pendingChallenge === p.uid}
+                          className="h-8 px-4 text-[9px]"
+                        >
+                          {pendingChallenge === p.uid ? '...' : 'Вызвать'}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 mt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
                 <Button 
                   fullWidth 
                   onClick={onClose}
                   variant="primary"
-                  className="hover:!bg-[var(--danger-soft)] hover:!border-[var(--danger-border)]"
+                  className="bg-transparent border-transparent text-text-secondary hover:text-text opacity-60"
                   disabled={creating}
                 >
                   Отмена

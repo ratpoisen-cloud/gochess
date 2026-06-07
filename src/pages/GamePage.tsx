@@ -33,6 +33,7 @@ import Card from '@/components/Card'
 import Footer from '@/components/Footer'
 import AuthModal from '@/components/AuthModal'
 import PixelConfetti from '@/components/PixelConfetti'
+import FogRulesModal from '@/components/FogRulesModal'
 import type { GameStatus, GameData, GameMode } from '@/types'
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -63,6 +64,7 @@ export default function GamePage() {
   // UI State
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRulesOpen, setIsRulesOpen] = useState(false)
   const [gameOver, setGameOver] = useState(false)
   const [resultText, setResultText] = useState('')
   const [showReactionPicker, setShowReactionPicker] = useState(false)
@@ -155,11 +157,29 @@ export default function GamePage() {
 
     const initRoom = async () => {
       try {
-        console.log('[Game] Looking for room:', roomCode)
-        const q = query(collection(db, 'games'), where('room_code', '==', roomCode), limit(1))
-        const snapshot = await getDocs(q)
+        console.log('[Game] Resolving room:', roomCode)
         
-        if (snapshot.empty) {
+        // 1. Try fetching directly by Document ID first
+        const docRef = doc(db, 'games', roomCode)
+        const docSnap = await getDoc(docRef)
+        
+        let gameDoc = null
+        let data = null
+
+        if (docSnap.exists()) {
+          gameDoc = docSnap
+          data = docSnap.data() as GameData
+        } else {
+          // 2. Fallback to searching by room_code field
+          const q = query(collection(db, 'games'), where('room_code', '==', roomCode), limit(1))
+          const snapshot = await getDocs(q)
+          if (!snapshot.empty) {
+            gameDoc = snapshot.docs[0]
+            data = gameDoc.data() as GameData
+          }
+        }
+        
+        if (!gameDoc || !data) {
           console.warn('[Game] Room not found')
           if (!cancelled) {
             setError('Комната не найдена')
@@ -168,9 +188,6 @@ export default function GamePage() {
           return
         }
 
-        const gameDoc = snapshot.docs[0]
-        const data = gameDoc.data() as GameData
-        
         // Handle Join Transaction if necessary
         if (!data.white_player_id && data.black_player_id !== user.uid) {
            await runTransaction(db, async (transaction) => {
@@ -196,9 +213,8 @@ export default function GamePage() {
         }
 
         if (cancelled) return
-        console.log('[Game] Room initialized, setting doc ID:', gameDoc.id)
+        console.log('[Game] Room resolved, setting doc ID:', gameDoc.id)
         setGameDocId(gameDoc.id)
-        // Note: loading remains true until first snapshot
       } catch (err: any) {
         console.error('[Game] Initialization error:', err)
         if (!cancelled) {
@@ -252,7 +268,9 @@ export default function GamePage() {
         if (!gameOver) {
           setGameOver(true)
           setResultText(parseResult(newData))
-          soundManager.play('checkmate')
+          if (newData.game_mode !== 'fog_of_war') {
+            soundManager.play('checkmate')
+          }
 
           // Calculate End Game King Effects
           const currentGame = new Chess()
@@ -428,7 +446,7 @@ export default function GamePage() {
         
         if (!gameOverNow) {
           soundManager.play(result.captured ? 'capture' : 'move')
-        } else {
+        } else if (gameMode !== 'fog_of_war') {
           soundManager.play('checkmate')
         }
       } catch (err) {
@@ -659,16 +677,28 @@ export default function GamePage() {
                 </span>
                 {opponentJoined && <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />}
                 {gameMode === 'fog_of_war' && (
-                  <span className="text-[8px] bg-[rgba(255,255,255,0.05)] px-1.5 py-0.5 rounded border border-[var(--border)] text-text-secondary uppercase tracking-tighter">FoW</span>
+                  <span className="text-[12px]" title="Туман войны">☁️</span>
                 )}
               </div>
 
-              <div className="text-center flex justify-center">
+              <div className="text-center flex flex-col items-center justify-center gap-1">
+                {gameMode === 'fog_of_war' && !gameOver && (
+                  <button 
+                    onClick={() => setIsRulesOpen(true)}
+                    className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] hover:text-[var(--accent-brand)] transition-colors"
+                  >
+                    Правила
+                  </button>
+                )}
+                
                 {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
                   <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse ${
                     status === 'check' || status === 'checkmate' ? 'text-[var(--danger)]' : 'text-text-secondary'
                   }`}>
-                    {status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья'}
+                    {gameMode === 'fog_of_war' 
+                      ? (status === 'draw' || status === 'stalemate' ? 'Ничья' : '') 
+                      : (status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья')
+                    }
                   </h2>
                 )}
               </div>
@@ -894,6 +924,11 @@ export default function GamePage() {
         title="Сдаться?"
         onConfirm={handleResign}
         onCancel={() => setShowResignConfirm(false)}
+      />
+
+      <FogRulesModal 
+        isOpen={isRulesOpen} 
+        onClose={() => setIsRulesOpen(false)} 
       />
     </div>
   )

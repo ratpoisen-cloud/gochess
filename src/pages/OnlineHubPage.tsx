@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { collection, query, where, onSnapshot, orderBy, limit, doc, setDoc, serverTimestamp, addDoc, getDocs, Timestamp } from 'firebase/firestore'
+import { collection, query, where, orderBy, limit, doc, updateDoc, serverTimestamp, addDoc, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import { usePresence } from '@/hooks/usePresence'
 import { useChallenges } from '@/hooks/useChallenges'
 import { useToast } from '@/components/Toast'
-import type { GameMode, User as AppUser, Challenge } from '@/types'
-import Card from '@/components/Card'
+import type { GameMode, User as AppUser } from '@/types'
 import Button from '@/components/Button'
 import UserMenu from '@/components/UserMenu'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import Footer from '@/components/Footer'
 import Modal from '@/components/Modal'
 import ColorPickerModal from '@/components/ColorPickerModal'
+import BoardPreview from '@/components/board/BoardPreview'
+import FogRulesModal from '@/components/FogRulesModal'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -22,129 +23,90 @@ export default function OnlineHubPage() {
   const navigate = useNavigate()
   const { addToast } = useToast()
   usePresence()
-  const { incomingChallenges, sendChallenge, declineChallenge } = useChallenges()
+  const { incomingChallenges, declineChallenge } = useChallenges()
 
   const [gameMode, setGameMode] = useState<GameMode>('classic')
-  const [activeTab, setActiveTab] = useState<'recent' | 'online'>('recent')
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
-  const [onlineUsers, setOnlineUsers] = useState<AppUser[]>([])
+  const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [recentGames, setRecentGames] = useState<any[]>([])
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all')
   const [recentPlayers, setRecentPlayers] = useState<AppUser[]>([])
 
-  // Outgoing challenge state
-  const [pendingOutgoing, setPendingOutgoing] = useState<string | null>(null)
+  // Typing animation state
+  const [displayedChars, setDisplayedChars] = useState(0)
+  const fullText = "ИГРАЙ ОНЛАЙН!"
 
-  // Listen for online users
   useEffect(() => {
-    if (!user) return
-
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
-    const q = query(
-      collection(db, 'users'),
-      where('lastSeen', '>', Timestamp.fromDate(fiveMinutesAgo)),
-      limit(20)
-    )
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const users = snapshot.docs
-        .map(doc => doc.data() as AppUser)
-        .filter(u => u.uid !== user.uid)
-      setOnlineUsers(users)
-    })
-
-    return () => unsubscribe()
-  }, [user])
-
-  // Fetch recent players from games
-  useEffect(() => {
-    if (!user) return
-
-    const fetchRecent = async () => {
-      const q = query(
-        collection(db, 'games'),
-        where('game_type', '==', 'online'),
-        where('white_player_id', '==', user.uid),
-        orderBy('created_at', 'desc'),
-        limit(20)
-      )
-      const q2 = query(
-        collection(db, 'games'),
-        where('game_type', '==', 'online'),
-        where('black_player_id', '==', user.uid),
-        orderBy('created_at', 'desc'),
-        limit(20)
-      )
-
-      const [snap1, snap2] = await Promise.all([getDocs(q), getDocs(q2)])
-      const playerIds = new Set<string>()
-      
-      snap1.docs.forEach(d => {
-        const data = d.data()
-        if (data.black_player_id) playerIds.add(data.black_player_id)
-      })
-      snap2.docs.forEach(d => {
-        const data = d.data()
-        if (data.white_player_id) playerIds.add(data.white_player_id)
-      })
-
-      if (playerIds.size === 0) {
-        setRecentPlayers([])
-        return
-      }
-
-      // Fetch user details for these IDs
-      const usersQ = query(collection(db, 'users'), where('uid', 'in', Array.from(playerIds).slice(0, 10)))
-      const usersSnap = await getDocs(usersQ)
-      setRecentPlayers(usersSnap.docs.map(d => d.data() as AppUser))
+    let timer: any
+    if (displayedChars < fullText.length) {
+      timer = setTimeout(() => {
+        setDisplayedChars(prev => prev + 1)
+      }, 100)
     }
+    return () => clearTimeout(timer)
+  }, [displayedChars])
 
-    fetchRecent()
-  }, [user])
-
-  // Listen for accepted outgoing challenge
+  // Fetch recent online games AND players
   useEffect(() => {
     if (!user) return
-    const q = query(
-      collection(db, 'challenges'),
-      where('fromId', '==', user.uid),
-      where('status', '==', 'accepted'),
-      limit(1)
-    )
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (!snapshot.empty) {
-        const challenge = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Challenge
-        if (challenge.gameId) {
-          navigate(`/game/${challenge.gameId}`)
-        } else {
-          // If receiver accepted but hasn't created gameId yet, wait or handle
-          console.log('[Hub] Challenge accepted, waiting for gameId...')
+    const fetchData = async () => {
+      try {
+        // Fetch all games for user (matching LobbyPage logic to use existing indexes)
+        const q1 = query(
+          collection(db, 'games'),
+          where('white_player_id', '==', user.uid),
+          orderBy('created_at', 'desc'),
+          limit(20)
+        )
+        const q2 = query(
+          collection(db, 'games'),
+          where('black_player_id', '==', user.uid),
+          orderBy('created_at', 'desc'),
+          limit(20)
+        )
+
+        const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
+        const combined = [...snap1.docs, ...snap2.docs].map(d => ({ id: d.id, ...d.data() }))
+        
+        // Sort by last_move_time or created_at
+        const sorted = combined.sort((a: any, b: any) => {
+          const timeA = (a.last_move_time?.seconds || a.last_move_time) || (a.created_at?.seconds || a.created_at) || 0
+          const timeB = (b.last_move_time?.seconds || b.last_move_time) || (b.created_at?.seconds || b.created_at) || 0
+          return (timeB as number) - (timeA as number)
+        })
+
+        // Filter for ONLINE games ONLY on client side
+        const onlineGames = sorted.filter((g: any) => g.game_type === 'online')
+        setRecentGames(onlineGames.slice(0, 10))
+
+        // Extract unique recent players from ALL games (classic or fow)
+        const playerIds = new Set<string>()
+        onlineGames.forEach((g: any) => {
+          if (g.white_player_id && g.white_player_id !== user.uid) playerIds.add(g.white_player_id)
+          if (g.black_player_id && g.black_player_id !== user.uid) playerIds.add(g.black_player_id)
+        })
+
+        if (playerIds.size > 0) {
+          const usersQ = query(collection(db, 'users'), where('uid', 'in', Array.from(playerIds).slice(0, 10)))
+          const usersSnap = await getDocs(usersQ)
+          setRecentPlayers(usersSnap.docs.map(d => d.data() as AppUser))
         }
+
+      } catch (err) {
+        console.error('[Hub] Error fetching data:', err)
       }
-    })
-
-    return () => unsubscribe()
-  }, [user, navigate])
-
-  const handleSendChallenge = async (toUser: AppUser) => {
-    try {
-      setPendingOutgoing(toUser.uid)
-      await sendChallenge(toUser.uid, gameMode)
-      addToast(`Вызов отправлен ${toUser.displayName}`, 'success')
-      // Auto-cancel after 60s
-      setTimeout(() => setPendingOutgoing(null), 60000)
-    } catch (err) {
-      addToast('Ошибка при отправке вызова', 'error')
-      setPendingOutgoing(null)
     }
-  }
 
-  const handleAccept = async (challenge: Challenge) => {
+    fetchData()
+  }, [user])
+
+  const handleAcceptChallenge = async (challenge: any) => {
     try {
-      // 1. Create a new game document
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
       const gameRef = await addDoc(collection(db, 'games'), {
         room_code: roomCode,
-        white_player_id: challenge.fromId, // Challenger is white by default
+        white_player_id: challenge.fromId,
         black_player_id: user?.uid,
         white_name: challenge.fromName,
         black_name: user?.displayName || 'Игрок',
@@ -161,18 +123,47 @@ export default function OnlineHubPage() {
         reactions: []
       })
 
-      // 2. Update challenge status and link gameId
-      await setDoc(doc(db, 'challenges', challenge.id), {
+      await updateDoc(doc(db, 'challenges', challenge.id), {
         status: 'accepted',
         gameId: gameRef.id
-      }, { merge: true })
+      })
 
-      // 3. Navigate to game
       navigate(`/game/${gameRef.id}`)
     } catch (err) {
       addToast('Ошибка при принятии вызова', 'error')
     }
   }
+
+  const handleGameClick = (g: any) => {
+    if (g.game_state !== 'game_over') {
+      navigate(`/game/${g.id}`)
+    }
+  }
+
+  const ModeTile = ({ mode, title, icon, description }: { mode: GameMode, title: string, icon: string, description: string }) => (
+    <button
+      onClick={() => {
+        setGameMode(mode)
+        setIsColorPickerOpen(true)
+      }}
+      className="group relative flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile cursor-pointer text-left w-full transition-all duration-300"
+    >
+      <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+        <img 
+          src={`${BASE}emojis/online/${icon}`} 
+          alt={title}
+          className="w-[96px] h-[96px] object-contain"
+          style={{ imageRendering: 'pixelated' }}
+        />
+      </div>
+      <h3 className="text-[var(--font-size-sm)] font-bold mb-[var(--space-10)] text-center transition-colors duration-200 group-hover:text-white uppercase tracking-widest">
+        {title}
+      </h3>
+      <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[170px] opacity-60 group-hover:opacity-100 transition-opacity">
+        {description}
+      </p>
+    </button>
+  )
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
@@ -192,110 +183,138 @@ export default function OnlineHubPage() {
         </div>
       </header>
 
-      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full text-center">
-        <div className="max-w-[800px] mx-auto">
-          <h1 className="text-[var(--font-size-xl)] font-bold mb-[var(--space-12)] uppercase tracking-[0.2em] animate-text-focus-in">
-            Онлайн Лобби
-          </h1>
-          <p className="text-text-secondary text-[12px] mb-[var(--space-48)] opacity-60 uppercase tracking-widest">
-            Выбери режим и найди соперника
-          </p>
-
-          {/* Mode Selector */}
-          <div className="grid grid-cols-2 gap-4 mb-[var(--space-48)]">
-            <button
-              onClick={() => setGameMode('classic')}
-              className={`p-6 rounded-[var(--radius-12)] border-2 transition-all ${
-                gameMode === 'classic' 
-                  ? 'bg-[rgba(126,184,126,0.1)] border-[var(--accent-brand)] shadow-[0_0_20px_rgba(126,184,126,0.1)]' 
-                  : 'bg-surface border-transparent grayscale opacity-50 hover:grayscale-0 hover:opacity-100'
-              }`}
-            >
-              <div className="text-[24px] mb-2">♔</div>
-              <div className="text-[10px] font-bold uppercase tracking-widest">Классика</div>
-            </button>
-            <button
-              onClick={() => setGameMode('fog_of_war')}
-              className={`p-6 rounded-[var(--radius-12)] border-2 transition-all ${
-                gameMode === 'fog_of_war' 
-                  ? 'bg-[rgba(126,184,126,0.1)] border-[var(--accent-brand)] shadow-[0_0_20px_rgba(126,184,126,0.1)]' 
-                  : 'bg-surface border-transparent grayscale opacity-50 hover:grayscale-0 hover:opacity-100'
-              }`}
-            >
-              <div className="text-[24px] mb-2">☁</div>
-              <div className="text-[10px] font-bold uppercase tracking-widest">Туман войны</div>
-            </button>
-          </div>
-
-          <div className="mb-[var(--space-48)]">
-            <Button 
-              size="lg" 
-              fullWidth 
-              onClick={() => setIsColorPickerOpen(true)}
-              className="py-6 shadow-[0_0_20px_rgba(126,184,126,0.1)] hover:shadow-[0_0_30px_rgba(126,184,126,0.2)]"
-            >
-              Создать закрытую комнату
-            </Button>
-            <p className="mt-4 text-[9px] text-text-secondary uppercase tracking-[0.2em] opacity-40">
-              Создай комнату и отправь ссылку другу напрямую
-            </p>
-          </div>
-
-          {/* Player Tabs */}
-          <div className="flex gap-8 mb-[var(--space-24)] border-b border-[var(--border)] px-4">
-            <button
-              onClick={() => setActiveTab('recent')}
-              className={`pb-3 text-[10px] font-bold uppercase tracking-widest transition-all relative ${
-                activeTab === 'recent' ? 'text-text' : 'text-text-secondary opacity-50'
-              }`}
-            >
-              Последние игроки
-              {activeTab === 'recent' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-brand)]" />}
-            </button>
-            <button
-              onClick={() => setActiveTab('online')}
-              className={`pb-3 text-[10px] font-bold uppercase tracking-widest transition-all relative ${
-                activeTab === 'online' ? 'text-text' : 'text-text-secondary opacity-50'
-              }`}
-            >
-              Сейчас онлайн
-              {activeTab === 'online' && onlineUsers.length > 0 && (
-                 <span className="ml-2 w-1.5 h-1.5 rounded-full bg-[var(--success)] inline-block animate-pulse" />
+      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] py-[var(--space-48)] flex-1 w-full">
+        <div className="max-w-[1000px] mx-auto">
+          {/* Typing Title */}
+          <div className="text-center mb-[var(--space-64)] h-[80px] flex items-center justify-center relative">
+            <h2 className="text-[clamp(1.4rem,4vw,1.8rem)] font-bold text-text tracking-tight leading-[1.2] uppercase w-full">
+              {displayedChars > 0 && (
+                <>
+                  {fullText.slice(0, Math.min(displayedChars, 6))}
+                  <span className="text-[var(--accent-brand)]">
+                    {displayedChars > 6 && fullText.slice(6, displayedChars)}
+                  </span>
+                  {displayedChars < fullText.length ? (
+                    <span className="animate-pulse ml-1 inline-block w-2 h-[1em] bg-[var(--accent-brand)] align-middle" />
+                  ) : (
+                    <span className="ml-1 inline-block w-2 h-[1em] bg-transparent align-middle" />
+                  )}
+                </>
               )}
-              {activeTab === 'online' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-brand)]" />}
-            </button>
+            </h2>
           </div>
 
-          {/* Player List */}
-          <div className="space-y-4">
-            {activeTab === 'recent' ? (
-              recentPlayers.length === 0 ? (
-                <p className="py-12 text-text-secondary text-[10px] uppercase opacity-40">Нет недавних игроков</p>
-              ) : (
-                recentPlayers.map(p => (
-                  <PlayerRow 
-                    key={p.uid} 
-                    player={p} 
-                    onChallenge={() => handleSendChallenge(p)} 
-                    isPending={pendingOutgoing === p.uid}
-                  />
-                ))
-              )
-            ) : (
-              onlineUsers.length === 0 ? (
-                <p className="py-12 text-text-secondary text-[10px] uppercase opacity-40">Никого нет онлайн</p>
-              ) : (
-                onlineUsers.map(u => (
-                  <PlayerRow 
-                    key={u.uid} 
-                    player={u} 
-                    onChallenge={() => handleSendChallenge(u)}
-                    isPending={pendingOutgoing === u.uid}
-                  />
-                ))
-              )
-            )}
+          {/* Mode Tiles */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-24)] md:gap-[var(--space-32)] mb-[var(--space-80)]">
+            <ModeTile 
+              mode="classic" 
+              title="Классика" 
+              icon="classic.png" 
+              description="Стандартные шахматы по традиционным правилам" 
+            />
+            <div className="relative group/tile">
+              <ModeTile 
+                mode="fog_of_war" 
+                title="Туман войны" 
+                icon="fog of war.png" 
+                description="Стратегический режим с ограниченной видимостью" 
+              />
+            </div>
           </div>
+
+          {/* Recent Games List */}
+          {user && recentGames.length > 0 && (
+            <section className="mt-[var(--space-48)]">
+              <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-12)] uppercase tracking-widest text-center">
+                Последние партии онлайн
+              </h3>
+
+              <div className="flex justify-center gap-[var(--space-20)] mb-[var(--space-24)]">
+                {(['all', 'active', 'completed'] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setStatusFilter(f)}
+                    className={`text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
+                      statusFilter === f 
+                        ? 'text-[var(--accent-brand)] scale-110' 
+                        : 'text-text-secondary opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    {f === 'all' ? 'Все' : f === 'active' ? 'Активные' : 'Завершенные'}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
+                {recentGames
+                  .filter(g => {
+                    if (statusFilter === 'all') return true
+                    const isActive = g.game_state !== 'game_over'
+                    return statusFilter === 'active' ? isActive : !isActive
+                  })
+                  .map((g) => {
+                  const isActive = g.game_state !== 'game_over'
+                  const isUserWhite = g.white_player_id === user.uid
+                  const isUserBlack = g.black_player_id === user.uid
+                  const isMyTurn = isActive && (
+                    (g.turn === 'w' && isUserWhite) || 
+                    (g.turn === 'b' && isUserBlack)
+                  )
+
+                  return (
+                    <div 
+                      key={g.id} 
+                      onClick={() => handleGameClick(g)}
+                      className="p-[var(--space-12)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 flex gap-[var(--space-16)] items-center cursor-pointer active:scale-[0.98]"
+                    >
+                      <div className="shrink-0">
+                        <BoardPreview 
+                          fen={g.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'} 
+                          size={100} 
+                          orientation={g.black_player_id === user.uid ? 'black' : 'white'}
+                          gameMode={g.game_mode}
+                          playerColor={g.white_player_id === user.uid ? 'w' : 'b'}
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-[var(--space-4)]">
+                          <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
+                            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" />}
+                            {g.white_name || '...'} vs {g.black_name || '...'}
+                            {g.game_mode === 'fog_of_war' && (
+                              <span className="text-[8px] bg-[rgba(126,184,126,0.1)] text-[var(--accent-brand)] px-1.5 py-0.5 rounded border border-[var(--accent-brand)] border-opacity-30 uppercase tracking-tighter">FoW</span>
+                            )}
+                          </span>
+                          {!isActive && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider shrink-0 opacity-60">
+                              {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? (isMyTurn ? 'text-[var(--accent-brand)]' : 'text-text-secondary opacity-60') : 'text-text-secondary opacity-40'}`}>
+                            {isActive 
+                              ? (isMyTurn ? 'Ваш ход' : 'Ход соперника')
+                              : 'Завершена'}
+                          </span>
+                          <span className="text-[10px] text-text-secondary opacity-50">
+                            {g.created_at
+                              ? new Date(
+                                  typeof g.created_at === 'string'
+                                    ? g.created_at
+                                    : g.created_at.seconds * 1000
+                                ).toLocaleDateString()
+                              : ''}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
         </div>
       </main>
 
@@ -314,7 +333,7 @@ export default function OnlineHubPage() {
                Приглашает вас в {incomingChallenges[0].mode === 'classic' ? 'Классику' : 'Туман войны'}
              </div>
              <div className="grid grid-cols-2 gap-4">
-                <Button variant="primary" onClick={() => handleAccept(incomingChallenges[0])}>Принять</Button>
+                <Button variant="primary" onClick={() => handleAcceptChallenge(incomingChallenges[0])}>Принять</Button>
                 <Button variant="outline" onClick={() => declineChallenge(incomingChallenges[0].id)} className="bg-transparent opacity-60">Отклонить</Button>
              </div>
           </div>
@@ -325,40 +344,13 @@ export default function OnlineHubPage() {
         isOpen={isColorPickerOpen} 
         onClose={() => setIsColorPickerOpen(false)} 
         gameMode={gameMode}
+        recentPlayers={recentPlayers}
+      />
+      <FogRulesModal 
+        isOpen={isRulesOpen} 
+        onClose={() => setIsRulesOpen(false)} 
       />
       <Footer />
     </div>
-  )
-}
-
-function PlayerRow({ player, onChallenge, isPending }: { player: AppUser, onChallenge: () => void, isPending: boolean }) {
-  return (
-    <Card padding="sm" className="flex items-center justify-between hover:border-[var(--accent-brand)] transition-colors group">
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-[var(--radius-8)] bg-surface flex items-center justify-center font-bold text-[var(--accent-brand)] border border-[var(--border)] overflow-hidden">
-          {player.photoURL || player.customAvatarURL ? (
-            <img src={player.photoURL || player.customAvatarURL || ''} alt={player.displayName} className="w-full h-full object-cover" />
-          ) : (
-            player.displayName[0].toUpperCase()
-          )}
-        </div>
-        <div className="text-left">
-          <div className="text-[var(--font-size-sm)] font-bold text-text group-hover:text-[var(--accent-brand)] transition-colors">
-            {player.displayName}
-          </div>
-          <div className="text-[9px] text-text-secondary uppercase tracking-widest opacity-60">
-            {player.lastSeen ? 'Был недавно' : 'Активен'}
-          </div>
-        </div>
-      </div>
-      <Button 
-        size="sm" 
-        onClick={onChallenge} 
-        disabled={isPending}
-        className={isPending ? 'opacity-50' : ''}
-      >
-        {isPending ? 'Ждем...' : 'Вызвать'}
-      </Button>
-    </Card>
   )
 }

@@ -1,16 +1,39 @@
 import { useMemo } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
+import { Chess } from 'chess.js'
+import { getVisibleSquares } from '@/lib/chessFog'
+
+const BASE = import.meta.env.BASE_URL || '/'
 
 interface BoardPreviewProps {
   fen: string
   size?: number
   orientation?: 'white' | 'black'
+  gameMode?: 'classic' | 'fog_of_war'
+  playerColor?: 'w' | 'b'
 }
 
-export default function BoardPreview({ fen, size = 100, orientation = 'white' }: BoardPreviewProps) {
+export default function BoardPreview({ 
+  fen, 
+  size = 100, 
+  orientation = 'white',
+  gameMode = 'classic',
+  playerColor
+}: BoardPreviewProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
+
+  // Calculate visible squares for Fog of War
+  const visibleSquares = useMemo(() => {
+    if (gameMode !== 'fog_of_war' || !playerColor) return null
+    try {
+      const game = new Chess(fen)
+      return getVisibleSquares(game, playerColor)
+    } catch {
+      return null
+    }
+  }, [fen, gameMode, playerColor])
 
   const customPieces = useMemo(() => {
     const pieces: Record<string, () => React.ReactElement> = {}
@@ -57,7 +80,42 @@ export default function BoardPreview({ fen, size = 100, orientation = 'white' }:
         customDarkSquareStyle={{ backgroundColor: theme.blackSquare }}
         customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
         customPieces={customPieces}
+        customSquare={({ square, children, style }) => {
+          const isSquareVisible = !visibleSquares || visibleSquares.includes(square)
+          
+          return (
+            <div style={{ ...style, position: 'relative' }}>
+              {/* Piece container - hidden in fog */}
+              <div style={{ 
+                width: '100%', 
+                height: '100%', 
+                opacity: isSquareVisible ? 1 : 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {children}
+              </div>
+
+              {/* Simplified Fog Overlay for Preview */}
+              {!isSquareVisible && (
+                <div 
+                  className="absolute inset-0 z-10"
+                  style={{ 
+                    backgroundColor: '#1a1c2c', // Deep Ocean-style base
+                    backgroundImage: `url(${BASE}engine/fog.svg)`,
+                    backgroundSize: '300%', // Smaller zoom for small preview
+                    backgroundBlendMode: 'overlay',
+                    filter: 'grayscale(1) contrast(1.1) brightness(0.9)',
+                    imageRendering: 'pixelated'
+                  }}
+                />
+              )}
+            </div>
+          )
+        }}
       />
     </div>
   )
 }
+

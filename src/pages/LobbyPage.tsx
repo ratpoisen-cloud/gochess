@@ -338,6 +338,8 @@ export default function LobbyPage() {
                         fen={g.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'} 
                         size={100} 
                         orientation={g.black_player_id === user.uid ? 'black' : 'white'}
+                        gameMode={g.game_mode}
+                        playerColor={g.white_player_id === user.uid ? 'w' : 'b'}
                       />
                     </div>
 

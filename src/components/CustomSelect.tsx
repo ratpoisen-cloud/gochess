@@ -19,13 +19,17 @@ export default function CustomSelect({ value, onChange, options, className = "" 
   const selectedOption = options.find(opt => opt.value === value) || options[0]
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   return (
@@ -51,7 +55,7 @@ export default function CustomSelect({ value, onChange, options, className = "" 
 
       {isOpen && (
         <div 
-          className="absolute right-0 mt-4 w-48 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] overflow-hidden z-[100] animate-dropdown-in"
+          className="absolute right-0 max-sm:left-0 max-sm:right-auto mt-4 w-48 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-8)] overflow-hidden z-[100] animate-dropdown-in"
         >
           <div className="py-2">
             {options.map((option) => (

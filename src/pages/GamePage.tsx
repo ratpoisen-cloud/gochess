@@ -648,7 +648,7 @@ export default function GamePage() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && <PixelConfetti />}
-      <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
+      <header className="px-[var(--space-24)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
             <img
@@ -733,7 +733,7 @@ export default function GamePage() {
 
                     {pendingPromotion && (
                       <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
-                        <div className="bg-[var(--surface-elevated)] p-4 rounded-[var(--radius-14)] shadow-2xl flex gap-4">
+                        <div className="bg-[var(--surface-elevated)] max-sm:p-2 max-sm:gap-2 sm:p-4 sm:gap-4 rounded-[var(--radius-14)] shadow-2xl flex">
                           {(['q', 'r', 'b', 'n'] as const).map((piece) => (
                             <button
                               key={piece}
@@ -741,7 +741,7 @@ export default function GamePage() {
                                 makeMove(pendingPromotion.from, pendingPromotion.to, piece)
                                 setPendingPromotion(null)
                               }}
-                              className="w-16 h-16 hover:bg-white/10 rounded-lg transition-colors p-2"
+                              className="max-sm:w-12 max-sm:h-12 sm:w-16 sm:h-16 hover:bg-white/10 rounded-lg transition-colors p-1"
                             >
                               <img 
                                 src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)} 
@@ -755,7 +755,7 @@ export default function GamePage() {
                     )}
                   </>
                 ) : (
-                  <div className="w-full h-full aspect-square flex items-center justify-center bg-[var(--surface-elevated)] rounded-12 animate-pulse">
+                  <div className="w-full h-full aspect-square flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
                     <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
                       Загрузка шахматной доски...
                     </div>
@@ -829,7 +829,7 @@ export default function GamePage() {
                   {moveHistory.length} полуходов
                 </span>
               </div>
-              <div className="max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+              <div className="max-h-[200px] max-sm:max-h-[25dvh] overflow-y-auto custom-scrollbar pr-2">
                 <div className="flex flex-wrap gap-2">
                   {moveHistory.length === 0 ? (
                     <p className="text-[10px] text-text-secondary opacity-40 italic w-full text-center py-4">

@@ -83,7 +83,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
-      <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
+      <header className="px-[var(--space-24)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between">
           <Link to="/">
             <img

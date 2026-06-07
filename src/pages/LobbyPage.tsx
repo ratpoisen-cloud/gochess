@@ -187,7 +187,7 @@ export default function LobbyPage() {
     <div className="min-h-[100dvh] flex flex-col bg-bg">
       <LoadingScreen isLoading={initialLoading} />
       
-      <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
+      <header className="px-[var(--space-24)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-center relative min-h-[32px]">
           <div className="absolute right-0 flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
             {user ? (

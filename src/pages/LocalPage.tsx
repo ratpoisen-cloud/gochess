@@ -258,7 +258,7 @@ export default function LocalPage() {
         </style>
       )}
 
-      <header className="px-[var(--space-24)] py-[var(--space-32)] bg-bg">
+      <header className="px-[var(--space-24)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
             <img
@@ -406,7 +406,7 @@ export default function LocalPage() {
                   })()}
                 </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-12 animate-pulse">
+                <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
                   <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
                     Загрузка шахматной доски...
                   </div>
@@ -458,7 +458,7 @@ export default function LocalPage() {
                 История ходов
               </h3>
               <div
-                className="max-h-[350px] overflow-y-auto space-y-1 text-[var(--font-size-xs)]"
+                className="max-h-[350px] max-sm:max-h-[30dvh] overflow-y-auto space-y-1 text-[var(--font-size-xs)]"
                 style={{ background: 'var(--bg)', borderRadius: 'var(--radius-8)', padding: 'var(--space-12)' }}
               >
                 {moveHistory.length === 0 ? (

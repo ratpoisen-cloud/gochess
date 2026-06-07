@@ -13,7 +13,10 @@ export default function ReactionPicker({ onSelect, onClose, boardWidth, anchorX,
   const pickerRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
 
-  const pickerWidth = boardWidth ? Math.round(Math.min(boardWidth * 0.85, 400)) : 296
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+  const pickerWidth = isMobile
+    ? Math.min(window.innerWidth - 16, 400)
+    : boardWidth ? Math.round(Math.min(boardWidth * 0.85, 400)) : 296
 
   useLayoutEffect(() => {
     const el = pickerRef.current
@@ -55,7 +58,7 @@ export default function ReactionPicker({ onSelect, onClose, boardWidth, anchorX,
         }}
       >
         <div
-          className="grid grid-cols-6 sm:grid-cols-8 gap-1.5 p-2"
+          className="grid grid-cols-8 gap-1.5 p-2"
           style={{
             width: pickerWidth,
             backgroundColor: 'rgba(18, 20, 18, 0.96)',

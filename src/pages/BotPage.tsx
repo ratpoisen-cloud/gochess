@@ -21,7 +21,7 @@ const BASE = import.meta.env.BASE_URL || '/'
 export default function BotPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { getPieceUrl } = useBoardStore()
+  const { getPieceUrl, getTheme } = useBoardStore()
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
@@ -234,7 +234,6 @@ export default function BotPage() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
-      {isGameOver && status !== 'draw' && status !== 'stalemate' && <PixelConfetti />}
       <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
@@ -293,6 +292,9 @@ export default function BotPage() {
               ref={boardContainerRef}
               className="board-container"
             >
+              {isGameOver && status !== 'draw' && status !== 'stalemate' && stableWidth > 0 && (
+                <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} darkSquareColor={getTheme().blackSquare} />
+              )}
               {isGameLoading && searchParams.get('game') ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-[var(--accent-brand)] animate-pulse text-sm">Загрузка партии...</div>

@@ -11,7 +11,7 @@ interface Particle {
   rotationSpeed: number
 }
 
-const COLORS = [
+const BASE_COLORS = [
   '#7eb87e', // accent-brand (green)
   '#e8e8d8', // accent (milky white)
   '#ff4444', // danger (red)
@@ -21,9 +21,10 @@ const COLORS = [
 
 interface PixelConfettiProps {
   origin?: { x: number; y: number } | null
+  darkSquareColor?: string
 }
 
-export default function PixelConfetti({ origin }: PixelConfettiProps) {
+export default function PixelConfetti({ origin, darkSquareColor }: PixelConfettiProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -32,6 +33,8 @@ export default function PixelConfetti({ origin }: PixelConfettiProps) {
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+
+    const COLORS = darkSquareColor ? [...BASE_COLORS, darkSquareColor] : BASE_COLORS
 
     let animationFrameId: number
     let particles: Particle[] = []
@@ -47,7 +50,7 @@ export default function PixelConfetti({ origin }: PixelConfettiProps) {
     }
 
     const createParticles = () => {
-      const count = 150
+      const count = 250
       const newParticles: Particle[] = []
       
       const width = canvas.width
@@ -104,9 +107,9 @@ export default function PixelConfetti({ origin }: PixelConfettiProps) {
 
       particles.forEach((p) => {
         // Physics
-        p.vy += 0.18 // Gravity
-        p.vx *= 0.97 // Air resistance
-        p.vy *= 0.97 // Air resistance
+        p.vy += 0.12 // Gravity
+        p.vx *= 0.985 // Air resistance
+        p.vy *= 0.985 // Air resistance
         
         p.y += p.vy
         p.x += p.vx
@@ -137,7 +140,7 @@ export default function PixelConfetti({ origin }: PixelConfettiProps) {
       window.removeEventListener('resize', resize)
       cancelAnimationFrame(animationFrameId)
     }
-  }, [origin])
+  }, [origin, darkSquareColor])
 
   return (
     <canvas

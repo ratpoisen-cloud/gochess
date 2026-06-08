@@ -45,7 +45,7 @@ function generateId(): string {
 export default function GamePage() {
   const { user, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
-  const { getPieceUrl } = useBoardStore()
+  const { getPieceUrl, getTheme } = useBoardStore()
   const { roomCode } = useParams<{ roomCode: string }>()
 
   // Game Core State
@@ -646,8 +646,7 @@ export default function GamePage() {
   if (loading) return <LoadingScreen isLoading={true} />
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-bg">
-      {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && <PixelConfetti />}
+            <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
@@ -713,6 +712,9 @@ export default function GamePage() {
             </div>
 
             <div ref={boardContainerRef} className="board-container relative">
+              {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && (
+                <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} darkSquareColor={getTheme().blackSquare} />
+              )}
               {stableWidth > 0 ? (
                 <>
                   <ChessBoard

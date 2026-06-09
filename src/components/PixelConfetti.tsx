@@ -12,19 +12,17 @@ interface Particle {
 }
 
 const BASE_COLORS = [
-  '#7eb87e', // accent-brand (green)
-  '#e8e8d8', // accent (milky white)
-  '#ff4444', // danger (red)
-  '#b4b4a4', // text-secondary
-  '#5a8c5a', // darker green
+  '#f0f0f0', // white
+  '#ff4444', // red
 ]
 
 interface PixelConfettiProps {
   origin?: { x: number; y: number } | null
+  lightSquareColor?: string
   darkSquareColor?: string
 }
 
-export default function PixelConfetti({ origin, darkSquareColor }: PixelConfettiProps) {
+export default function PixelConfetti({ origin, lightSquareColor, darkSquareColor }: PixelConfettiProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -34,7 +32,11 @@ export default function PixelConfetti({ origin, darkSquareColor }: PixelConfetti
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const COLORS = darkSquareColor ? [...BASE_COLORS, darkSquareColor] : BASE_COLORS
+    const COLORS = [
+      ...BASE_COLORS,
+      ...(lightSquareColor ? [lightSquareColor] : []),
+      ...(darkSquareColor ? [darkSquareColor] : []),
+    ]
 
     let animationFrameId: number
     let particles: Particle[] = []

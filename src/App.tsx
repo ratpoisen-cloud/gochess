@@ -9,8 +9,6 @@ const BotPage = lazy(() => import('./pages/BotPage'))
 const LocalPage = lazy(() => import('./pages/LocalPage'))
 const OnlineHubPage = lazy(() => import('./pages/OnlineHubPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const AgentLogsPage = lazy(() => import('./pages/AgentLogsPage'))
-
 function App() {
   return (
     <ErrorBoundary>
@@ -22,7 +20,6 @@ function App() {
           <Route path="/bot" element={<BotPage />} />
           <Route path="/local" element={<LocalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/agent-logs" element={<AgentLogsPage />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>

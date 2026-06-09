@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
-export interface BoardTheme {
+interface BoardTheme {
   id: string
   label: string
   whiteSquare: string
@@ -15,7 +15,7 @@ export interface BoardTheme {
   highlightCaptureShadow: string
 }
 
-export interface PieceSet {
+interface PieceSet {
   id: string
   label: string
   path: string
@@ -112,8 +112,6 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     path: `${BASE}pieces/tatiana/{piece}.svg`,
   },
 }
-
-export const PIECE_CODES = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP'] as const
 
 interface BoardState {
   selectedTheme: string

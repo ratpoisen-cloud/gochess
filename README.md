@@ -9,7 +9,7 @@
 - **Шахматная логика:** chess.js (валидация ходов, FEN, PGN)
 - **Отображение доски:** react-chessboard
 - **Стейт-менеджмент:** Zustand
-- **Backend / База данных:** Supabase (Auth, Realtime, PostgreSQL)
+- **Backend / База данных:** Firebase (Auth, Firestore)
 - **Бот:** Stockfish (Web Worker + WASM)
 - **Маршрутизация:** React Router v6
 
@@ -18,11 +18,6 @@
 ```bash
 # Установка зависимостей
 npm install
-
-# Копирование переменных окружения
-cp .env.local.example .env.local
-
-# Заполните .env.local вашими Supabase credentials
 
 # Запуск dev-сервера
 npm run dev
@@ -38,7 +33,7 @@ src/
 ├── pages/          # Страницы (Lobby, Game, Bot, Settings)
 ├── stores/         # Zustand stores (auth, game, board)
 ├── hooks/          # React hooks
-├── lib/            # Утилиты и конфигурация (Supabase)
+├── lib/            # Утилиты и конфигурация (Firebase)
 ├── types/          # TypeScript типы
 ├── App.tsx         # Роутинг
 └── main.tsx        # Точка входа

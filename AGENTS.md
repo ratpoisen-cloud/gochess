@@ -8,7 +8,7 @@
 - **Шахматная логика:** `chess.js` (v1.0.0-beta.8) — валидация ходов, FEN, PGN
 - **Отображение доски:** `react-chessboard` (v4.7.2)
 - **Стейт-менеджмент:** Zustand (с persist middleware)
-- **Backend / База данных:** Supabase (Auth, Realtime, PostgreSQL, Storage)
+- **Backend / База данных:** Firebase (Auth, Firestore)
 - **Бот:** Stockfish (Web Worker + WASM) — 3 уровня сложности
 - **Маршрутизация:** React Router v6
 - **Иконки:** lucide-react
@@ -22,10 +22,10 @@ src/
 ├── index.css                   # CSS-переменные, layout, board highlights
 ├── components/
 │   ├── board/
-│   │   └── ChessBoard.tsx      # Обёртка react-chessboard: кастомные фигуры, подсветка, drag
+│   │   └── ChessBoard.tsx      # Обёртка react-chessboard: кастомные фигуры, подсветка
 │   ├── AuthModal.tsx           # Модалка входа/регистрации (email + Google)
 │   ├── Button.tsx              # Кнопки: primary, outline, draw, danger, success, ghost
-│   ├── Card.tsx                # Карточка-контейнер с градиентом
+│   ├── Card.tsx                # Карточка-контейнер
 │   ├── ConfirmDialog.tsx       # Диалог подтверждения действий
 │   ├── ErrorBoundary.tsx       # React Error Boundary
 │   ├── LoadingScreen.tsx       # Экран загрузки
@@ -44,11 +44,11 @@ src/
 │   ├── gameStore.ts            # Zustand: Chess instance, status, moves (persist)
 │   └── reactionStore.ts        # Zustand: activeReactions, rate limiting
 ├── hooks/
-│   ├── useAuth.ts              # Supabase auth: signIn, signUp, signOut, uploadAvatar
+│   ├── useAuth.ts              # Firebase auth: signIn, signUp, signOut, uploadAvatar
 │   └── useBoardWidth.ts        # Измерение ширины контейнера доски (ResizeObserver + debounce)
 ├── lib/
 │   ├── soundManager.ts         # Звуки: move, capture, check, checkmate, promote
-│   └── supabase.ts             # Supabase client + isConfigured flag
+│   └── firebase.ts             # Firebase client
 └── types/
     └── index.ts                # TypeScript типы: Color, GameStatus, BotLevel, User, GameData
 ```
@@ -80,50 +80,12 @@ src/
 - `--game-side-column-width: 400px` — ширина боковой колонки
 - `--board-min-size: 320px` — минимальный размер доски
 
-## 📐 База Данных (Supabase)
-
-### Таблицы
-
-**`profiles`** — профили пользователей
-- Связано с Supabase Auth (`auth.users`)
-
-**`games`** — активные и завершённые партии
-- `room_id` (PK) — уникальный ID комнаты
-- `players` (JSON) — `{white, whiteName, black, blackName, whitePhotoURL, blackPhotoURL, invite}`
-- `pgn` (text) — Portable Game Notation
-- `fen` (text) — Forsyth–Edwards Notation, текущая позиция
-- `game_state` (text) — `'active'` | `'game_over'`
-- `message` (text) — причина окончания
-- `last_move_time` (bigint) — время последнего хода
-- `created_at` (bigint)
-- `takeback_request` (JSON) — запрос отмены хода
-- `draw_request` (JSON) — запрос ничьей
-- `turn` (text) — чей ход (`'w'` / `'b'`)
-- `resign` (text) — кто сдался (`'w'` / `'b'`)
-- `reactions` (JSON[]) — эмодзи-реакции на доске
-- `quick_phrase` (JSON) — быстрая фраза соперника
-- `rematch_request` (JSON) — запрос реванша
-
-**`user_presence`** — онлайн-статус
-- `uid` (PK) — ID пользователя
-- `is_online` (boolean)
-- `last_seen_at` (bigint)
-- `manual_status` (text) — ключ ручного статуса
-- `manual_status_text` (text)
-- `manual_status_expires_at` (bigint)
-- `updated_at_ms` (bigint)
-
-### RPC
-- `join_game_player_with_color(p_room_id, p_uid, p_name, p_preferred_color)` — атомарное присоединение игрока к партии с выбором цвета
-
-*Синхронизация:* Supabase Realtime channels для мгновенной передачи ходов, статусов и реакций.
-
 ##  Порядок загрузки
 
 ```
 1. React 18 + ReactDOM
 2. React Router v6 (BrowserRouter)
-3. Supabase SDK v2 → lib/supabase.ts
+3. Firebase SDK → lib/firebase.ts
 4. Zustand stores (authStore, boardStore, gameStore, reactionStore)
 5. hooks/useAuth.ts — подписка на auth state changes
 6. components/Toast.tsx — ToastProvider обёртка
@@ -135,18 +97,16 @@ src/
 
 При написании кода для этого проекта строго соблюдай следующие правила:
 
-1. **Фокус на чистоте:** Пиши модульный, читаемый код. Разделяй логику шахмат (chess.js), интерфейс (react-chessboard) и работу с сетью (Supabase).
+1. **Фокус на чистоте:** Пиши модульный, читаемый код. Разделяй логику шахмат (chess.js), интерфейс (react-chessboard) и работу с сетью (Firebase).
 2. **Шаги (Step-by-Step):** Не пытайся написать всё приложение за один ответ. Решай задачу по частям, жди подтверждения работоспособности.
-3. **Безопасность (RLS):** При написании SQL-миграций для Supabase всегда учитывай Row Level Security (RLS). Пользователи должны изменять только свои партии.
-4. **Обработка ошибок:** Всегда оборачивай сетевые запросы к Supabase в `try/catch` и выводи понятные сообщения через `useToast()`.
-5. **Состояние игры:** FEN-строка — единственный источник истины о состоянии доски. PGN — для истории ходов.
-6. **Никаких заглушек:** Если пишешь функцию, пиши рабочую версию. Если нужен пакет, укажи команду установки.
-7. **Zustand stores:** Используй Zustand для стейта. `gameStore` и `boardStore` используют `persist` middleware для localStorage.
-8. **CSS-переменные:** Все стили используют CSS-переменные из `index.css`. Не хардкодь цвета и размеры.
-9. **Звуки и уведомления:** Используй `soundManager.play()` для звуков и `useToast()` для сообщений. Не используй `alert()` или `console.log()` для пользовательского вывода.
-10. **Supabase credentials:** URL и anon-ключ находятся в `.env.local` (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`). Никогда не коммить реальные ключи в репозиторий.
-11. **TypeScript:** Проект на TypeScript. Не используй `any` без крайней необходимости. chess.js v1 имеет строгие типы.
-12. **react-chessboard:** Библиотека требует числовой `boardWidth` проп для корректной работы. Используй хук `useBoardWidth` для измерения контейнера.
+3. **Обработка ошибок:** Всегда оборачивай сетевые запросы к Firebase в `try/catch` и выводи понятные сообщения через `useToast()`.
+4. **Состояние игры:** FEN-строка — единственный источник истины о состоянии доски. PGN — для истории ходов.
+5. **Никаких заглушек:** Если пишешь функцию, пиши рабочую версию. Если нужен пакет, укажи команду установки.
+6. **Zustand stores:** Используй Zustand для стейта. `gameStore` и `boardStore` используют `persist` middleware для localStorage.
+7. **CSS-переменные:** Все стили используют CSS-переменные из `index.css`. Не хардкодь цвета и размеры.
+8. **Звуки и уведомления:** Используй `soundManager.play()` для звуков и `useToast()` для сообщений. Не используй `alert()` или `console.log()` для пользовательского вывода.
+9. **TypeScript:** Проект на TypeScript. Не используй `any` без крайней необходимости. chess.js v1 имеет строгие типы.
+10. **react-chessboard:** Библиотека требует числовой `boardWidth` проп для корректной работы. Используй хук `useBoardWidth` для измерения контейнера.
 
 ## 🐛 Известные баги (приоритет исправления)
 
@@ -178,7 +138,7 @@ src/
 | ✅ Последние партии не грузились в лобби | `LobbyPage.tsx`, `firestore.indexes.json` | После смены `orderBy('created_at')` на `orderBy('last_move_time')` запрос перестал возвращать документы без поля `last_move_time` (старые игры). Исправлено: убран `orderBy` из Firestore-запроса, сортировка клиентская по `last_move_time` с fallback на `created_at`. |
 | ✅ Бот ходит случайно, уровни не работают | `BotPage.tsx`, `src/lib/botEngine.ts`, `public/engine/` | Подключён Stockfish 18 (WASM + Web Worker). Уровни: easy (depth=3, skill=0, 50ms), medium (depth=5, skill=2, 100ms), hard (depth=8, skill=4, 220ms). Fallback на случайный ход при ошибке движка. |
 
-## 🧠 Извлечённые уроки (Firebase)
+## 🧠 Извлечённые уроки
 
 ### 1. Firestore: `orderBy` исключает документы без поля
 Если документ не имеет поля, указанного в `orderBy`, он **не возвращается** в результатах запроса (даже если соответствует `where`). **Решение:** сортировать на клиенте, использовать Firestore только для фильтрации.
@@ -207,13 +167,6 @@ src/
 # Установка зависимостей
 npm install
 
-# Копирование переменных окружения
-cp .env.local.example .env.local
-
-# Заполните .env.local вашими Supabase credentials:
-# VITE_SUPABASE_URL=https://your-project.supabase.co
-# VITE_SUPABASE_ANON_KEY=your-anon-key
-
 # Запуск dev-сервера
 npm run dev
 ```
@@ -222,78 +175,3 @@ npm run dev
 
 Для режима бота: `http://localhost:5173/bot`
 Для игры по ссылке: `http://localhost:5173/game/<roomId>`
-
-## 🗄 Миграции
-
-SQL-миграции лежат в `supabase/migrations/`. При пуше в `main` Supabase GitHub Integration применяет их автоматически.
-
-Формат имени: `<YYYYMMDDHHMMSS>_<description>.sql`
-
-### Порядок работы при создании таблицы/политики
-
-1. Создать файл `supabase/migrations/<timestamp>_<name>.sql`
-2. Проверить миграцию через `supabase_execute_sql` (если MCP доступен)
-3. Закоммитить и запушить — Supabase применит автоматически
-
-### Важно
-
-- **Никогда** не коммить сервисный ключ (`service_role`) в репозиторий
-- **Всегда** включай RLS для новых таблиц
-
-## 🤖 Multi-Agent System (CrewAI + Gemini CLI)
-
-Автоматизирует разработку через 3 агентов: Архитектор → Кодер → Дизайнер.
-
-### Требования
-- Python 3.12 (3.14 несовместим с `tiktoken`)
-- Gemini CLI: `npm install -g @google/gemini-cli`
-- CrewAI: `python3.12 -m pip install crewai`
-
-### Агенты
-| Агент | Инструмент | Что делает |
-|---|---|---|
-| **Architect** | `ArchitectTool` → Gemini CLI | Анализирует задачу, пишет план в `.opencode/plan.md` |
-| **Coder** | `CoderTool` | Показывает план, ждёт работы в OpenCode desktop, проверяет `tsc --noEmit` |
-| **Designer** | `DesignerTool` → Gemini CLI | Проверяет изменения через git diff, пишет ревью в `.opencode/review.md` |
-
-### Использование
-
-```bash
-# Только архитектор (план)
-python3.12 agents/run.py --plan "твоя задача"
-
-# Только кодер (после плана)
-python3.12 agents/run.py --code
-
-# Только дизайнер (ревью)
-python3.12 agents/run.py --review
-
-# Полный пайплайн (Architect → Coder → Designer)
-python3.12 agents/run.py "твоя задача"
-```
-
-### Как это работает
-1. **Architect** вызывает Gemini CLI с контекстом проекта, Gemini генерирует план.
-2. **Coder** вызывает Ollama (локально) или Groq (облачно), генерирует код, применяет изменения, запускает `tsc --noEmit`.
-3. **Designer** читает `git diff`, отправляет в Gemini CLI, получает ревью дизайна.
-
-### Провайдеры для Coder
-
-| Провайдер | Модель | Параметры | Описание |
-|---|---|---|---|
-| `ollama` | qwen2.5-coder:1.5b | 1.5B | Локально, без ключа, для мелочей |
-| `groq` | qwen/qwen3-32b | 32B | Облачно, бесплатно (14 400 req/day) |
-
-**Настройка Groq:**
-1. Зарегистрироваться: https://console.groq.com (без карты)
-2. Создать API-ключ
-3. Добавить в `.env.local`: `GROQ_API_KEY=твой_ключ`
-
-### Файлы
-- `agents/orchestrator.py` — **Главный вход.** TUI-меню (rich + questionary). Выбор провайдера.
-- `agents/run.py` — CLI-пайплайн. Флаги: `--groq`, `--plan`, `--code`, `--review`.
-- `agents/tools/base.py` — `GeminiCLITool` (вызов Gemini CLI через subprocess)
-- `agents/tools/architect_tool.py` — генерация плана через Gemini CLI
-- `agents/tools/ollama_tool.py` — `OllamaTool` (HTTP-клиент для Ollama/Groq API)
-- `agents/tools/coder_tool.py` — обёртка для `OllamaTool` + tsc
-- `agents/tools/designer_tool.py` — ревью дизайна через Gemini CLI

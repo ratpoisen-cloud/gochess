@@ -26,7 +26,7 @@ export default function LocalPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { addToast } = useToast()
-  const { getPieceUrl } = useBoardStore()
+  const { getPieceUrl, getTheme } = useBoardStore()
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
@@ -316,7 +316,7 @@ export default function LocalPage() {
               ref={boardContainerRef}
               className="board-container relative overflow-hidden"
             >
-              {isVictory && <PixelConfetti origin={winnerKingPos} />}
+              {isVictory && <PixelConfetti origin={winnerKingPos} lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />}
               {stableWidth > 0 ? (
                 <>
                   <ChessBoard

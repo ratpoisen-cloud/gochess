@@ -293,7 +293,7 @@ export default function BotPage() {
               className="board-container"
             >
               {isGameOver && status !== 'draw' && status !== 'stalemate' && stableWidth > 0 && (
-                <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} darkSquareColor={getTheme().blackSquare} />
+                <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
               )}
               {isGameLoading && searchParams.get('game') ? (
                 <div className="w-full h-full flex items-center justify-center">

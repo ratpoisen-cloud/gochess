@@ -1,7 +1,5 @@
 export type Color = 'w' | 'b'
 
-export type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
-
 export type GameStatus = 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw'
 
 export type BotLevel = 'very-easy' | 'easy' | 'medium' | 'hard'
@@ -14,7 +12,7 @@ export interface User {
   email: string
   photoURL: string | null
   customAvatarURL?: string | null
-  lastSeen?: any // serverTimestamp
+  lastSeen?: any
 }
 
 export interface GameData {
@@ -49,7 +47,5 @@ export interface Challenge {
   status: 'pending' | 'accepted' | 'declined' | 'expired'
   createdAt: any
   expiresAt: number
-  gameId?: string // Set after acceptance
+  gameId?: string
 }
-
-export type GameType = 'bot' | 'local' | 'online'

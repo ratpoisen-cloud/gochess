@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Color } from '@/types'
 
-export type AddReactionResult = 'ok' | 'square_occupied' | 'limit_reached'
+type AddReactionResult = 'ok' | 'square_occupied' | 'limit_reached'
 
 export interface Reaction {
   id: string

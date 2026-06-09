@@ -34,6 +34,7 @@ export default function BotPage() {
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
+  const [winnerColor, setWinnerColor] = useState<'w' | 'b' | null>(null)
   const [isGameLoading, setIsGameLoading] = useState(true)
   const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
   
@@ -61,9 +62,10 @@ export default function BotPage() {
 
       if (status === 'checkmate') {
         const loserColor = currentTurn
-        const winnerColor = currentTurn === 'w' ? 'b' : 'w'
+        const wc = currentTurn === 'w' ? 'b' : 'w'
+        setWinnerColor(wc)
         const kingSq = getKingSquare(game, loserColor as any)
-        const winnerKingSq = getKingSquare(game, winnerColor as any)
+        const winnerKingSq = getKingSquare(game, wc)
         setEndGameState({
           defeated: kingSq,
           emojis: [
@@ -72,6 +74,7 @@ export default function BotPage() {
           ]
         })
       } else if (status === 'stalemate' || status === 'draw') {
+        setWinnerColor(null)
         setEndGameState({
           defeated: null,
           emojis: [
@@ -84,6 +87,7 @@ export default function BotPage() {
     if (!isGameOver) {
       savedRef.current = false
       setEndGameState(null)
+      setWinnerColor(null)
     }
   }, [isGameOver, saveGame, level, game, status, currentTurn])
 
@@ -292,7 +296,7 @@ export default function BotPage() {
               ref={boardContainerRef}
               className="board-container"
             >
-              {isGameOver && status !== 'draw' && status !== 'stalemate' && stableWidth > 0 && (
+              {isGameOver && status !== 'draw' && status !== 'stalemate' && stableWidth > 0 && playerColor === winnerColor && (
                 <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
               )}
               {isGameLoading && searchParams.get('game') ? (
@@ -313,6 +317,7 @@ export default function BotPage() {
                     boardOrientation={playerColor === 'b' ? 'black' : 'white'}
                     defeatedKingSquare={endGameState?.defeated}
                     endGameEmojis={endGameState?.emojis}
+                    gameOverGray={isGameOver && status !== 'draw' && status !== 'stalemate' && playerColor !== winnerColor}
                   />
 
                   {/* Promotion Overlay */}

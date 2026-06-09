@@ -67,6 +67,7 @@ export default function GamePage() {
   const [isRulesOpen, setIsRulesOpen] = useState(false)
   const [gameOver, setGameOver] = useState(false)
   const [resultText, setResultText] = useState('')
+  const [winnerColor, setWinnerColor] = useState<'w' | 'b' | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
@@ -268,6 +269,7 @@ export default function GamePage() {
         if (!gameOver) {
           setGameOver(true)
           setResultText(parseResult(newData))
+          setWinnerColor(null)
           if (newData.game_mode !== 'fog_of_war') {
             soundManager.play('checkmate')
           }
@@ -287,9 +289,10 @@ export default function GamePage() {
 
           if (newData.message === 'resign') {
             const loserColor = newData.winner === 'white' ? 'b' : 'w'
-            const winnerColor = newData.winner === 'white' ? 'w' : 'b'
+            const wc = newData.winner === 'white' ? 'w' : 'b'
+            setWinnerColor(wc)
             const kingSq = getKingSquare(currentGame, loserColor)
-            const winnerKingSq = getKingSquare(currentGame, winnerColor)
+            const winnerKingSq = getKingSquare(currentGame, wc)
             setEndGameState({
               defeated: kingSq,
               emojis: [
@@ -299,9 +302,10 @@ export default function GamePage() {
             })
           } else if (newData.message === 'checkmate') {
             const loserColor = currentGame.turn()
-            const winnerColor = currentGame.turn() === 'w' ? 'b' : 'w'
+            const wc = currentGame.turn() === 'w' ? 'b' : 'w'
+            setWinnerColor(wc)
             const kingSq = getKingSquare(currentGame, loserColor)
-            const winnerKingSq = getKingSquare(currentGame, winnerColor)
+            const winnerKingSq = getKingSquare(currentGame, wc)
             setEndGameState({
               defeated: kingSq,
               emojis: [
@@ -310,6 +314,7 @@ export default function GamePage() {
               ]
             })
           } else if (newData.message === 'draw' || newData.message === 'stalemate') {
+            setWinnerColor(null)
             setEndGameState({
               defeated: null,
               emojis: [
@@ -323,6 +328,7 @@ export default function GamePage() {
         setGameOver(false)
         setResultText('')
         setEndGameState(null)
+        setWinnerColor(null)
       }
 
       // Sync PGN / Move history
@@ -712,7 +718,7 @@ export default function GamePage() {
             </div>
 
             <div ref={boardContainerRef} className="board-container relative">
-              {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && (
+              {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && playerColor === winnerColor && (
                 <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
               )}
               {stableWidth > 0 ? (
@@ -731,6 +737,7 @@ export default function GamePage() {
                     defeatedKingSquare={endGameState?.defeated}
                     endGameEmojis={endGameState?.emojis}
                     visibleSquares={visibleSquares}
+                    gameOverGray={gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && playerColor !== winnerColor}
                   />
 
                     {pendingPromotion && (

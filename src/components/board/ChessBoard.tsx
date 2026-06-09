@@ -19,6 +19,7 @@ interface ChessBoardProps {
   defeatedKingSquare?: string | null
   endGameEmojis?: { square: string; url: string }[]
   visibleSquares?: string[] | null
+  gameOverGray?: boolean
 }
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -37,6 +38,7 @@ export default function ChessBoard({
   defeatedKingSquare,
   endGameEmojis = [],
   visibleSquares = null,
+  gameOverGray,
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -122,6 +124,7 @@ export default function ChessBoard({
     <div
       className="relative w-full h-full"
       style={{
+        ...(gameOverGray ? { filter: 'grayscale(1) contrast(0.85) brightness(0.9)' } : {}),
         '--board-highlight-possible': theme.highlightPossible,
         '--board-highlight-possible-shadow': theme.highlightPossibleShadow,
         '--board-highlight-capture': theme.highlightCapture,

@@ -332,6 +332,7 @@ export default function LocalPage() {
                     boardOrientation={boardOrientation}
                     defeatedKingSquare={endGameState?.defeated}
                     endGameEmojis={endGameState?.emojis}
+                    gameOverGray={isActuallyGameOver}
                   />
                   
                   {/* Promotion Overlay */}

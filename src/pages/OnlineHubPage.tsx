@@ -41,7 +41,7 @@ export default function OnlineHubPage() {
     if (displayedChars < fullText.length) {
       timer = setTimeout(() => {
         setDisplayedChars(prev => prev + 1)
-      }, 100)
+      }, 60)
     }
     return () => clearTimeout(timer)
   }, [displayedChars])

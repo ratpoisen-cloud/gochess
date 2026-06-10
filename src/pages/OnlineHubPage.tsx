@@ -136,9 +136,7 @@ export default function OnlineHubPage() {
   }
 
   const handleGameClick = (g: any) => {
-    if (g.game_state !== 'game_over') {
-      navigate(`/game/${g.id}`)
-    }
+    navigate(`/game/${g.id}`)
   }
 
   const ModeTile = ({ mode, title, icon, description }: { mode: GameMode, title: string, icon: string, description: string }) => (
@@ -230,7 +228,7 @@ export default function OnlineHubPage() {
                 Последние партии онлайн
               </h3>
 
-              <div className="flex justify-center gap-[var(--space-20)] mb-[var(--space-24)]">
+              <div className="flex justify-center items-center gap-[var(--space-20)] mb-[var(--space-24)]">
                 {(['all', 'active', 'completed'] as const).map((f) => (
                   <button
                     key={f}
@@ -244,6 +242,13 @@ export default function OnlineHubPage() {
                     {f === 'all' ? 'Все' : f === 'active' ? 'Активные' : 'Завершенные'}
                   </button>
                 ))}
+                <div className="w-[1px] h-3 bg-[var(--border)] opacity-30" />
+                <Link 
+                  to="/completed" 
+                  className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-60 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+                >
+                  Архив
+                </Link>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">

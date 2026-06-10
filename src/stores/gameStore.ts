@@ -250,7 +250,7 @@ export const useGameStore = create<GameState>()(
           if (!snap.exists()) return null
 
           const data = snap.data()
-          if (data.game_type !== 'bot' || data.game_state === 'game_over') return null
+          if (data.game_type !== 'bot') return null
 
           const chess = new Chess()
           if (data.pgn) {

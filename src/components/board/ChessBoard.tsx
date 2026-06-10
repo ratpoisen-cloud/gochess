@@ -20,6 +20,7 @@ interface ChessBoardProps {
   endGameEmojis?: { square: string; url: string }[]
   visibleSquares?: string[] | null
   gameOverGray?: boolean
+  arePiecesDraggable?: boolean
 }
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -39,6 +40,7 @@ export default function ChessBoard({
   endGameEmojis = [],
   visibleSquares = null,
   gameOverGray,
+  arePiecesDraggable = true,
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -135,6 +137,7 @@ export default function ChessBoard({
       <Chessboard
         id="GoChessBoardMain"
         position={game.fen()}
+        arePiecesDraggable={arePiecesDraggable}
         onPieceDrop={(source, target) => {
           setHoveredSquare(null)
           return onDrop(source, target)

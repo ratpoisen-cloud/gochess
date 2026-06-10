@@ -211,7 +211,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       window.removeEventListener('deviceorientation', handleOrientation)
       cancelAnimationFrame(animationFrameId)
     }
-  }, [boardMode, darkSquareColor])
+  }, [boardMode, lightSquareColor, darkSquareColor])
 
   return (
     <canvas

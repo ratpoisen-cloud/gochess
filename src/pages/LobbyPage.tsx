@@ -9,7 +9,6 @@ import { collection, query, where, limit, getDocs, doc, updateDoc, addDoc, serve
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import LoadingScreen from '@/components/LoadingScreen'
-import ColorPickerModal from '@/components/ColorPickerModal'
 import BoardPreview from '@/components/board/BoardPreview'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
@@ -93,7 +92,6 @@ export default function LobbyPage() {
       addToast('Ошибка при принятии вызова', 'error')
     }
   }
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<any[]>([])
   const [gameFilter, setGameFilter] = useState<'all' | 'online' | 'bot' | 'local'>('all')
@@ -171,9 +169,9 @@ export default function LobbyPage() {
   }, [user])
 
   const handleGameClick = (game: any) => {
-    if (game.game_type === 'online' && game.room_code) {
-      navigate(`/game/${game.room_code}`)
-    } else if (game.game_type === 'bot' && game.game_state === 'active' && game.id) {
+    if (game.game_type === 'online') {
+      navigate(`/game/${game.id}`)
+    } else if (game.game_type === 'bot' && game.id) {
       navigate(`/bot?game=${game.id}`)
     }
   }
@@ -293,8 +291,8 @@ export default function LobbyPage() {
             <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-12)] uppercase tracking-widest text-center">
               Последние партии
             </h3>
-            
-            <div className="flex justify-center gap-[var(--space-20)] mb-[var(--space-24)]">
+
+            <div className="flex justify-center items-center gap-[var(--space-20)] mb-[var(--space-24)]">
               {(['all', 'online', 'bot', 'local'] as const).map((f) => (
                 <button
                   key={f}
@@ -308,6 +306,13 @@ export default function LobbyPage() {
                   {f === 'all' ? 'Все' : f === 'online' ? 'Онлайн' : f === 'bot' ? 'С ботом' : 'Локально'}
                 </button>
               ))}
+              <div className="w-[1px] h-3 bg-[var(--border)] opacity-30" />
+              <Link 
+                to="/completed" 
+                className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-60 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+              >
+                Архив
+              </Link>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
@@ -389,8 +394,7 @@ export default function LobbyPage() {
       </main>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      <ColorPickerModal isOpen={isColorPickerOpen} onClose={() => setIsColorPickerOpen(false)} />
-      
+
       {/* Incoming Challenge Notification Modal */}
       {incomingChallenges.length > 0 && (
         <Modal

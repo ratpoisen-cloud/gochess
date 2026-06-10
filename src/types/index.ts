@@ -36,6 +36,8 @@ export interface GameData {
   undo_request: { from_id: string; created_at: number } | null
   draw_request: { from_id: string; created_at: number } | null
   rematch_request: { from_id: string; proposed_room_id: string; created_at: number } | null
+  rematch_proposed_by?: string | null
+  rematch_game_id?: string | null
 }
 
 export interface Challenge {

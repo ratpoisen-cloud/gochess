@@ -2,13 +2,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /games/{gameId} {
-      // Allow reading the game if the user is authenticated
       allow read: if request.auth != null;
-      
-      // Allow creation of a new game
       allow create: if request.auth != null;
-      
-      // Allow update if the user is one of the players or if a slot is empty (for joining)
       allow update: if request.auth != null && (
         resource.data.white_player_id == request.auth.uid || 
         resource.data.black_player_id == request.auth.uid ||
@@ -16,8 +11,22 @@ service cloud.firestore {
         resource.data.black_player_id == null
       );
     }
-    
-    // Default deny
+
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+
+    match /challenges/{challengeId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        request.auth.uid == resource.data.fromId ||
+        request.auth.uid == resource.data.toId
+      );
+      allow delete: if request.auth.uid == resource.data.fromId;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

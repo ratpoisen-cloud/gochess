@@ -39,6 +39,18 @@ export default function LocalPage() {
   const [resultText, setResultText] = useState('')
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
+  const [pgnCopied, setPgnCopied] = useState(false)
+
+  const copyPgn = () => {
+    try {
+      navigator.clipboard.writeText(game.pgn())
+      setPgnCopied(true)
+      addToast('PGN скопирован', 'success')
+      setTimeout(() => setPgnCopied(false), 2000)
+    } catch {
+      addToast('Ошибка копирования', 'error')
+    }
+  }
 
   // Setup States
   const [whiteName, setWhiteName] = useState(user?.displayName || 'Игрок 1')
@@ -315,6 +327,7 @@ export default function LocalPage() {
                     defeatedKingSquare={endGameState?.defeated}
                     endGameEmojis={endGameState?.emojis}
                     gameOverGray={isActuallyGameOver}
+                    arePiecesDraggable={!isActuallyGameOver}
                   />
                   
                   {/* Promotion Overlay */}
@@ -437,9 +450,21 @@ export default function LocalPage() {
 
           <div className="game-side-column">
             <Card padding="sm">
-              <h3 className="text-[var(--font-size-sm)] font-semibold mb-[var(--space-12)] text-text">
-                История ходов
-              </h3>
+              <div className="flex items-center justify-between mb-[var(--space-12)]">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[var(--font-size-sm)] font-semibold text-text">История ходов</h3>
+                  <button 
+                    onClick={copyPgn}
+                    title="Копировать PGN"
+                    className={`p-1 rounded hover:bg-white/5 transition-colors ${pgnCopied ? 'text-[var(--success)]' : 'text-text-secondary'}`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
               <div
                 className="max-h-[350px] max-sm:max-h-[30dvh] overflow-y-auto space-y-1 text-[var(--font-size-xs)]"
                 style={{ background: 'var(--bg)', borderRadius: 'var(--radius-8)', padding: 'var(--space-12)' }}

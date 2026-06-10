@@ -12,7 +12,8 @@ import {
   getDocs, 
   getDoc, 
   limit, 
-  runTransaction 
+  runTransaction,
+  serverTimestamp
 } from 'firebase/firestore'
 import LoadingScreen from '@/components/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
@@ -80,7 +81,10 @@ export default function GamePage() {
   const { addToast } = useToast()
   const [showResignConfirm, setShowResignConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [pgnCopied, setPgnCopied] = useState(false)
   const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
+  const [isRematchProposed, setIsRematchProposed] = useState(false)
+  const [rematchGameId, setRematchGameId] = useState<string | null>(null)
 
   const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
   const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
@@ -192,17 +196,27 @@ export default function GamePage() {
         // Handle Join Transaction if necessary
         if (!data.white_player_id && data.black_player_id !== user.uid) {
            await runTransaction(db, async (transaction) => {
-             transaction.update(gameDoc.ref, {
-               white_player_id: user.uid,
-               white_name: user.displayName || 'Игрок',
-             })
+             const freshDoc = await transaction.get(gameDoc.ref)
+             const freshData = freshDoc.data()
+             if (!freshData) return
+             if (!freshData.white_player_id && freshData.black_player_id !== user.uid) {
+               transaction.update(gameDoc.ref, {
+                 white_player_id: user.uid,
+                 white_name: user.displayName || 'Игрок',
+               })
+             }
            })
         } else if (!data.black_player_id && data.white_player_id !== user.uid) {
            await runTransaction(db, async (transaction) => {
-             transaction.update(gameDoc.ref, {
-               black_player_id: user.uid,
-               black_name: user.displayName || 'Игрок',
-             })
+             const freshDoc = await transaction.get(gameDoc.ref)
+             const freshData = freshDoc.data()
+             if (!freshData) return
+             if (!freshData.black_player_id && freshData.white_player_id !== user.uid) {
+               transaction.update(gameDoc.ref, {
+                 black_player_id: user.uid,
+                 black_name: user.displayName || 'Игрок',
+               })
+             }
            })
         } else if (data.white_player_id !== user.uid && data.black_player_id !== user.uid) {
            console.warn('[Game] Room is full')
@@ -370,6 +384,13 @@ export default function GamePage() {
       // Requests
       setUndoRequest(newData.undo_request)
       setDrawRequest(newData.draw_request)
+
+      // Rematch logic
+      if (newData.rematch_game_id) {
+        setRematchGameId(newData.rematch_game_id)
+      } else if (newData.rematch_proposed_by && newData.rematch_proposed_by !== user.uid) {
+        setIsRematchProposed(true)
+      }
 
       // Reactions
       if (newData.reactions && Array.isArray(newData.reactions)) {
@@ -575,6 +596,89 @@ export default function GamePage() {
     }
   }
 
+  useEffect(() => {
+    if (rematchGameId) {
+      addToast('Реванш создан! Переход...', 'success')
+      const timer = setTimeout(() => navigate(`/game/${rematchGameId}`), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [rematchGameId, navigate, addToast])
+
+  const handleRematch = async () => {
+    if (!gameDocId || !user || !playerColor) return
+    
+    try {
+      await runTransaction(db, async (transaction) => {
+        const docRef = doc(db, 'games', gameDocId)
+        const freshDoc = await transaction.get(docRef)
+        const data = freshDoc.data() as GameData
+        
+        if (!data) return
+
+        if (data.rematch_game_id) {
+          // Rematch already exists, listener will catch it
+          return
+        }
+
+        if (data.rematch_proposed_by && data.rematch_proposed_by !== user.uid) {
+          // ACCEPT Rematch -> Create new game
+          const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+          
+          // Swap colors for rematch
+          const newGameData = {
+            room_code: newRoomCode,
+            white_player_id: data.black_player_id,
+            white_name: data.black_name || 'Игрок',
+            black_player_id: data.white_player_id,
+            black_name: data.white_name || 'Игрок',
+            game_type: 'online',
+            game_mode: data.game_mode || 'classic',
+            pgn: '',
+            fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+            game_state: 'active',
+            turn: 'w',
+            created_at: serverTimestamp(),
+            last_move_time: serverTimestamp(),
+            reactions: [],
+            undo_request: null,
+            draw_request: null,
+            rematch_proposed_by: null,
+            rematch_game_id: null
+          }
+          
+          // Since we can't add a document inside a transaction with a generated ID easily in a cross-collection way, 
+          // we use the fact that we're in a transaction to update the status and then the listener handles the rest.
+          // Wait, Firestore transactions can create documents.
+          const newGameRef = doc(collection(db, 'games'))
+          transaction.set(newGameRef, newGameData)
+          transaction.update(docRef, { rematch_game_id: newGameRef.id })
+        } else {
+          // PROPOSE Rematch
+          transaction.update(docRef, { rematch_proposed_by: user.uid })
+        }
+      })
+      
+      const snap = await getDoc(doc(db, 'games', gameDocId))
+      if (snap.data()?.rematch_proposed_by === user.uid && !snap.data()?.rematch_game_id) {
+        addToast('Предложение реванша отправлено', 'info')
+      }
+    } catch (err) {
+      console.error('[Rematch] Error:', err)
+      addToast('Ошибка при создании реванша', 'error')
+    }
+  }
+
+  const copyPgn = () => {
+    try {
+      navigator.clipboard.writeText(game.pgn())
+      setPgnCopied(true)
+      addToast('PGN скопирован', 'success')
+      setTimeout(() => setPgnCopied(false), 2000)
+    } catch {
+      addToast('Ошибка копирования', 'error')
+    }
+  }
+
   const handleAcceptUndo = async () => {
     if (!gameDocId || !undoRequest) return
     try {
@@ -738,6 +842,7 @@ export default function GamePage() {
                     endGameEmojis={endGameState?.emojis}
                     visibleSquares={visibleSquares}
                     gameOverGray={gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && playerColor !== winnerColor}
+                    arePiecesDraggable={!gameOver}
                   />
 
                     {pendingPromotion && (
@@ -773,8 +878,11 @@ export default function GamePage() {
             </div>
             
             {gameOver && resultText && (
-              <div className="mt-4 p-4 bg-[var(--surface-elevated)] rounded-lg text-center animate-modal-pixel-in">
-                <p className="text-[var(--font-size-md)] font-bold text-[var(--accent-brand)] uppercase tracking-widest">
+              <div 
+                className="mx-auto mt-4 py-[var(--space-12)] px-[var(--space-16)] bg-[var(--surface-elevated)] border border-[var(--border)] rounded-[var(--radius-14)] text-center animate-modal-pixel-in shadow-xl"
+                style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+              >
+                <p className="text-[var(--font-size-sm)] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em]">
                   {resultText}
                 </p>
               </div>
@@ -833,7 +941,19 @@ export default function GamePage() {
 
             <Card padding="sm">
               <div className="flex items-center justify-between mb-[var(--space-12)]">
-                <h3 className="text-[var(--font-size-sm)] font-semibold text-text">Ходы</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[var(--font-size-sm)] font-semibold text-text">Ходы</h3>
+                  <button 
+                    onClick={copyPgn}
+                    title="Копировать PGN"
+                    className={`p-1 rounded hover:bg-white/5 transition-colors ${pgnCopied ? 'text-[var(--success)]' : 'text-text-secondary'}`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  </button>
+                </div>
                 <span className="text-[10px] text-text-secondary uppercase tracking-widest opacity-60">
                   {moveHistory.length} полуходов
                 </span>
@@ -857,45 +977,61 @@ export default function GamePage() {
             </Card>
 
             <div className="grid grid-cols-2 gap-[var(--space-12)]">
-              <Button 
-                variant="primary" 
-                size="sm" 
-                fullWidth 
-                onClick={() => {
-                  if (!gameDocId || !user || gameOver || moveHistory.length === 0) return
-                  updateDoc(doc(db, 'games', gameDocId), {
-                    undo_request: { from_id: user.uid, created_at: Date.now() }
-                  }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
-                }}
-                disabled={gameOver || moveHistory.length === 0 || (!!(undoRequest && user && undoRequest.from_id === user.uid))}
-              >
-                Отмена
-              </Button>
-              <Button 
-                variant="primary" 
-                size="sm" 
-                fullWidth 
-                onClick={() => {
-                  if (!gameDocId || !user || gameOver || !opponentJoined) return
-                  updateDoc(doc(db, 'games', gameDocId), {
-                    draw_request: { from_id: user.uid, created_at: Date.now() }
-                  }).catch(() => addToast('Ошибка при предложении ничьей', 'error'))
-                }}
-                disabled={gameOver || !opponentJoined}
-              >
-                Ничья
-              </Button>
+              {!gameOver ? (
+                <>
+                  <Button 
+                    variant="primary" 
+                    size="sm" 
+                    fullWidth 
+                    onClick={() => {
+                      if (!gameDocId || !user || gameOver || moveHistory.length === 0) return
+                      updateDoc(doc(db, 'games', gameDocId), {
+                        undo_request: { from_id: user.uid, created_at: Date.now() }
+                      }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
+                    }}
+                    disabled={moveHistory.length === 0 || (!!(undoRequest && user && undoRequest.from_id === user.uid))}
+                  >
+                    Отмена
+                  </Button>
+                  <Button 
+                    variant="primary" 
+                    size="sm" 
+                    fullWidth 
+                    onClick={() => {
+                      if (!gameDocId || !user || gameOver || !opponentJoined) return
+                      updateDoc(doc(db, 'games', gameDocId), {
+                        draw_request: { from_id: user.uid, created_at: Date.now() }
+                      }).catch(() => addToast('Ошибка при предложении ничьей', 'error'))
+                    }}
+                    disabled={!opponentJoined}
+                  >
+                    Ничья
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  fullWidth 
+                  onClick={handleRematch}
+                  className="col-span-2 border-[var(--accent-brand)] border"
+                  disabled={rematchGameId !== null}
+                >
+                  {rematchGameId ? 'Переход...' : isRematchProposed ? 'Принять реванш' : 'Реванш'}
+                </Button>
+              )}
             </div>
-            <Button 
-              variant="primary" 
-              size="sm" 
-              fullWidth 
-              className="hover:!bg-[var(--danger-soft)]"
-              onClick={() => setShowResignConfirm(true)}
-              disabled={gameOver}
-            >
-              Сдаться
-            </Button>
+            {!gameOver && (
+              <Button 
+                variant="primary" 
+                size="sm" 
+                fullWidth 
+                className="hover:!bg-[var(--danger-soft)]"
+                onClick={() => setShowResignConfirm(true)}
+              >
+                Сдаться
+              </Button>
+            )}
           </div>
         </div>
       </main>

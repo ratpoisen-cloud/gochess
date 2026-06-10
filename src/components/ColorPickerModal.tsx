@@ -30,6 +30,21 @@ interface ColorPickerModalProps {
 
 type ColorChoice = 'w' | 'b' | 'random'
 
+interface TimeControl {
+  base: number    // seconds
+  increment: number // seconds
+  label: string
+}
+
+const TIME_CONTROLS: TimeControl[] = [
+  { base: 600, increment: 0, label: '10 + 0' },
+  { base: 900, increment: 0, label: '15 + 0' },
+  { base: 1800, increment: 0, label: '30 + 0' },
+  { base: 600, increment: 5, label: '10 + 5' },
+  { base: 900, increment: 5, label: '15 + 5' },
+  { base: 1800, increment: 5, label: '30 + 5' },
+]
+
 export default function ColorPickerModal({ 
   isOpen, 
   onClose, 
@@ -44,7 +59,9 @@ export default function ColorPickerModal({
   const [step, setStep] = useState<'picker' | 'link'>('picker')
   const [creating, setCreating] = useState(false)
   const [tempColor, setTempColor] = useState<ColorChoice>('w')
+  const [selectedTime, setSelectedTime] = useState<TimeControl>(TIME_CONTROLS[0])
   const [pendingChallenge, setPendingChallenge] = useState<string | null>(null)
+  const [showTimeHelp, setShowTimeHelp] = useState(false)
   
   const [roomUrl, setRoomUrl] = useState('')
   const [roomCode, setRoomCode] = useState('')
@@ -56,6 +73,7 @@ export default function ColorPickerModal({
       setCreating(false)
       setCopied(false)
       setPendingChallenge(null)
+      setShowTimeHelp(false)
     }
   }, [isOpen])
 
@@ -118,7 +136,13 @@ export default function ColorPickerModal({
         reactions: [],
         undo_request: null,
         draw_request: null,
-        rematch_request: null
+        rematch_request: null,
+        // Rapid Fields
+        time_control: gameMode === 'rapid' ? { base: selectedTime.base, increment: selectedTime.increment } : null,
+        white_time_left: gameMode === 'rapid' ? selectedTime.base * 1000 : null,
+        black_time_left: gameMode === 'rapid' ? selectedTime.base * 1000 : null,
+        last_timer_update: null,
+        timer_status: 'paused'
       }
 
       await addDoc(collection(db, 'games'), roomData)
@@ -196,6 +220,57 @@ export default function ColorPickerModal({
                 </Button>
               </div>
             </div>
+
+            {gameMode === 'rapid' && (
+              <div className="space-y-[var(--space-12)]">
+                <div className="flex items-center gap-2 px-1">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left">
+                    Контроль времени
+                  </label>
+                  <button 
+                    type="button"
+                    onClick={() => setShowTimeHelp(!showTimeHelp)}
+                    className={`w-4 h-4 rounded-full border flex items-center justify-center text-[10px] transition-all ${
+                      showTimeHelp 
+                        ? 'bg-[var(--accent-brand)] border-[var(--accent-brand)] text-bg' 
+                        : 'border-[var(--border)] text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)]'
+                    }`}
+                  >
+                    ?
+                  </button>
+                </div>
+
+                {showTimeHelp && (
+                  <div className="p-3 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.02)] border border-[var(--border)] animate-modal-pixel-in">
+                    <p className="text-[9px] text-text-secondary leading-relaxed text-left">
+                      <span className="text-text font-bold">Как работает время:</span>
+                      <br /><br />
+                      Первое число — это основной запас минут на всю партию для каждого игрока.
+                      <br /><br />
+                      Второе число — <span className="text-[var(--accent-brand)] font-bold">инкремент</span> (добавление):
+                      <br />
+                      • <span className="text-[var(--accent-brand)] font-bold">+0</span> — время только убавляется. Если оно закончится, вы проиграли.
+                      <br />
+                      • <span className="text-[var(--accent-brand)] font-bold">+5</span> — после каждого сделанного хода вам возвращается 5 секунд. Это помогает не проиграть по времени в самом конце игры.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-2">
+                  {TIME_CONTROLS.map((tc) => (
+                    <Button 
+                      key={tc.label}
+                      variant="primary" 
+                      onClick={() => setSelectedTime(tc)}
+                      className={`text-[9px] h-10 border-2 ${selectedTime.label === tc.label ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
+                      disabled={creating}
+                    >
+                      {tc.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-[var(--space-12)]">
               <Button 

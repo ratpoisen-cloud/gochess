@@ -11,6 +11,7 @@ interface Particle {
   rotationSpeed: number
   isFeather?: boolean
   swayPhase: number
+  swaySpeed: number
 }
 
 const BASE_COLORS = [
@@ -46,6 +47,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
     const mousePos = { x: null as number | null, y: null as number | null }
     const tilt = { x: 0, y: 0 }
+    const targetTilt = { x: 0, y: 0 }
 
     const resize = () => {
       if (canvas.parentElement) {
@@ -85,6 +87,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           rotationSpeed: (Math.random() - 0.5) * 0.2,
           isFeather,
           swayPhase: Math.random() * Math.PI * 2,
+          swaySpeed: Math.random() * 0.02 + 0.01,
         })
       }
       particles = newParticles
@@ -97,17 +100,21 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
+      // Smooth tilt values
+      tilt.x += (targetTilt.x - tilt.x) * 0.1
+      tilt.y += (targetTilt.y - tilt.y) * 0.1
+
       particles.forEach((p) => {
         if (p.isFeather) {
           p.vy += 0.008
           p.vx *= 0.998
           p.vy *= 0.998
           p.vx += Math.sin(p.swayPhase) * 0.02
-          p.swayPhase += 0.015
+          p.swayPhase += p.swaySpeed
         } else {
           p.vy += 0.06
-          p.vx *= 0.992
-          p.vy *= 0.992
+          p.vx *= 0.995
+          p.vy *= 0.995
         }
 
         if (mousePos.x !== null && mousePos.y !== null) {
@@ -152,7 +159,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           }
           if (p.y > maxY) {
             p.y = maxY
-            p.vy *= -0.3
+            p.vy *= -(0.3 + Math.random() * 0.2)
             p.vx *= 0.95
           }
 
@@ -193,13 +200,20 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     }
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
-      tilt.x = (e.gamma ?? 0) / 90
-      tilt.y = ((e.beta ?? 90) - 90) / 90
+      const beta = e.beta ?? 45
+      const gamma = e.gamma ?? 0
+      
+      targetTilt.x = gamma / 90
+      // Normalize beta around 45 degrees (comfortable handheld angle)
+      targetTilt.y = Math.max(-1, Math.min(1, (beta - 45) / 45))
     }
 
     window.addEventListener('resize', resize)
     window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('deviceorientation', handleOrientation)
+    
+    if (window.DeviceOrientationEvent) {
+      window.addEventListener('deviceorientation', handleOrientation)
+    }
 
     resize()
     createParticles()
@@ -208,7 +222,9 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     return () => {
       window.removeEventListener('resize', resize)
       window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('deviceorientation', handleOrientation)
+      if (window.DeviceOrientationEvent) {
+        window.removeEventListener('deviceorientation', handleOrientation)
+      }
       cancelAnimationFrame(animationFrameId)
     }
   }, [boardMode, lightSquareColor, darkSquareColor])

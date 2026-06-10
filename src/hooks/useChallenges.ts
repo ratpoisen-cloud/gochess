@@ -13,6 +13,7 @@ export function useChallenges() {
       setIncomingChallenges([])
       return
     }
+    if (!db) return
 
     const q = query(
       collection(db, 'challenges'),
@@ -36,7 +37,7 @@ export function useChallenges() {
   }, [user])
 
   const sendChallenge = async (toId: string, mode: GameMode) => {
-    if (!user) return
+    if (!user || !db) return
     
     await addDoc(collection(db, 'challenges'), {
       fromId: user.uid,
@@ -50,12 +51,14 @@ export function useChallenges() {
   }
 
   const acceptChallenge = async (challengeId: string) => {
+    if (!db) return
     await updateDoc(doc(db, 'challenges', challengeId), {
       status: 'accepted'
     })
   }
 
   const declineChallenge = async (challengeId: string) => {
+    if (!db) return
     await updateDoc(doc(db, 'challenges', challengeId), {
       status: 'declined'
     })

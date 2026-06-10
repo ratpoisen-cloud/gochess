@@ -9,21 +9,24 @@ interface Particle {
   vy: number
   rotation: number
   rotationSpeed: number
+  isFeather?: boolean
+  swayPhase: number
 }
 
 const BASE_COLORS = [
-  '#f0f0f0', // white
-  '#ff4444', // red
+  '#f0f0f0',
+  '#ff4444',
 ]
 
 interface PixelConfettiProps {
-  origin?: { x: number; y: number } | null
+  boardMode?: boolean
   lightSquareColor?: string
   darkSquareColor?: string
 }
 
-export default function PixelConfetti({ origin, lightSquareColor, darkSquareColor }: PixelConfettiProps) {
+export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareColor }: PixelConfettiProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const isInsideBoard = Boolean(boardMode)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -41,10 +44,14 @@ export default function PixelConfetti({ origin, lightSquareColor, darkSquareColo
     let animationFrameId: number
     let particles: Particle[] = []
 
+    const mousePos = { x: null as number | null, y: null as number | null }
+    const tilt = { x: 0, y: 0 }
+
     const resize = () => {
       if (canvas.parentElement) {
-        canvas.width = canvas.parentElement.clientWidth
-        canvas.height = canvas.parentElement.clientHeight
+        const rect = canvas.parentElement.getBoundingClientRect()
+        canvas.width = rect.width
+        canvas.height = rect.height
       } else {
         canvas.width = window.innerWidth
         canvas.height = window.innerHeight
@@ -52,49 +59,32 @@ export default function PixelConfetti({ origin, lightSquareColor, darkSquareColo
     }
 
     const createParticles = () => {
-      const count = 250
+      const count = 350
       const newParticles: Particle[] = []
-      
+
       const width = canvas.width
       const height = canvas.height
-      
-      const startX = origin ? origin.x : Math.random() * width
-      const startY = origin ? origin.y : -20
-      
-      // Check if origin is roughly at the center
-      const isAtCenter = origin && 
-        Math.abs(origin.x - width / 2) < 5 && 
-        Math.abs(origin.y - height / 2) < 5
 
-      // Calculate base angle towards center of board if origin is provided and not at center
-      let baseAngle = Math.PI / 2 // Default downward
-      let spread = Math.PI * 2 // Default radial
-      
-      if (origin) {
-        if (isAtCenter) {
-          spread = Math.PI * 2
-        } else {
-          baseAngle = Math.atan2(height / 2 - origin.y, width / 2 - origin.x)
-          spread = Math.PI / 3 // 60-degree cone
-        }
-      }
-      
+      const startX = isInsideBoard ? width / 2 : Math.random() * width
+      const startY = isInsideBoard ? height / 2 : -20
+
       for (let i = 0; i < count; i++) {
-        const angle = origin && !isAtCenter 
-          ? baseAngle + (Math.random() - 0.5) * spread
-          : Math.random() * Math.PI * 2
-        
-        const force = origin ? Math.random() * 10 + 5 : Math.random() * 4 + 2
-        
+        const isFeather = isInsideBoard && Math.random() < 0.2
+        const angle = Math.random() * Math.PI * 2
+        const baseForce = isInsideBoard ? Math.random() * 10 + 5 : Math.random() * 4 + 2
+        const fFactor = isFeather ? 0.4 + Math.random() * 0.3 : 1
+
         newParticles.push({
           x: startX,
           y: startY,
           size: Math.floor(Math.random() * 2 + 1) * 4,
           color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          vx: Math.cos(angle) * force,
-          vy: Math.sin(angle) * force - (origin ? 3 : 0), // Upward bias for explosions
+          vx: Math.cos(angle) * baseForce * fFactor,
+          vy: Math.sin(angle) * baseForce * fFactor - (isInsideBoard ? 3 : 0) - (isFeather ? 2 : 0),
           rotation: Math.random() * Math.PI * 2,
-          rotationSpeed: (Math.random() - 0.5) * 0.2
+          rotationSpeed: (Math.random() - 0.5) * 0.2,
+          isFeather,
+          swayPhase: Math.random() * Math.PI * 2,
         })
       }
       particles = newParticles
@@ -108,15 +98,71 @@ export default function PixelConfetti({ origin, lightSquareColor, darkSquareColo
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       particles.forEach((p) => {
-        // Physics
-        p.vy += 0.12 // Gravity
-        p.vx *= 0.985 // Air resistance
-        p.vy *= 0.985 // Air resistance
-        
-        p.y += p.vy
+        if (p.isFeather) {
+          p.vy += 0.008
+          p.vx *= 0.998
+          p.vy *= 0.998
+          p.vx += Math.sin(p.swayPhase) * 0.02
+          p.swayPhase += 0.015
+        } else {
+          p.vy += 0.06
+          p.vx *= 0.992
+          p.vy *= 0.992
+        }
+
+        if (mousePos.x !== null && mousePos.y !== null) {
+          const dx = p.x - mousePos.x
+          const dy = p.y - mousePos.y
+          const dist = Math.hypot(dx, dy)
+          if (dist < 120 && dist > 1) {
+            const force = 30 / dist
+            const mult = p.isFeather ? 2 : 1
+            p.vx += (dx / dist) * force * mult
+            p.vy += (dy / dist) * force * mult
+          }
+        }
+
+        if (tilt.x !== 0 || tilt.y !== 0) {
+          const mult = p.isFeather ? 3 : 1
+          p.vx += tilt.x * 0.015 * mult
+          p.vy += tilt.y * 0.015 * mult
+        }
+
         p.x += p.vx
-        
+        p.y += p.vy
+
         p.rotation += p.rotationSpeed
+
+        if (isInsideBoard) {
+          const padding = p.size
+          const maxX = canvas.width - padding
+          const maxY = canvas.height - padding
+
+          if (p.x < padding) {
+            p.x = padding
+            p.vx *= -0.5
+          }
+          if (p.x > maxX) {
+            p.x = maxX
+            p.vx *= -0.5
+          }
+          if (p.y < padding) {
+            p.y = padding
+            p.vy *= -0.5
+          }
+          if (p.y > maxY) {
+            p.y = maxY
+            p.vy *= -0.3
+            p.vx *= 0.95
+          }
+
+          const threshold = p.isFeather ? 0.03 : 0.15
+          if (Math.abs(p.vy) < threshold && Math.abs(p.vx) < threshold && p.y >= maxY - 1) {
+            p.vy = 0
+            p.vx = 0
+            p.y = maxY
+          }
+        }
 
         ctx.save()
         ctx.translate(p.x, p.y)
@@ -126,28 +172,51 @@ export default function PixelConfetti({ origin, lightSquareColor, darkSquareColo
         ctx.restore()
       })
 
-      particles = particles.filter(p => p.y < canvas.height + 20 && p.y > -100 && p.x > -100 && p.x < canvas.width + 100)
+      if (isInsideBoard) {
+        if (!particles.some(p => p.vy !== 0 || p.vx !== 0)) {
+          return
+        }
+      } else {
+        particles = particles.filter(p => p.y < canvas.height + 20 && p.y > -100 && p.x > -100 && p.x < canvas.width + 100)
+        if (particles.length === 0) return
+      }
 
       if (particles.length > 0) {
         animationFrameId = requestAnimationFrame(update)
       }
     }
 
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      mousePos.x = e.clientX - rect.left
+      mousePos.y = e.clientY - rect.top
+    }
+
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      tilt.x = (e.gamma ?? 0) / 90
+      tilt.y = ((e.beta ?? 90) - 90) / 90
+    }
+
     window.addEventListener('resize', resize)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('deviceorientation', handleOrientation)
+
     resize()
     createParticles()
     update()
 
     return () => {
       window.removeEventListener('resize', resize)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('deviceorientation', handleOrientation)
       cancelAnimationFrame(animationFrameId)
     }
-  }, [origin, darkSquareColor])
+  }, [boardMode, darkSquareColor])
 
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none z-[100] overflow-hidden"
+      className="absolute inset-0 pointer-events-none z-[9999]"
       style={{ imageRendering: 'pixelated' }}
     />
   )

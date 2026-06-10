@@ -140,6 +140,7 @@
   max-width: min(100%, var(--game-main-column-width), calc(100dvh - 200px));
   margin: 0 auto;
   position: relative;
+  isolation: isolate;
   background: rgba(255, 255, 255, 0.02);
   border: 2px solid transparent;
   border-radius: var(--radius-8);

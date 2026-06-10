@@ -7,7 +7,7 @@ export function usePresence() {
   const { user } = useAuth()
 
   useEffect(() => {
-    if (!user) return
+    if (!user || !db) return
 
     const userRef = doc(db, 'users', user.uid)
     

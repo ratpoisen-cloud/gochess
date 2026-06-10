@@ -48,7 +48,7 @@ export default function OnlineHubPage() {
 
   // Fetch recent online games AND players
   useEffect(() => {
-    if (!user) return
+    if (!user || !db) return
 
     const fetchData = async () => {
       try {
@@ -102,6 +102,7 @@ export default function OnlineHubPage() {
   }, [user])
 
   const handleAcceptChallenge = async (challenge: any) => {
+    if (!db) return
     try {
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
       const gameRef = await addDoc(collection(db, 'games'), {

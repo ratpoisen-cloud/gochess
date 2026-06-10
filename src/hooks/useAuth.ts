@@ -62,6 +62,11 @@ export function useAuth() {
   }, [setUser])
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       handleUserChange(firebaseUser)
@@ -76,6 +81,7 @@ export function useAuth() {
   }, [handleUserChange, setLoading])
 
   const signInWithGoogle = async () => {
+    if (!auth) return
     setError(null)
     const provider = new GoogleAuthProvider()
     try {
@@ -87,6 +93,7 @@ export function useAuth() {
   }
 
   const signInWithEmail = async (email: string, password: string) => {
+    if (!auth) return
     setError(null)
     try {
       await signInWithEmailAndPassword(auth, email, password)
@@ -98,6 +105,7 @@ export function useAuth() {
   }
 
   const signUpWithEmail = async (email: string, password: string) => {
+    if (!auth) return
     setError(null)
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password)
@@ -110,6 +118,7 @@ export function useAuth() {
   }
 
   const signOut = async () => {
+    if (!auth) return
     setError(null)
     try {
       await firebaseSignOut(auth)

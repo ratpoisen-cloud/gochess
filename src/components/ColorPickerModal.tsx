@@ -76,6 +76,7 @@ export default function ColorPickerModal({
       addToast('Необходимо авторизоваться', 'warning')
       return
     }
+    if (!db) return
 
     setCreating(true)
 

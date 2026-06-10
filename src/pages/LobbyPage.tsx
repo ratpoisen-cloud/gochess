@@ -61,6 +61,7 @@ export default function LobbyPage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
   const handleAcceptChallenge = async (challenge: any) => {
+    if (!db) return
     try {
       const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
       const gameRef = await addDoc(collection(db, 'games'), {
@@ -125,6 +126,7 @@ export default function LobbyPage() {
     }
     
     const loadRecentGames = async () => {
+      if (!db) return
       try {
         const gamesRef = collection(db, 'games')
         const qWhite = query(

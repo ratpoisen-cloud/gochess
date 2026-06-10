@@ -39,7 +39,6 @@ export default function LocalPage() {
   const [resultText, setResultText] = useState('')
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
-  const [winnerKingPos, setWinnerKingPos] = useState<{ x: number; y: number } | null>(null)
 
   // Setup States
   const [whiteName, setWhiteName] = useState(user?.displayName || 'Игрок 1')
@@ -94,14 +93,6 @@ export default function LocalPage() {
               ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
             ]
           })
-
-          // Always explode from center in local mode
-          if (stableWidth > 0) {
-            setWinnerKingPos({
-              x: stableWidth / 2,
-              y: stableWidth / 2
-            })
-          }
 
           setResultText(currentTurn === 'w' ? `Победа чёрных (${blackName})` : `Победа белых (${whiteName})`)
         } else if (status === 'stalemate' || status === 'draw') {
@@ -161,14 +152,6 @@ export default function LocalPage() {
       ]
     })
 
-    // Always explode from center in local mode
-    if (stableWidth > 0) {
-      setWinnerKingPos({
-        x: stableWidth / 2,
-        y: stableWidth / 2
-      })
-    }
-    
     setResultText(`Сдача. Победа ${winner}`)
     setManualGameOver(true)
   }
@@ -194,7 +177,6 @@ export default function LocalPage() {
     setManualGameOver(false)
     setResultText('')
     setEndGameState(null)
-    setWinnerKingPos(null)
     savedRef.current = false
   }
 
@@ -316,7 +298,7 @@ export default function LocalPage() {
               ref={boardContainerRef}
               className="board-container relative overflow-hidden"
             >
-              {isVictory && <PixelConfetti origin={winnerKingPos} lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />}
+              {isVictory && <PixelConfetti boardMode lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />}
               {stableWidth > 0 ? (
                 <>
                   <ChessBoard

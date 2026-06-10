@@ -719,7 +719,7 @@ export default function GamePage() {
 
             <div ref={boardContainerRef} className="board-container relative">
               {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && playerColor === winnerColor && (
-                <PixelConfetti origin={{ x: stableWidth / 2, y: stableWidth / 2 }} lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
+                <PixelConfetti boardMode lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
               )}
               {stableWidth > 0 ? (
                 <>

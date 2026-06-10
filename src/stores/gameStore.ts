@@ -198,7 +198,7 @@ export const useGameStore = create<GameState>()(
       createBotGameDoc: async (level) => {
         const { game } = get()
         const user = useAuthStore.getState().user
-        if (!user) return null
+        if (!user || !db) return null
 
         try {
           const gameRef = await addDoc(collection(db, 'games'), {
@@ -227,7 +227,7 @@ export const useGameStore = create<GameState>()(
 
       updateBotGameDoc: async () => {
         const { game, botGameDocId } = get()
-        if (!botGameDocId) return
+        if (!botGameDocId || !db) return
 
         try {
           await updateDoc(doc(db, 'games', botGameDocId), {
@@ -243,7 +243,7 @@ export const useGameStore = create<GameState>()(
 
       loadBotGameFromFirestore: async (docId) => {
         const user = useAuthStore.getState().user
-        if (!user) return null
+        if (!user || !db) return null
 
         try {
           const snap = await getDoc(doc(db, 'games', docId))
@@ -291,7 +291,7 @@ export const useGameStore = create<GameState>()(
       saveGame: async (gameType, botLevel) => {
         const { game, status, botGameDocId } = get()
         const user = useAuthStore.getState().user
-        if (!user) return
+        if (!user || !db) return
 
         const winner = status === 'checkmate'
           ? (game.turn() === 'w' ? 'black' : 'white')

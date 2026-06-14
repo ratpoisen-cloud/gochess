@@ -11,44 +11,53 @@
 - **Backend / База данных:** Firebase (Auth, Firestore)
 - **Бот:** Stockfish (Web Worker + WASM) — 3 уровня сложности
 - **Маршрутизация:** React Router v6
-- **Иконки:** lucide-react
+- **Кастомный шахматный движок:** `spellChessEngine.ts` — Spell Chess (5 заклинаний, взятие короля)
+- **VFX:** `MagicVFX.tsx` — пиксельные частицы для эффектов заклинаний (canvas + requestAnimationFrame)
 
 ## 📐 Архитектура проекта
 
 ```
 src/
-├── App.tsx                     # Роутинг: /, /game/:roomId, /bot, /settings
+├── App.tsx                     # Роутинг: /, /game/:roomId, /bot, /settings, /offline, /local/:mode, /completed
 ── main.tsx                    # Точка входа: BrowserRouter, ToastProvider
 ├── index.css                   # CSS-переменные, layout, board highlights
 ├── components/
 │   ├── board/
-│   │   └── ChessBoard.tsx      # Обёртка react-chessboard: кастомные фигуры, подсветка
+│   │   ├── ChessBoard.tsx      # Обёртка react-chessboard: кастомные фигуры, подсветка
+│   │   └── ChessTimer.tsx      # Шахматные часы (delta-based, MM:SS, onTimeout)
 │   ├── AuthModal.tsx           # Модалка входа/регистрации (email + Google)
 │   ├── Button.tsx              # Кнопки: primary, outline, draw, danger, success, ghost
 │   ├── Card.tsx                # Карточка-контейнер
-│   ├── ConfirmDialog.tsx       # Диалог подтверждения действий
 │   ├── ErrorBoundary.tsx       # React Error Boundary
 │   ├── LoadingScreen.tsx       # Экран загрузки
+│   ├── MagicVFX.tsx            # Пиксельные частицы для заклинаний (canvas + rAF)
 │   ├── Modal.tsx               # Базовая модалка (overlay, escape, scroll lock)
+│   ├── PixelConfetti.tsx       # Победные конфетти (гироскоп, touch repulsion)
 │   ├── ReactionPicker.tsx      # Выбор эмодзи-реакции на клетку
 │   ├── Toast.tsx               # Toast-уведомления (success, error, warning, info)
 │   └── UserMenu.tsx            # Меню пользователя: аватар, настройки, выход
 ├── pages/
 │   ├── LobbyPage.tsx           # Главная: хаб с тайлами (бот, игра, партии, игроки)
-│   ├── GamePage.tsx            # Игра с соперником: доска, история, реакции
+│   ├── GamePage.tsx            # Игра с соперником: доска, история, реакции, таймеры
 │   ├── BotPage.tsx             # Игра с ботом: доска, выбор уровня, история
-│   └── SettingsPage.tsx        # Настройки: профиль, тема доски, набор фигур
+│   ├── LocalPage.tsx           # Локальная игра: классика / рапид с часами
+│   ├── OfflineHubPage.tsx      # Лобби «Вдвоём»: выбор классика / рапид / магия
+│   ├── SpellLocalPage.tsx      # Spell Chess: заклинания, VFX, инвентарь
+│   ├── SettingsPage.tsx        # Настройки: профиль, тема доски, набор фигур
+│   └── OnlineHubPage.tsx       # Онлайн-лобби: создание/поиск комнат
 ├── stores/
 │   ├── authStore.ts            # Zustand: user, isLoading
 │   ├── boardStore.ts           # Zustand: selectedTheme, selectedPieceSet (persist)
 │   ├── gameStore.ts            # Zustand: Chess instance, status, moves (persist)
-│   └── reactionStore.ts        # Zustand: activeReactions, rate limiting
+│   ├── reactionStore.ts        # Zustand: activeReactions, rate limiting
+│   └── spellGameStore.ts       # Zustand: SpellChessEngine, заклинания, VFX очередь
 ├── hooks/
-│   ├── useAuth.ts              # Firebase auth: signIn, signUp, signOut, uploadAvatar
+│   ├── useAuth.ts              # Firebase auth: signIn, signUp, signOut
 │   └── useBoardWidth.ts        # Измерение ширины контейнера доски (ResizeObserver + debounce)
 ├── lib/
 │   ├── soundManager.ts         # Звуки: move, capture, check, checkmate, promote
-│   └── firebase.ts             # Firebase client
+│   ├── firebase.ts             # Firebase client
+│   └── spellChessEngine.ts     # Spell Chess движок (5 заклинаний, king capture win)
 └── types/
     └── index.ts                # TypeScript типы: Color, GameStatus, BotLevel, User, GameData
 ```
@@ -89,7 +98,7 @@ src/
 4. Zustand stores (authStore, boardStore, gameStore, reactionStore)
 5. hooks/useAuth.ts — подписка на auth state changes
 6. components/Toast.tsx — ToastProvider обёртка
-7. App.tsx — Routes: /, /game/:roomId, /bot, /settings
+7. App.tsx — Routes: /, /game/:roomId, /bot, /settings, /offline, /local/:mode
 8. pages/LobbyPage.tsx — главная страница (точка входа)
 ```
 
@@ -107,16 +116,20 @@ src/
 8. **Звуки и уведомления:** Используй `soundManager.play()` для звуков и `useToast()` для сообщений. Не используй `alert()` или `console.log()` для пользовательского вывода.
 9. **TypeScript:** Проект на TypeScript. Не используй `any` без крайней необходимости. chess.js v1 имеет строгие типы.
 10. **react-chessboard:** Библиотека требует числовой `boardWidth` проп для корректной работы. Используй хук `useBoardWidth` для измерения контейнера.
+11. **Spell Chess Engine:** `spellChessEngine.ts` — standalone движок, не использует chess.js. Король может быть взят (king capture = game over). 5 заклинаний: freeze (3×3), jump, blast (крест), shield, portal. Коoldown на оба цвета.
+12. **MagicVFX:** canvas + requestAnimationFrame для пиксельных эффектов заклинаний. Вызов через `addVFX()` в spellGameStore. 5 типов: ICE_SHATTER, BLAST, JUMP, PORTAL, CONFETTI.
 
 ## 🐛 Известные баги (приоритет исправления)
 
 | Приоритет | Файл | Описание |
 |-----------|------|----------|
-| 🔴 Крит | `useAuth.ts:115` | `uploadAvatar` вызывает `updateProfile` которая определена ниже — не доступна в замыкании |
 | 🔴 Крит | `gameStore.ts` | `persist` с Chess instance — антипаттерн для мультиплеера, стейт должен приходить с сервера |
 | 🟡 Сред | `ChessBoard.tsx:42,115` | `as any` касты для chess.js API — нужно обновить типы |
 | 🟡 Сред | `gameStore.ts:149-160` | `undoMove` отменяет 1 ход, для takeback нужно отменить 2 хода (свой + соперника) |
 | 🟢 Низ | `vite.config.ts:7` | Хардкод `base: '/gochess/'` — сломает локальный dev |
+| 🟡 Сред | `spellChessEngine.ts` | Отсутствует превращение пешки (promotion) в Spell Chess |
+| 🟡 Сред | `MagicVFX.tsx` | Звуки заклинаний не реализованы — используют `'move'` звук |
+| 🟢 Низ | `PixelConfetti.tsx` | `canvas.scale()` при resize накапливается (без сброса transform) |
 
 ## ✅ Исправленные баги
 
@@ -137,6 +150,13 @@ src/
 | ✅ Не загружалась страница игры (LoadingScreen бесконечно) | `GamePage.tsx` | `authLoading` блокировал рендер даже после `loading = false`. Убрана проверка `if (authLoading) return <LoadingScreen />` — LoadingScreen управляется только стейтом `loading`. |
 | ✅ Последние партии не грузились в лобби | `LobbyPage.tsx`, `firestore.indexes.json` | После смены `orderBy('created_at')` на `orderBy('last_move_time')` запрос перестал возвращать документы без поля `last_move_time` (старые игры). Исправлено: убран `orderBy` из Firestore-запроса, сортировка клиентская по `last_move_time` с fallback на `created_at`. |
 | ✅ Бот ходит случайно, уровни не работают | `BotPage.tsx`, `src/lib/botEngine.ts`, `public/engine/` | Подключён Stockfish 18 (WASM + Web Worker). Уровни: easy (depth=3, skill=0, 50ms), medium (depth=5, skill=2, 100ms), hard (depth=8, skill=4, 220ms). Fallback на случайный ход при ошибке движка. |
+| ✅ Spell Chess: коoldown на оба цвета | `spellChessEngine.ts`, `spellGameStore.ts` | Исправлено: уменьшение кулдауна применялось только для текущего игрока. Теперь кулдауны обоих цветов декрементятся каждый ход. |
+| ✅ Spell Chess: множественные экземпляры движка | `spellGameStore.ts` | Исправлено: создавалось 3 экземпляра SpellChessEngine вместо одного. Переведено на единый `defaultEngine`. |
+| ✅ Spell Chess: `customSquareStyles` без мемоизации | `SpellLocalPage.tsx` | `customSquareStyles` пересоздавался при каждом рендере. Обёрнут в `useMemo`. |
+| ✅ Spell Chess: отсутствие пропсов для наведения на клетку | `ChessBoard.tsx` | Добавлены `onSquareMouseEnter` / `onSquareMouseLeave` пропсы и `customCursor` для прицела заклинания. |
+| ✅ Онлайн-лобби | `OnlineHubPage.tsx`, `LobbyPage.tsx` | Создана страница онлайн-лобби с созданием/поиском комнат. |
+| ✅ Офлайн-лобби и режимы | `OfflineHubPage.tsx`, `LocalPage.tsx`, `SpellLocalPage.tsx` | Создано лобби «Вдвоём» с выбором Классика, Рапид, Магия. Локальная игра расширена поддержкой Rapid с шахматными часами. |
+| ✅ PWA установка | `public/manifest.json`, `public/sw.js`, `public/icons/`, `index.html` | Добавлен Service Worker для офлайн-игры, манифест с иконками 192/512px, iOS meta-теги (apple-touch-icon, viewport-fit, black-translucent). |
 
 ## 🧠 Извлечённые уроки
 

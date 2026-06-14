@@ -284,13 +284,6 @@ export default function LobbyPage() {
             description="Классическая игра вдвоем на одном устройстве"
             variant="secondary"
           />
-          <HubTile
-            to="/spell-local"
-            icon="online/magic"
-            title="Магия (Beta)"
-            description="Шахматы с заклинаниями и взятием короля"
-            variant="secondary"
-          />
         </section>
 
         {user && recentGames.length > 0 && (

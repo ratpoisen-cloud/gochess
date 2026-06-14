@@ -10,6 +10,8 @@ const LocalPage = lazy(() => import('./pages/LocalPage'))
 const OnlineHubPage = lazy(() => import('./pages/OnlineHubPage'))
 const CompletedGamesPage = lazy(() => import('./pages/CompletedGamesPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const SpellLocalPage = lazy(() => import('./pages/SpellLocalPage'))
+
 function App() {
   return (
     <ErrorBoundary>
@@ -21,6 +23,7 @@ function App() {
           <Route path="/completed" element={<CompletedGamesPage />} />
           <Route path="/bot" element={<BotPage />} />
           <Route path="/local" element={<LocalPage />} />
+          <Route path="/spell-local" element={<SpellLocalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Suspense>

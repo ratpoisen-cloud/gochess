@@ -204,27 +204,31 @@ export default function OnlineHubPage() {
           </div>
 
           {/* Mode Tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)] mb-[var(--space-80)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--space-20)] mb-[var(--space-48)]">
             <ModeTile 
               mode="classic" 
               title="Классика" 
-              icon="classic.png" 
-              description="Стандартные шахматы по традиционным правилам" 
+              icon="multi_new.png" 
+              description="Стандартные правила без ограничений" 
             />
             <ModeTile 
               mode="rapid" 
               title="Рапид" 
-              icon="rapid.png" 
-              description="Игра с контролем времени" 
+              icon="online/rapid.png" 
+              description="Быстрая игра с контролем времени" 
             />
-            <div className="relative group/tile">
-              <ModeTile 
-                mode="fog_of_war" 
-                title="Туман войны" 
-                icon="fog of war.png" 
-                description="Стратегический режим с ограниченной видимостью" 
-              />
-            </div>
+            <ModeTile 
+              mode="spell_chess" 
+              title="Магия" 
+              icon="online/magic.png" 
+              description="Заклинания и физическое взятие короля" 
+            />
+            <ModeTile 
+              mode="fog_of_war" 
+              title="Туман войны" 
+              icon="fog_new.png" 
+              description="Видны только свои фигуры и их удары" 
+            />
           </div>
 
           {/* Recent Games List */}

@@ -5,7 +5,8 @@ import { useReactionStore } from '@/stores/reactionStore'
 import type { Chess } from 'chess.js'
 
 interface ChessBoardProps {
-  game: Chess
+  game?: Chess | any
+  position?: string
   lastMove: { from: string; to: string } | null
   checkSquare: string | null
   selectedSquare: string | null
@@ -21,12 +22,15 @@ interface ChessBoardProps {
   visibleSquares?: string[] | null
   gameOverGray?: boolean
   arePiecesDraggable?: boolean
+  customSquareStyles?: Record<string, React.CSSProperties>
+  customCursor?: string
 }
 
 const BASE = import.meta.env.BASE_URL || '/'
 
 export default function ChessBoard({
   game,
+  position,
   lastMove,
   checkSquare,
   selectedSquare,
@@ -41,6 +45,8 @@ export default function ChessBoard({
   visibleSquares = null,
   gameOverGray,
   arePiecesDraggable = true,
+  customSquareStyles = {},
+  customCursor,
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -87,7 +93,7 @@ export default function ChessBoard({
 
   // Moves for SELECTED piece (click-to-move)
   const selectedMoveDetails = useMemo(() => {
-    if (!selectedSquare) return []
+    if (!selectedSquare || !game?.moves) return []
     try {
       return game.moves({ square: selectedSquare as any, verbose: true })
     } catch {
@@ -97,7 +103,7 @@ export default function ChessBoard({
 
   // Moves for HOVERED piece (preview) — disabled when a piece is selected
   const hoveredMoveDetails = useMemo(() => {
-    if (!hoveredSquare || selectedSquare) return []
+    if (!hoveredSquare || selectedSquare || !game?.moves) return []
     try {
       return game.moves({ square: hoveredSquare as any, verbose: true })
     } catch {
@@ -107,7 +113,7 @@ export default function ChessBoard({
 
   // Active moves: priority = selected > hover
   const activeMoveDetails = selectedSquare ? selectedMoveDetails : hoveredMoveDetails
-  const isCheckmate = game.isCheckmate()
+  const isCheckmate = game?.isCheckmate ? game.isCheckmate() : false
 
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
@@ -141,6 +147,7 @@ export default function ChessBoard({
       className="relative w-full h-full"
       style={{
         ...(gameOverGray ? { filter: 'grayscale(1) contrast(0.85) brightness(0.9)' } : {}),
+        cursor: customCursor || 'inherit',
         '--board-highlight-possible': theme.highlightPossible,
         '--board-highlight-possible-shadow': theme.highlightPossibleShadow,
         '--board-highlight-capture': theme.highlightCapture,
@@ -148,9 +155,18 @@ export default function ChessBoard({
         '--board-highlight-selected': theme.highlightSelected,
       } as React.CSSProperties}
     >
+      {customCursor && (
+        <style>
+          {`
+            [id="GoChessBoardMain"] *, [id="GoChessBoardMain"] {
+              cursor: ${customCursor} !important;
+            }
+          `}
+        </style>
+      )}
       <Chessboard
         id="GoChessBoardMain"
-        position={game.fen()}
+        position={position || game?.fen()}
         arePiecesDraggable={arePiecesDraggable}
         onPieceDrop={(source, target) => {
           setHoveredSquare(null)
@@ -165,6 +181,7 @@ export default function ChessBoard({
         customPieces={customPieces}
         animationDuration={animationDuration}
         customNotationStyle={{ fontSize: boardWidth ? Math.round(boardWidth / 64) : 12 }}
+        customSquareStyles={customSquareStyles}
         customSquare={({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
           const isSquareVisible = !visibleSquares || visibleSquares.includes(square)
           
@@ -179,7 +196,7 @@ export default function ChessBoard({
           const bgX = (x / 11) * 100;
           const bgY = (y / 11) * 100;
 
-          const activeMove = activeMoveDetails.find(m => m.to === square)
+          const activeMove = activeMoveDetails.find((m: any) => m.to === square)
           // ONLY highlight if square is visible
           const isActiveMove = !!activeMove && isSquareVisible
           const isActiveCapture = activeMove && (activeMove.flags.includes('c') || activeMove.flags.includes('e')) && isSquareVisible
@@ -197,7 +214,7 @@ export default function ChessBoard({
                 ${isCheck ? 'highlight-check' : ''}
               `}
               onMouseEnter={() => {
-                const piece = game.get(square as any)
+                const piece = game?.get ? game.get(square as any) : null
                 if (piece) setHoveredSquare(square)
               }}
               onMouseLeave={() => setHoveredSquare(null)}

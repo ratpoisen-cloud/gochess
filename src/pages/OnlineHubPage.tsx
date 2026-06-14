@@ -204,12 +204,18 @@ export default function OnlineHubPage() {
           </div>
 
           {/* Mode Tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-24)] md:gap-[var(--space-32)] mb-[var(--space-80)]">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)] mb-[var(--space-80)]">
             <ModeTile 
               mode="classic" 
               title="Классика" 
               icon="classic.png" 
               description="Стандартные шахматы по традиционным правилам" 
+            />
+            <ModeTile 
+              mode="rapid" 
+              title="Рапид" 
+              icon="rapid.png" 
+              description="Игра с контролем времени" 
             />
             <div className="relative group/tile">
               <ModeTile 

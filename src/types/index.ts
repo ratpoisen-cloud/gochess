@@ -4,7 +4,7 @@ export type GameStatus = 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw
 
 export type BotLevel = 'very-easy' | 'easy' | 'medium' | 'hard'
 
-export type GameMode = 'classic' | 'fog_of_war'
+export type GameMode = 'classic' | 'fog_of_war' | 'rapid'
 
 export interface User {
   uid: string
@@ -38,6 +38,11 @@ export interface GameData {
   rematch_request: { from_id: string; proposed_room_id: string; created_at: number } | null
   rematch_proposed_by?: string | null
   rematch_game_id?: string | null
+  time_control?: { base: number; increment: number } | null
+  white_time_left?: number | null
+  black_time_left?: number | null
+  last_timer_update?: number | null
+  timer_status?: 'active' | 'paused' | null
 }
 
 export interface Challenge {

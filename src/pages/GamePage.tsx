@@ -24,6 +24,7 @@ import { getKingSquare } from '@/stores/gameStore'
 import { getVisibleSquares } from '@/lib/chessFog'
 import { soundManager } from '@/lib/soundManager'
 import ChessBoard from '@/components/board/ChessBoard'
+import ChessTimer from '@/components/board/ChessTimer'
 import Button from '@/components/Button'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
@@ -77,6 +78,13 @@ export default function GamePage() {
   const [visibleSquares, setVisibleSquares] = useState<string[] | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+  
+  // Rapid Mode States
+  const [whiteTimeLeft, setWhiteTimeLeft] = useState<number | null>(null)
+  const [blackTimeLeft, setBlackTimeLeft] = useState<number | null>(null)
+  const [lastTimerUpdate, setLastTimerUpdate] = useState<number | null>(null)
+  const [timerStatus, setTimerStatus] = useState<'active' | 'paused' | null>(null)
+  const [timeControl, setTimeControl] = useState<GameData['time_control']>(null)
   
   const { addToast } = useToast()
   const [showResignConfirm, setShowResignConfirm] = useState(false)
@@ -140,6 +148,9 @@ export default function GamePage() {
 
   const parseResult = (data: GameData) => {
     if (data.game_state !== 'game_over') return ''
+    if (data.message === 'timeout') {
+      return `Время вышло! ${data.winner === 'white' ? 'Белые' : 'Чёрные'} победили`
+    }
     return data.message === 'resign'
       ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
       : data.message === 'draw' ? 'Ничья'
@@ -277,6 +288,35 @@ export default function GamePage() {
       setOpponentJoined(joined)
       setGameMode(newData.game_mode || 'classic')
       opponentJoinedRef.current = joined
+
+      // Rapid Sync
+      if (newData.time_control) {
+        setTimeControl(newData.time_control)
+        setWhiteTimeLeft(newData.white_time_left || null)
+        setBlackTimeLeft(newData.black_time_left || null)
+        setLastTimerUpdate(newData.last_timer_update || null)
+        setTimerStatus(newData.timer_status || null)
+
+        // Local Timeout Detection (Claim victory)
+        if (newData.game_state !== 'game_over' && newData.timer_status === 'active' && newData.last_timer_update) {
+          const now = Date.now()
+          const elapsed = now - newData.last_timer_update
+          const turn = newData.turn
+          const timeLeft = turn === 'w' ? newData.white_time_left : newData.black_time_left
+          
+          if (timeLeft !== null && timeLeft !== undefined && (timeLeft - elapsed) <= -1000) {
+            // Claim victory if opponent's time is out (give 1s grace)
+            if (turn !== myColor) {
+               console.log('[Rapid] Claiming timeout victory')
+               updateDoc(doc(db, 'games', gameDocId), {
+                 game_state: 'game_over',
+                 winner: myColor === 'w' ? 'white' : 'black',
+                 message: 'timeout'
+               })
+            }
+          }
+        }
+      }
 
       // Game Over logic
       if (newData.game_state === 'game_over') {
@@ -459,6 +499,31 @@ export default function GamePage() {
         last_move_time: Date.now(),
       }
 
+      // Rapid Time Deduction
+      if (timeControl && lastTimerUpdate) {
+        const now = Date.now()
+        const elapsed = now - lastTimerUpdate
+        const playerTimeKey = playerColor === 'w' ? 'white_time_left' : 'black_time_left'
+        const currentTimeLeft = playerColor === 'w' ? whiteTimeLeft : blackTimeLeft
+        
+        if (currentTimeLeft !== null) {
+          const timeLeft = Math.max(0, currentTimeLeft - elapsed + (timeControl.increment * 1000))
+          updateData[playerTimeKey] = timeLeft
+          updateData.last_timer_update = now
+          updateData.timer_status = 'active' // Ensure it's active for next player
+
+          if (timeLeft <= 0) {
+            updateData.game_state = 'game_over'
+            updateData.winner = playerColor === 'w' ? 'black' : 'white'
+            updateData.message = 'timeout'
+          }
+        }
+      } else if (timeControl && !lastTimerUpdate) {
+        // First move in Rapid
+        updateData.last_timer_update = Date.now()
+        updateData.timer_status = 'active'
+      }
+
       if (gameOverNow) {
         updateData.game_state = 'game_over'
         updateData.winner = winner
@@ -491,7 +556,7 @@ export default function GamePage() {
     } catch {
       return false
     }
-  }, [isMyTurn, gameDocId, gameOver, updateGameState, addToast])
+  }, [isMyTurn, gameDocId, gameOver, updateGameState, addToast, timeControl, lastTimerUpdate, playerColor, whiteTimeLeft, blackTimeLeft, gameMode])
 
   const onDrop = useCallback((from: string, to: string) => {
     if (!isMyTurn || gameOver) return false
@@ -776,6 +841,17 @@ export default function GamePage() {
       <main className="max-w-[1200px] mx-auto px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-48)] max-sm:py-[var(--space-24)] flex-1 w-full">
         <div className="game-layout-container">
           <div className="game-main-column">
+            {timeControl && (
+              <div className="mx-auto mb-4" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
+                <ChessTimer
+                  timeLeft={playerColor === 'w' ? (blackTimeLeft || 0) : (whiteTimeLeft || 0)}
+                  isActive={!isMyTurn && !gameOver && timerStatus === 'active'}
+                  label={opponentJoined ? opponentName : 'Соперник'}
+                  increment={timeControl.increment}
+                />
+              </div>
+            )}
+
             <div 
               className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
               style={{ width: stableWidth || '100%', maxWidth: '100%' }}
@@ -876,6 +952,17 @@ export default function GamePage() {
                   </div>
                 )}
             </div>
+
+            {timeControl && (
+              <div className="mx-auto mt-4" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
+                <ChessTimer
+                  timeLeft={playerColor === 'w' ? (whiteTimeLeft || 0) : (blackTimeLeft || 0)}
+                  isActive={isMyTurn && !gameOver && timerStatus === 'active'}
+                  label="Ваше время"
+                  increment={timeControl.increment}
+                />
+              </div>
+            )}
             
             {gameOver && resultText && (
               <div 

@@ -15,9 +15,24 @@ const SOUNDS_PATH = `${BASE}sounds/`;
 class SoundManager {
   private sounds: Map<string, HTMLAudioElement[]> = new Map();
   private enabled: boolean = true;
+  private unlocked: boolean = false;
 
   constructor() {
     this.init();
+    this.unlockOnInteraction();
+  }
+
+  private unlockOnInteraction() {
+    const unlock = () => {
+      if (this.unlocked) return;
+      // Play a silent sound to unlock iOS AudioContext
+      const silent = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+      silent.play().then(() => { this.unlocked = true; }).catch(() => {});
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
+    };
+    document.addEventListener('touchstart', unlock, { once: true });
+    document.addEventListener('click', unlock, { once: true });
   }
 
   private init() {

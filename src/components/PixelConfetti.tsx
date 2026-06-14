@@ -44,24 +44,35 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
     let animationFrameId: number
     let particles: Particle[] = []
+    let gyroPermissionRequested = false
 
     const mousePos = { x: null as number | null, y: null as number | null }
     const tilt = { x: 0, y: 0 }
     const targetTilt = { x: 0, y: 0 }
 
+    const isMobile = window.innerWidth < 768
+
     const resize = () => {
       if (canvas.parentElement) {
         const rect = canvas.parentElement.getBoundingClientRect()
-        canvas.width = rect.width
-        canvas.height = rect.height
+        const scale = Math.min(window.devicePixelRatio || 1, 2)
+        canvas.width = rect.width * scale
+        canvas.height = rect.height * scale
+        canvas.style.width = rect.width + 'px'
+        canvas.style.height = rect.height + 'px'
+        ctx.scale(scale, scale)
       } else {
-        canvas.width = window.innerWidth
-        canvas.height = window.innerHeight
+        const scale = Math.min(window.devicePixelRatio || 1, 2)
+        canvas.width = window.innerWidth * scale
+        canvas.height = window.innerHeight * scale
+        canvas.style.width = window.innerWidth + 'px'
+        canvas.style.height = window.innerHeight + 'px'
+        ctx.scale(scale, scale)
       }
     }
 
     const createParticles = () => {
-      const count = 350
+      const count = isMobile ? 150 : 350
       const newParticles: Particle[] = []
 
       const width = canvas.width
@@ -181,22 +192,31 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
       if (isInsideBoard) {
         if (!particles.some(p => p.vy !== 0 || p.vx !== 0)) {
+          cancelAnimationFrame(animationFrameId)
           return
         }
       } else {
         particles = particles.filter(p => p.y < canvas.height + 20 && p.y > -100 && p.x > -100 && p.x < canvas.width + 100)
-        if (particles.length === 0) return
+        if (particles.length === 0) {
+          cancelAnimationFrame(animationFrameId)
+          return
+        }
       }
 
-      if (particles.length > 0) {
-        animationFrameId = requestAnimationFrame(update)
-      }
+      animationFrameId = requestAnimationFrame(update)
     }
 
     const handleMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect()
       mousePos.x = e.clientX - rect.left
       mousePos.y = e.clientY - rect.top
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      const rect = canvas.getBoundingClientRect()
+      mousePos.x = touch.clientX - rect.left
+      mousePos.y = touch.clientY - rect.top
     }
 
     const handleOrientation = (e: DeviceOrientationEvent) => {
@@ -208,12 +228,27 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       targetTilt.y = Math.max(-1, Math.min(1, (beta - 45) / 45))
     }
 
+    const requestGyroPermission = async () => {
+      if (gyroPermissionRequested) return
+      gyroPermissionRequested = true
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
+        try {
+          const permission = await (DeviceOrientationEvent as any).requestPermission()
+          if (permission === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation)
+          }
+        } catch (e) {
+          console.warn('[Confetti] Gyro permission error:', e)
+        }
+      } else if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', handleOrientation)
+      }
+    }
+
     window.addEventListener('resize', resize)
     window.addEventListener('mousemove', handleMouseMove)
-    
-    if (window.DeviceOrientationEvent) {
-      window.addEventListener('deviceorientation', handleOrientation)
-    }
+    window.addEventListener('touchmove', handleTouchMove, { passive: true })
+    requestGyroPermission()
 
     resize()
     createParticles()
@@ -222,6 +257,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     return () => {
       window.removeEventListener('resize', resize)
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('touchmove', handleTouchMove)
       if (window.DeviceOrientationEvent) {
         window.removeEventListener('deviceorientation', handleOrientation)
       }

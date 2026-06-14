@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface ChessTimerProps {
   timeLeft: number         // in ms
@@ -14,21 +14,29 @@ export default function ChessTimer({
   increment = 0
 }: ChessTimerProps) {
   const [localTime, setLocalTime] = useState(timeLeft)
+  const lastTickRef = useRef(Date.now())
 
   // Sync with prop when it changes (from Firestore)
   useEffect(() => {
     setLocalTime(timeLeft)
+    lastTickRef.current = Date.now()
   }, [timeLeft])
 
-  // Tick local time if active
+  // Tick local time if active — delta-based to survive iOS throttling
   useEffect(() => {
     if (!isActive || localTime <= 0) return
 
     const interval = setInterval(() => {
-      setLocalTime(prev => Math.max(0, prev - 100))
+      const now = Date.now()
+      const delta = now - lastTickRef.current
+      lastTickRef.current = now
+      setLocalTime(prev => Math.max(0, prev - delta))
     }, 100)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      lastTickRef.current = Date.now()
+    }
   }, [isActive, localTime])
 
   const formatTime = (ms: number) => {

@@ -55,12 +55,17 @@ export default function ChessBoard({
     }
   }, [onReactionSquare])
 
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
   const handleTouchStart = useCallback((square: string, e: React.TouchEvent) => {
+    e.preventDefault()
+    const touch = e.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
     longPressTimer.current = setTimeout(() => {
       if (onReactionSquare) {
-        const touch = e.touches[0]
         onReactionSquare(square, touch.clientX, touch.clientY)
       }
+      touchStartRef.current = null
     }, 500)
   }, [onReactionSquare])
 
@@ -69,6 +74,15 @@ export default function ChessBoard({
       clearTimeout(longPressTimer.current)
       longPressTimer.current = null
     }
+    touchStartRef.current = null
+  }, [])
+
+  const handleTouchMove = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+    touchStartRef.current = null
   }, [])
 
   // Moves for SELECTED piece (click-to-move)
@@ -190,7 +204,7 @@ export default function ChessBoard({
               onContextMenu={(e) => handleContextMenu(square, e)}
               onTouchStart={(e) => handleTouchStart(square, e)}
               onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchEnd}
+              onTouchMove={handleTouchMove}
             >
               <div 
                 style={{ 

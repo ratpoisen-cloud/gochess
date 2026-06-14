@@ -9,8 +9,9 @@ const BotPage = lazy(() => import('./pages/BotPage'))
 const LocalPage = lazy(() => import('./pages/LocalPage'))
 const OnlineHubPage = lazy(() => import('./pages/OnlineHubPage'))
 const CompletedGamesPage = lazy(() => import('./pages/CompletedGamesPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const OfflineHubPage = lazy(() => import('./pages/OfflineHubPage'))
 const SpellLocalPage = lazy(() => import('./pages/SpellLocalPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function App() {
   return (
@@ -20,9 +21,13 @@ function App() {
           <Route path="/" element={<LobbyPage />} />
           <Route path="/game/:roomCode" element={<GamePage />} />
           <Route path="/online" element={<OnlineHubPage />} />
+          <Route path="/offline" element={<OfflineHubPage />} />
           <Route path="/completed" element={<CompletedGamesPage />} />
           <Route path="/bot" element={<BotPage />} />
           <Route path="/local" element={<LocalPage />} />
+          <Route path="/local/classic" element={<LocalPage />} />
+          <Route path="/local/rapid" element={<LocalPage />} />
+          <Route path="/local/spell" element={<SpellLocalPage />} />
           <Route path="/spell-local" element={<SpellLocalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

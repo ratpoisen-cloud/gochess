@@ -208,25 +208,25 @@ export default function OnlineHubPage() {
             <ModeTile 
               mode="classic" 
               title="Классика" 
-              icon="online/classic.png" 
+              icon="classic.png" 
               description="Стандартные правила без ограничений" 
             />
             <ModeTile 
               mode="rapid" 
               title="Рапид" 
-              icon="online/rapid.png" 
+              icon="rapid.png" 
               description="Быстрая игра с контролем времени" 
             />
             <ModeTile 
               mode="spell_chess" 
               title="Магия" 
-              icon="online/magic.png" 
+              icon="magic.png" 
               description="Заклинания и физическое взятие короля" 
             />
             <ModeTile 
               mode="fog_of_war" 
               title="Туман войны" 
-              icon="online/fog of war.png" 
+              icon="fog of war.png" 
               description="Видны только свои фигуры и их удары" 
             />
           </div>

@@ -5,24 +5,28 @@ interface ChessTimerProps {
   isActive: boolean        // is it this player's turn
   label: string            // player name or "You"
   increment?: number       // in seconds
+  onTimeout?: () => void   // callback when timer hits zero
 }
 
 export default function ChessTimer({ 
   timeLeft, 
   isActive, 
   label, 
-  increment = 0
+  increment = 0,
+  onTimeout
 }: ChessTimerProps) {
   const [localTime, setLocalTime] = useState(timeLeft)
   const lastTickRef = useRef(Date.now())
+  const hasTimedOut = useRef(false)
 
-  // Sync with prop when it changes (from Firestore)
+  // Sync with prop when it changes
   useEffect(() => {
     setLocalTime(timeLeft)
     lastTickRef.current = Date.now()
+    if (timeLeft > 0) hasTimedOut.current = false
   }, [timeLeft])
 
-  // Tick local time if active — delta-based to survive iOS throttling
+  // Tick local time if active
   useEffect(() => {
     if (!isActive || localTime <= 0) return
 
@@ -30,14 +34,19 @@ export default function ChessTimer({
       const now = Date.now()
       const delta = now - lastTickRef.current
       lastTickRef.current = now
-      setLocalTime(prev => Math.max(0, prev - delta))
+      
+      setLocalTime(prev => {
+        const next = Math.max(0, prev - delta)
+        if (next === 0 && !hasTimedOut.current) {
+          hasTimedOut.current = true
+          onTimeout?.()
+        }
+        return next
+      })
     }, 100)
 
-    return () => {
-      clearInterval(interval)
-      lastTickRef.current = Date.now()
-    }
-  }, [isActive, localTime])
+    return () => clearInterval(interval)
+  }, [isActive, localTime, onTimeout])
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000)

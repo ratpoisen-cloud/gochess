@@ -14,6 +14,7 @@ interface SpellGameState {
   winner: Color | null
   activeSpell: 'freeze' | 'jump' | 'blast' | 'shield' | 'portal' | null
   portalStart: string | null
+  halfMoveCount: number
   lastMove: { from: string; to: string } | null
 
   makeMove: (from: string, to: string) => boolean
@@ -22,17 +23,20 @@ interface SpellGameState {
   resetGame: () => void
 }
 
+const defaultEngine = new SpellChessEngine()
+
 export const useSpellGameStore = create<SpellGameState>((set, get) => ({
-  engine: new SpellChessEngine(),
-  fen: new SpellChessEngine().fen(),
+  engine: defaultEngine,
+  fen: defaultEngine.fen(),
   turn: 'w',
-  spellState: new SpellChessEngine().spellState,
+  spellState: defaultEngine.spellState,
   selectedSquare: null,
   legalMoves: [],
   isGameOver: false,
   winner: null,
   activeSpell: null,
   portalStart: null,
+  halfMoveCount: 0,
   lastMove: null,
 
   makeMove: (from, to) => {
@@ -51,7 +55,8 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         winner: gameOver === 'white' ? 'w' : gameOver === 'black' ? 'b' : null,
         lastMove: { from, to },
         activeSpell: null,
-        portalStart: null
+        portalStart: null,
+        halfMoveCount: engine.halfMoveCount
       })
     }
     return success
@@ -119,7 +124,9 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         activeSpell: null,
         portalStart: null,
         selectedSquare: null,
-        legalMoves: []
+        legalMoves: [],
+        halfMoveCount: engine.halfMoveCount,
+        fen: engine.fen()
       })
     } else {
       set({ activeSpell: null, portalStart: null })
@@ -139,6 +146,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       winner: null,
       activeSpell: null,
       portalStart: null,
+      halfMoveCount: 0,
       lastMove: null
     })
   }

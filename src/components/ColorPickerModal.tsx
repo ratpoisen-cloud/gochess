@@ -207,7 +207,7 @@ export default function ColorPickerModal({
                   className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
                   disabled={creating}
                 >
-                  Черные
+                  Чёрные
                 </Button>
                 <Button 
                   fullWidth

@@ -486,7 +486,7 @@ export default function BotPage() {
                 onClick={() => setTempColor('b')}
                 className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
               >
-                Черные
+                Чёрные
               </Button>
               <Button 
                 fullWidth 

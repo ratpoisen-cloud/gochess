@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useSpellGameStore } from '@/stores/spellGameStore'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
@@ -9,6 +9,7 @@ import SettingsDropdown from '@/components/SettingsDropdown'
 import UserMenu from '@/components/UserMenu'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
+import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -17,12 +18,15 @@ export default function SpellLocalPage() {
   const navigate = useNavigate()
   const { 
     fen, turn, spellState, selectedSquare, legalMoves, lastMove, 
-    isGameOver, winner, activeSpell, portalStart,
+    isGameOver, winner, activeSpell, portalStart, halfMoveCount,
     makeMove, selectSquare, castSpell, resetGame 
   } = useSpellGameStore()
   
   const [initialized, setInitialized] = useState(false)
+  const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null)
   const boardContainerRef = useRef<HTMLDivElement>(null)
+  const vfxRef = useRef<MagicVFXHandle>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
 
   useEffect(() => {
@@ -32,79 +36,172 @@ export default function SpellLocalPage() {
     }
   }, [])
 
+  useEffect(() => {
+    setPendingTarget(null)
+  }, [activeSpell])
+
+  const getSquareCenter = (square: string) => {
+    if (!stableWidth) return { x: 0, y: 0 }
+    const squareSize = stableWidth / 8
+    const col = square.charCodeAt(0) - 97
+    const row = 8 - parseInt(square[1])
+    return {
+      x: col * squareSize + squareSize / 2,
+      y: row * squareSize + squareSize / 2
+    }
+  }
+
+  const handleCastSpell = (spell: any, square?: string) => {
+    if (square) {
+      const center = getSquareCenter(square)
+      if (spell === 'freeze') vfxRef.current?.trigger({ ...center, type: 'ice-shatter' })
+      if (spell === 'blast') vfxRef.current?.trigger({ ...center, type: 'blast' })
+      if (spell === 'jump') vfxRef.current?.trigger({ ...center, type: 'jump' })
+      if (spell === 'shield') vfxRef.current?.trigger({ ...center, type: 'jump' }) 
+      if (spell === 'portal' && portalStart) {
+        const start = getSquareCenter(portalStart)
+        vfxRef.current?.trigger({ ...start, type: 'portal' })
+        vfxRef.current?.trigger({ ...center, type: 'portal' })
+      }
+    }
+    castSpell(spell, square)
+    setPendingTarget(null)
+  }
+
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     if (isGameOver) return false
+    
+    const engine = useSpellGameStore.getState().engine
+    const targetPiece = engine.getPiece(targetSquare)
+    if (targetPiece && engine.isFrozen(targetSquare)) {
+      const center = getSquareCenter(targetSquare)
+      vfxRef.current?.trigger({ ...center, type: 'ice-shatter' })
+    }
+
+    if (engine.spellState.jumpSquare === sourceSquare) {
+      const center = getSquareCenter(targetSquare)
+      vfxRef.current?.trigger({ ...center, type: 'jump' })
+    }
+
     return makeMove(sourceSquare, targetSquare)
   }
 
   const onSquareClick = (square: string) => {
     if (isGameOver) return
+    
+    if (activeSpell) {
+      if (activeSpell === 'portal' && !portalStart) {
+        selectSquare(square)
+        return
+      }
+      
+      if (pendingTarget === square) {
+        handleCastSpell(activeSpell, square)
+      } else {
+        setPendingTarget(square)
+      }
+      return
+    }
+    
     selectSquare(square)
   }
 
   const currentSpells = turn === 'w' ? spellState.whiteSpells : spellState.blackSpells
+  const previewTarget = pendingTarget || hoveredSquare
 
-  // Custom square styles for visual effects
-  const customSquareStyles: Record<string, React.CSSProperties> = {}
-  const engine = useSpellGameStore.getState().engine
-  
-  // Highlight frozen squares
-  Object.keys(spellState.frozenSquares).forEach(sq => {
-    if (spellState.frozenSquares[sq] > engine.halfMoveCount) {
-      customSquareStyles[sq] = {
-        background: 'rgba(100, 200, 255, 0.35)',
-        boxShadow: 'inset 0 0 15px rgba(255, 255, 255, 0.5)',
-        border: '1px solid rgba(255, 255, 255, 0.2)'
+  const customSquareStyles = useMemo(() => {
+    const styles: Record<string, React.CSSProperties> = {}
+    
+    if (activeSpell === 'blast' && previewTarget) {
+      const col = previewTarget.charCodeAt(0) - 97
+      const row = parseInt(previewTarget[1])
+      for (const [dc, dr] of [[0, 0], [-1, 0], [1, 0], [0, 1], [0, -1]]) {
+        const tCol = col + dc
+        const tRow = row + dr
+        if (tCol >= 0 && tCol < 8 && tRow >= 1 && tRow <= 8) {
+          styles[`${String.fromCharCode(tCol + 97)}${tRow}`] = {
+            background: 'rgba(255, 0, 0, 0.4)',
+            boxShadow: 'inset 0 0 10px rgba(255, 0, 0, 0.5)',
+            borderRadius: '2px'
+          }
+        }
       }
     }
-  })
 
-  // Highlight shielded squares
-  Object.keys(spellState.shieldedSquares).forEach(sq => {
-    if (spellState.shieldedSquares[sq] > engine.halfMoveCount) {
-      customSquareStyles[sq] = {
-        ...customSquareStyles[sq],
-        boxShadow: '0 0 20px rgba(255, 255, 100, 0.4), inset 0 0 10px rgba(255, 255, 100, 0.6)'
+    if (activeSpell === 'freeze' && previewTarget) {
+      const col = previewTarget.charCodeAt(0) - 97
+      const row = parseInt(previewTarget[1])
+      for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          const tCol = col + dc
+          const tRow = row + dr
+          if (tCol >= 0 && tCol < 8 && tRow >= 1 && tRow <= 8) {
+            styles[`${String.fromCharCode(tCol + 97)}${tRow}`] = {
+              background: 'rgba(100, 200, 255, 0.4)',
+              boxShadow: 'inset 0 0 10px rgba(255, 255, 255, 0.5)',
+              borderRadius: '2px'
+            }
+          }
+        }
       }
     }
-  })
 
-  // Highlight portals
-  if (spellState.portals) {
-    customSquareStyles[spellState.portals.from] = {
-      ...customSquareStyles[spellState.portals.from],
-      background: 'radial-gradient(circle, rgba(160, 32, 240, 0.6) 0%, transparent 70%)',
-      boxShadow: '0 0 15px rgba(160, 32, 240, 0.8)'
-    }
-    customSquareStyles[spellState.portals.to] = {
-      ...customSquareStyles[spellState.portals.to],
-      background: 'radial-gradient(circle, rgba(160, 32, 240, 0.6) 0%, transparent 70%)',
-      boxShadow: '0 0 15px rgba(160, 32, 240, 0.8)'
-    }
-  }
+    Object.keys(spellState.frozenSquares).forEach(sq => {
+      if (spellState.frozenSquares[sq] > halfMoveCount) {
+        styles[sq] = {
+          background: 'rgba(100, 200, 255, 0.35)',
+          boxShadow: 'inset 0 0 15px rgba(255, 255, 255, 0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.2)'
+        }
+      }
+    })
 
-  // Highlight portal selection
-  if (portalStart) {
-    customSquareStyles[portalStart] = {
-      background: 'rgba(160, 32, 240, 0.4)',
-      boxShadow: '0 0 10px purple'
-    }
-  }
+    Object.keys(spellState.shieldedSquares).forEach(sq => {
+      if (spellState.shieldedSquares[sq] > halfMoveCount) {
+        styles[sq] = {
+          ...styles[sq],
+          boxShadow: '0 0 20px rgba(255, 255, 100, 0.4), inset 0 0 10px rgba(255, 255, 100, 0.6)'
+        }
+      }
+    })
 
-  // Highlight jump square
-  if (spellState.jumpSquare) {
-    customSquareStyles[spellState.jumpSquare] = {
-      ...customSquareStyles[spellState.jumpSquare],
-      boxShadow: '0 0 15px var(--accent-brand), inset 0 0 10px var(--accent-brand)'
+    if (spellState.portals) {
+      styles[spellState.portals.from] = {
+        ...styles[spellState.portals.from],
+        background: 'radial-gradient(circle, rgba(160, 32, 240, 0.6) 0%, transparent 70%)',
+        boxShadow: '0 0 15px rgba(160, 32, 240, 0.8)'
+      }
+      styles[spellState.portals.to] = {
+        ...styles[spellState.portals.to],
+        background: 'radial-gradient(circle, rgba(160, 32, 240, 0.6) 0%, transparent 70%)',
+        boxShadow: '0 0 15px rgba(160, 32, 240, 0.8)'
+      }
     }
-  }
+
+    if (portalStart) {
+      styles[portalStart] = {
+        ...styles[portalStart],
+        background: 'rgba(160, 32, 240, 0.4)',
+        boxShadow: '0 0 10px purple'
+      }
+    }
+
+    if (spellState.jumpSquare) {
+      styles[spellState.jumpSquare] = {
+        ...styles[spellState.jumpSquare],
+        boxShadow: '0 0 15px var(--accent-brand), inset 0 0 10px var(--accent-brand)'
+      }
+    }
+
+    return styles
+  }, [activeSpell, previewTarget, spellState, halfMoveCount, portalStart])
 
   const spellIcons = {
-    freeze: '🧊',
-    jump: '🦘',
-    blast: '💣',
-    shield: '🛡️',
-    portal: '🕳️'
+    freeze: 'freezing.png',
+    jump: 'jump.png',
+    blast: 'bomb.png',
+    shield: 'shield.png',
+    portal: 'portal.png'
   }
 
   return (
@@ -145,12 +242,13 @@ export default function SpellLocalPage() {
               <div className="text-center flex justify-center">
                 {isGameOver ? (
                   <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse">
-                    Победа {winner === 'w' ? 'белых' : 'черных'}!
+                    Победа {winner === 'w' ? 'белых' : 'чёрных'}!
                   </h2>
                 ) : (
                   activeSpell && (
-                    <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse">
-                      {activeSpell === 'portal' && !portalStart ? 'Выберите вход портала' : 
+                    <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse text-center leading-tight">
+                      {pendingTarget ? 'Нажмите ещё раз для подтверждения' : 
+                       activeSpell === 'portal' && !portalStart ? 'Выберите вход портала' : 
                        activeSpell === 'portal' ? 'Выберите выход портала' :
                        activeSpell === 'freeze' ? 'Выберите область 3x3' : 
                        activeSpell === 'blast' ? 'Выберите центр взрыва (+)' :
@@ -164,7 +262,7 @@ export default function SpellLocalPage() {
                 <span className={`text-[10px] font-bold uppercase tracking-widest ${
                   turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
                 }`}>
-                  {turn === 'w' ? 'Белые' : 'Черные'}
+                  {turn === 'w' ? 'Белые' : 'Чёрные'}
                 </span>
               </div>
             </div>
@@ -173,6 +271,7 @@ export default function SpellLocalPage() {
               ref={boardContainerRef}
               className="board-container relative overflow-hidden"
             >
+              <MagicVFX ref={vfxRef} boardWidth={stableWidth} />
               {stableWidth > 0 && (
                 <ChessBoard
                   position={fen}
@@ -182,6 +281,8 @@ export default function SpellLocalPage() {
                   legalMoves={legalMoves}
                   onDrop={onDrop}
                   onSquareClick={onSquareClick}
+                  onSquareMouseEnter={(square) => setHoveredSquare(square)}
+                  onSquareMouseLeave={() => setHoveredSquare(null)}
                   boardWidth={stableWidth}
                   boardOrientation="white"
                   customSquareStyles={customSquareStyles}
@@ -195,7 +296,7 @@ export default function SpellLocalPage() {
               {isGameOver && (
                 <Button variant="primary" onClick={resetGame}>Новая игра</Button>
               )}
-              <Button variant="outline" onClick={() => navigate('/')}>В лобби</Button>
+              <Button variant="outline" onClick={() => navigate('/offline')}>В лобби</Button>
             </div>
           </div>
 
@@ -218,7 +319,12 @@ export default function SpellLocalPage() {
                       }`}
                       title={spell.toUpperCase()}
                     >
-                      <span className="text-base" style={{ imageRendering: 'pixelated' }}>{spellIcons[spell]}</span>
+                      <img 
+                        src={`${BASE}emojis/${spellIcons[spell]}`} 
+                        alt={spell}
+                        className="w-6 h-6 object-contain"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
                       <span className="text-[7px] font-bold">{s.charges}</span>
                       {s.cooldown > 0 && (
                         <div className="absolute inset-0 bg-bg/85 flex items-center justify-center rounded-[var(--radius-4)]">
@@ -234,11 +340,11 @@ export default function SpellLocalPage() {
             <Card padding="sm" className="overflow-hidden">
               <h3 className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-3 border-b border-white/5 pb-2">Магия пикселей</h3>
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                <RuleItem icon="🧊" title="Заморозка" text="Область 3x3 на 1 ход. Фигуры не ходят и не бьют." />
-                <RuleItem icon="🦘" title="Прыжок" text="Позволяет перепрыгнуть через одну фигуру." />
-                <RuleItem icon="💣" title="Взрыв" text="Уничтожает фигуры крестом (+). Не трогает королей." />
-                <RuleItem icon="🛡️" title="Щит" text="Фигуру нельзя съесть в течение 1 хода." />
-                <RuleItem icon="🕳️" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается." />
+                <RuleItem icon="freezing.png" title="Заморозка" text="Область 3x3 на 1 ход. Фигуры не ходят и не бьют." />
+                <RuleItem icon="jump.png" title="Прыжок" text="Позволяет перепрыгнуть через одну фигуру." />
+                <RuleItem icon="bomb.png" title="Взрыв" text="Уничтожает фигуры крестом (+). Не трогает королей." />
+                <RuleItem icon="shield.png" title="Щит" text="Фигуру нельзя съесть в течение 1 хода." />
+                <RuleItem icon="portal.png" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается." />
               </div>
             </Card>
           </div>
@@ -252,7 +358,12 @@ export default function SpellLocalPage() {
 function RuleItem({ icon, title, text }: { icon: string, title: string, text: string }) {
   return (
     <div className="flex gap-2">
-      <span className="text-sm mt-0.5">{icon}</span>
+      <img 
+        src={`${BASE}emojis/${icon}`} 
+        alt={title}
+        className="w-5 h-5 object-contain mt-0.5"
+        style={{ imageRendering: 'pixelated' }}
+      />
       <div>
         <p className="text-[8px] text-text font-bold uppercase tracking-wider">{title}</p>
         <p className="text-[8px] text-text-secondary leading-normal">{text}</p>

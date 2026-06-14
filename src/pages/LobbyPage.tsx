@@ -278,10 +278,10 @@ export default function LobbyPage() {
             variant="secondary"
           />
           <HubTile
-            to="/local"
-            icon="local_new"
-            title="За одним ПК"
-            description="Классическая игра вдвоем на одном устройстве"
+            to="/offline"
+            icon="online/local"
+            title="Оффлайн"
+            description="Игра на одном устройстве в разных режимах"
             variant="secondary"
           />
         </section>

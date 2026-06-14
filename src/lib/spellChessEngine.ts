@@ -251,8 +251,8 @@ export class SpellChessEngine {
     this.turn = this.turn === 'w' ? 'b' : 'w';
     this.halfMoveCount++;
 
-    const mySpells = piece.color === 'w' ? this.spellState.whiteSpells : this.spellState.blackSpells;
-    Object.values(mySpells).forEach(s => { if (s.cooldown > 0) s.cooldown--; });
+    Object.values(this.spellState.whiteSpells).forEach(s => { if (s.cooldown > 0) s.cooldown--; });
+    Object.values(this.spellState.blackSpells).forEach(s => { if (s.cooldown > 0) s.cooldown--; });
 
     return true;
   }

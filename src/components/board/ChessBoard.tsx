@@ -24,6 +24,8 @@ interface ChessBoardProps {
   arePiecesDraggable?: boolean
   customSquareStyles?: Record<string, React.CSSProperties>
   customCursor?: string
+  onSquareMouseEnter?: (square: string) => void
+  onSquareMouseLeave?: () => void
 }
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -47,6 +49,8 @@ export default function ChessBoard({
   arePiecesDraggable = true,
   customSquareStyles = {},
   customCursor,
+  onSquareMouseEnter,
+  onSquareMouseLeave,
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -216,8 +220,12 @@ export default function ChessBoard({
               onMouseEnter={() => {
                 const piece = game?.get ? game.get(square as any) : null
                 if (piece) setHoveredSquare(square)
+                onSquareMouseEnter?.(square)
               }}
-              onMouseLeave={() => setHoveredSquare(null)}
+              onMouseLeave={() => {
+                setHoveredSquare(null)
+                onSquareMouseLeave?.()
+              }}
               onContextMenu={(e) => handleContextMenu(square, e)}
               onTouchStart={(e) => handleTouchStart(square, e)}
               onTouchEnd={handleTouchEnd}

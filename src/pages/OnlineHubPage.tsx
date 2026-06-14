@@ -208,7 +208,7 @@ export default function OnlineHubPage() {
             <ModeTile 
               mode="classic" 
               title="Классика" 
-              icon="multi_new.png" 
+              icon="online/classic.png" 
               description="Стандартные правила без ограничений" 
             />
             <ModeTile 
@@ -226,7 +226,7 @@ export default function OnlineHubPage() {
             <ModeTile 
               mode="fog_of_war" 
               title="Туман войны" 
-              icon="fog_new.png" 
+              icon="online/fog of war.png" 
               description="Видны только свои фигуры и их удары" 
             />
           </div>

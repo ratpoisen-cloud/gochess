@@ -7,6 +7,13 @@ import './index.css'
 
 const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '') || '/'
 
+if ('serviceWorker' in navigator) {
+  const base = import.meta.env.BASE_URL || '/'
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => {})
+  })
+}
+
 // Restore SPA route after 404.html redirect on GitHub Pages
 const savedPath = sessionStorage.getItem('gochess-redirect')
 if (savedPath) {

@@ -60,6 +60,24 @@ export default function SpellLocalPage() {
     }
   }
 
+  const activeBombs = useMemo(() => {
+    return spellState.bombs ? Object.keys(spellState.bombs) : []
+  }, [spellState.bombs])
+
+  const prevBombsRef = useRef<Record<string, string>>({})
+  useEffect(() => {
+    const currentBombs = spellState.bombs || {}
+    if (halfMoveCount > 0) {
+      Object.keys(prevBombsRef.current).forEach(square => {
+        if (!currentBombs[square]) {
+          const center = getSquareCenter(square)
+          vfxRef.current?.trigger({ ...center, type: 'blast' })
+        }
+      })
+    }
+    prevBombsRef.current = { ...currentBombs }
+  }, [spellState.bombs, halfMoveCount])
+
   const handleCastSpell = (spell: any, square?: string) => {
     if (square) {
       const center = getSquareCenter(square)
@@ -262,7 +280,7 @@ export default function SpellLocalPage() {
                        activeSpell === 'portal' && !portalStart ? 'Выберите вход портала' : 
                        activeSpell === 'portal' ? 'Выберите выход портала' :
                        activeSpell === 'freeze' ? 'Выберите область 3x3' : 
-                       activeSpell === 'blast' ? 'Выберите центр взрыва (+)' :
+                       activeSpell === 'blast' ? 'Выберите место для установки бомбы' :
                        'Выберите фигуру'}
                     </h2>
                   ) : hasCastSpellThisTurn ? (
@@ -303,6 +321,7 @@ export default function SpellLocalPage() {
                   customSquareStyles={customSquareStyles}
                   arePiecesDraggable={!isGameOver && !activeSpell}
                   customCursor={activeSpell ? 'crosshair' : undefined}
+                  bombs={activeBombs}
                 />
               )}
             </div>
@@ -392,7 +411,7 @@ export default function SpellLocalPage() {
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 <RuleItem icon="freezing.png" title="Заморозка" text="Область 3x3 на 1 ход. Фигуры не ходят и не бьют." />
                 <RuleItem icon="jump.png" title="Прыжок" text="Позволяет перепрыгнуть через одну фигуру." />
-                <RuleItem icon="bomb.png" title="Взрыв" text="Уничтожает фигуры крестом (+). Не трогает королей." />
+                <RuleItem icon="bomb.png" title="Взрыв" text="Устанавливает бомбу-ловушку. Взрывается крестом (+), если на неё наступит любая фигура. Не трогает королей." />
                 <RuleItem icon="shield.png" title="Щит" text="Фигуру нельзя съесть в течение 1 хода." />
                 <RuleItem icon="portal.png" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается." />
               </div>

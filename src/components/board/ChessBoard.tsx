@@ -26,6 +26,7 @@ interface ChessBoardProps {
   customCursor?: string
   onSquareMouseEnter?: (square: string) => void
   onSquareMouseLeave?: () => void
+  bombs?: string[]
 }
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -51,6 +52,7 @@ export default function ChessBoard({
   customCursor,
   onSquareMouseEnter,
   onSquareMouseLeave,
+  bombs = [],
 }: ChessBoardProps) {
   const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
   const theme = getTheme()
@@ -268,6 +270,29 @@ export default function ChessBoard({
               {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
               {isActiveCapture && <div className="highlight-capture" />}
               
+              {/* Bomb overlay */}
+              {bombs.includes(square) && isSquareVisible && (
+                <div
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                >
+                  <div 
+                    className="animate-pulse flex items-center justify-center"
+                    style={{
+                      width: '45%',
+                      height: '45%',
+                      filter: 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.75))'
+                    }}
+                  >
+                    <img 
+                      src={`${BASE}emojis/bomb.png`} 
+                      alt="bomb" 
+                      className="w-full h-full object-contain"
+                      style={{ imageRendering: 'pixelated' }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* End Game Emojis */}
               {endGameEmojis.filter(e => e.square === square).map((e, i) => (
                 <div

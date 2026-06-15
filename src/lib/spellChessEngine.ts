@@ -25,6 +25,7 @@ export interface SpellState {
   blackMana: number;
   whiteCooldowns: Record<string, number>;
   blackCooldowns: Record<string, number>;
+  bombs: Record<string, Color>;
 }
 
 const MAX_MANA = 5
@@ -52,7 +53,8 @@ export class SpellChessEngine {
       whiteMana: STARTING_MANA,
       blackMana: STARTING_MANA,
       whiteCooldowns: defaultCooldowns(),
-      blackCooldowns: defaultCooldowns()
+      blackCooldowns: defaultCooldowns(),
+      bombs: {}
     };
 
     if (fen) {
@@ -77,6 +79,7 @@ export class SpellChessEngine {
     this.spellState.blackMana = STARTING_MANA;
     this.spellState.whiteCooldowns = defaultCooldowns();
     this.spellState.blackCooldowns = defaultCooldowns();
+    this.spellState.bombs = {};
   }
 
   load(fen: string) {
@@ -341,13 +344,19 @@ export class SpellChessEngine {
     this.board[tr][tc] = piece;
     this.board[fr][fc] = null;
 
+    let landingSq = to;
     if (this.spellState.portals && to === this.spellState.portals.from) {
       const { r: pr, c: pc } = this.sqToIdx(this.spellState.portals.to);
       if (!this.board[pr][pc]) {
         this.board[pr][pc] = piece;
         this.board[tr][tc] = null;
+        landingSq = this.spellState.portals.to;
       }
       this.spellState.portals = null;
+    }
+
+    if (this.spellState.bombs && this.spellState.bombs[landingSq]) {
+      this.triggerExplosion(landingSq);
     }
 
     this.spellState.jumpSquare = null;
@@ -421,19 +430,48 @@ export class SpellChessEngine {
     return true;
   }
 
+  triggerExplosion(targetSquare: string) {
+    const explodedSquares = new Set<string>();
+    const queue = [targetSquare];
+    
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
+      if (explodedSquares.has(curr)) continue;
+      explodedSquares.add(curr);
+      
+      if (this.spellState.bombs) {
+        delete this.spellState.bombs[curr];
+      }
+      
+      const { r, c } = this.sqToIdx(curr);
+      [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
+        const tr = r + dr, tc = c + dc;
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const sqName = this.idxToSq(tr, tc);
+          if (this.spellState.bombs && this.spellState.bombs[sqName] && !explodedSquares.has(sqName)) {
+            queue.push(sqName);
+          }
+          
+          const p = this.board[tr][tc];
+          const isShielded = this.spellState.shieldedSquares[sqName] > this.halfMoveCount;
+          if (p && p.type !== 'k' && !isShielded) {
+            this.board[tr][tc] = null;
+          }
+        }
+      });
+    }
+  }
+
   castBlast(targetSquare: string): boolean {
     const check = this.canCastSpell('blast')
-    if (!check.ok) return false
-    const { r, c } = this.sqToIdx(targetSquare);
-    [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
-      const tr = r + dr, tc = c + dc;
-      if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-        const p = this.board[tr][tc];
-        const sqName = this.idxToSq(tr, tc);
-        const isShielded = this.spellState.shieldedSquares[sqName] > this.halfMoveCount;
-        if (p && p.type !== 'k' && !isShielded) this.board[tr][tc] = null;
-      }
-    });
+    if (!check.ok) return false;
+    
+    if (this.spellState.bombs && this.spellState.bombs[targetSquare]) return false;
+    
+    if (this.spellState.bombs) {
+      this.spellState.bombs[targetSquare] = this.turn;
+    }
+    
     const config = SPELL_CONFIGS.blast
     if (this.turn === 'w') {
       this.spellState.whiteMana -= config.cost

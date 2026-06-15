@@ -53,7 +53,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       set({
         fen: engine.fen(),
         turn: engine.turn,
-        spellState: { ...engine.spellState },
+        spellState: { ...engine.spellState, bombs: { ...engine.spellState.bombs }, frozenSquares: { ...engine.spellState.frozenSquares }, shieldedSquares: { ...engine.spellState.shieldedSquares }, berserkTransforms: { ...engine.spellState.berserkTransforms } },
         selectedSquare: null,
         legalMoves: [],
         isGameOver: !!gameOver,
@@ -135,7 +135,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
     if (success) {
       soundManager.play('move')
       set({
-        spellState: { ...engine.spellState },
+        spellState: { ...engine.spellState, bombs: { ...engine.spellState.bombs }, frozenSquares: { ...engine.spellState.frozenSquares }, shieldedSquares: { ...engine.spellState.shieldedSquares }, berserkTransforms: { ...engine.spellState.berserkTransforms } },
         activeSpell: null,
         portalStart: null,
         selectedSquare: null,
@@ -155,7 +155,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
     if (success) {
       soundManager.play('move')
       set({
-        spellState: { ...engine.spellState },
+        spellState: { ...engine.spellState, bombs: { ...engine.spellState.bombs }, frozenSquares: { ...engine.spellState.frozenSquares }, shieldedSquares: { ...engine.spellState.shieldedSquares }, berserkTransforms: { ...engine.spellState.berserkTransforms } },
         berserkTarget: null,
         selectedSquare: null,
         legalMoves: [],

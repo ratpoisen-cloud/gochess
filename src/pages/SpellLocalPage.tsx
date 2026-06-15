@@ -85,7 +85,6 @@ export default function SpellLocalPage() {
     if (square) {
       const center = getSquareCenter(square)
       if (spell === 'freeze') vfxRef.current?.trigger({ ...center, type: 'ice-shatter' })
-      if (spell === 'blast') vfxRef.current?.trigger({ ...center, type: 'blast' })
       if (spell === 'jump') vfxRef.current?.trigger({ ...center, type: 'jump' })
       if (spell === 'shield') vfxRef.current?.trigger({ ...center, type: 'jump' })
       if (spell === 'berserk') vfxRef.current?.trigger({ ...center, type: 'sparkle' })
@@ -429,7 +428,7 @@ export default function SpellLocalPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
                 {(Object.keys(spellIcons) as Array<keyof typeof spellIcons>).map(spell => {
                   const config = SPELL_CONFIGS[spell]
                   const cooldown = currentCooldowns[spell]
@@ -480,15 +479,59 @@ export default function SpellLocalPage() {
               </div>
             </Card>
 
-            <Card padding="sm" className="overflow-hidden">
-              <h3 className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-3 border-b border-white/5 pb-2">Магия пикселей</h3>
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                <RuleItem icon="freezing.png" title="Заморозка" text="Область 3x3 на 1 ход. Фигуры не ходят и не бьют." />
-                <RuleItem icon="jump.png" title="Прыжок" text="Позволяет перепрыгнуть через одну фигуру." />
-                <RuleItem icon="bomb.png" title="Взрыв" text="Устанавливает бомбу-ловушку. Взрывается крестом (+), если на неё наступит любая фигура. Не трогает королей." />
-                <RuleItem icon="shield.png" title="Щит" text="Защищает фигуру от съедения на 1 ход. Переносится вместе с фигурой." />
-                <RuleItem icon="portal.png" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается. Исчезает через 3 хода." />
-                <RuleItem icon="berserk.png" title="Берсерк" text="Превращает любую свою фигуру (кроме короля) в Q/R/B/N/P на 3 хода. Не работает на замороженных фигурах." />
+            <Card padding="sm">
+              <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Прогресс</h3>
+
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <span className="text-[11px] font-bold text-[var(--accent-brand)]">Ход</span>
+                <span className="text-[20px] font-bold text-text tracking-wider">{turnNumber}</span>
+              </div>
+
+              <div className="relative h-1.5 bg-[rgba(255,255,255,0.06)] rounded-[2px] mb-4 mx-1">
+                <div
+                  className="absolute h-full bg-[var(--accent-brand)] rounded-[2px] transition-all duration-300"
+                  style={{ width: `${Math.min(100, (turnNumber / 10) * 100)}%` }}
+                />
+                {[1, 5, 8, 10].map(t => (
+                  <div
+                    key={t}
+                    className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2"
+                    style={{
+                      left: `${(t / 10) * 100}%`,
+                      borderColor: 'var(--accent-brand)',
+                      backgroundColor: turnNumber >= t ? 'var(--accent-brand)' : 'var(--bg)',
+                      zIndex: 2
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                {(Object.keys(spellIcons) as Array<keyof typeof spellIcons>).map(spell => {
+                  const config = SPELL_CONFIGS[spell]
+                  const isUnlocked = turnNumber >= config.unlock
+                  return (
+                    <div key={spell} className="flex items-center gap-2 px-1">
+                      <img
+                        src={`${BASE}emojis/${spellIcons[spell]}`}
+                        alt={spell}
+                        className="w-4 h-4 object-contain"
+                        style={{ imageRendering: 'pixelated', opacity: isUnlocked ? 1 : 0.35 }}
+                      />
+                      <span className={`text-[8px] font-bold uppercase tracking-wider flex-1 ${isUnlocked ? 'text-text' : 'text-text-secondary'}`}>
+                        {spell === 'freeze' ? 'Заморозка' :
+                         spell === 'jump' ? 'Прыжок' :
+                         spell === 'blast' ? 'Взрыв' :
+                         spell === 'shield' ? 'Щит' :
+                         spell === 'portal' ? 'Портал' :
+                         spell === 'berserk' ? 'Берсерк' : spell}
+                      </span>
+                      <span className={`text-[8px] font-bold ${isUnlocked ? 'text-[var(--accent-brand)]' : 'text-[var(--danger)]'}`}>
+                        {isUnlocked ? '✓' : `ход ${config.unlock}+`}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </Card>
           </div>
@@ -499,19 +542,3 @@ export default function SpellLocalPage() {
   )
 }
 
-function RuleItem({ icon, title, text }: { icon: string, title: string, text: string }) {
-  return (
-    <div className="flex gap-2">
-      <img 
-        src={`${BASE}emojis/${icon}`} 
-        alt={title}
-        className="w-5 h-5 object-contain mt-0.5"
-        style={{ imageRendering: 'pixelated' }}
-      />
-      <div>
-        <p className="text-[8px] text-text font-bold uppercase tracking-wider">{title}</p>
-        <p className="text-[8px] text-text-secondary leading-normal">{text}</p>
-      </div>
-    </div>
-  )
-}

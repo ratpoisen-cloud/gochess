@@ -11,6 +11,7 @@ import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
 import { SPELL_CONFIGS } from '@/lib/spellChessEngine'
+import { useBoardStore } from '@/stores/boardStore'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -38,6 +39,7 @@ export default function SpellLocalPage() {
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const vfxRef = useRef<MagicVFXHandle>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
+  const { getPieceUrl } = useBoardStore()
 
   useEffect(() => {
     if (!initialized) {
@@ -384,9 +386,9 @@ export default function SpellLocalPage() {
                             }}
                           >
                             <img
-                              src={`${BASE}piece/${code}.svg`}
+                              src={getPieceUrl(code)}
                               alt={t}
-                              className="w-[60%] h-[60%] object-contain"
+                              className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
                               draggable={false}
                             />
                           </button>

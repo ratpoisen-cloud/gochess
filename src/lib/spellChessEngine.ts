@@ -21,12 +21,13 @@ export interface SpellState {
   frozenSquares: Record<string, number>;
   jumpSquare: string | null;
   shieldedSquares: Record<string, number>;
-  portals: { from: string; to: string } | null;
+  portals: { from: string; to: string; expiry: number } | null;
   whiteMana: number;
   blackMana: number;
   whiteCooldowns: Record<string, number>;
   blackCooldowns: Record<string, number>;
   bombs: Record<string, Color>;
+  berserkTransforms: Record<string, { fromType: PieceType; expiry: number }>;
 }
 
 const MAX_MANA = 5
@@ -55,7 +56,8 @@ export class SpellChessEngine {
       blackMana: STARTING_MANA,
       whiteCooldowns: defaultCooldowns(),
       blackCooldowns: defaultCooldowns(),
-      bombs: {}
+      bombs: {},
+      berserkTransforms: {}
     };
 
     if (fen) {
@@ -81,6 +83,7 @@ export class SpellChessEngine {
     this.spellState.whiteCooldowns = defaultCooldowns();
     this.spellState.blackCooldowns = defaultCooldowns();
     this.spellState.bombs = {};
+    this.spellState.berserkTransforms = {};
   }
 
   load(fen: string) {
@@ -346,14 +349,25 @@ export class SpellChessEngine {
     this.board[fr][fc] = null;
 
     let landingSq = to;
-    if (this.spellState.portals && to === this.spellState.portals.from) {
-      const { r: pr, c: pc } = this.sqToIdx(this.spellState.portals.to);
-      if (!this.board[pr][pc]) {
-        this.board[pr][pc] = piece;
-        this.board[tr][tc] = null;
-        landingSq = this.spellState.portals.to;
+    if (this.spellState.portals) {
+      if (this.spellState.portals.expiry <= this.halfMoveCount) {
+        this.spellState.portals = null;
+      } else if (to === this.spellState.portals.from) {
+        const { r: pr, c: pc } = this.sqToIdx(this.spellState.portals.to);
+        if (!this.board[pr][pc]) {
+          this.board[pr][pc] = piece;
+          this.board[tr][tc] = null;
+          landingSq = this.spellState.portals.to;
+        }
+        this.spellState.portals = null;
       }
-      this.spellState.portals = null;
+    }
+
+    // Transfer shield with moving piece
+    const shieldExpiry = this.spellState.shieldedSquares[from];
+    if (shieldExpiry !== undefined && shieldExpiry > this.halfMoveCount) {
+      delete this.spellState.shieldedSquares[from];
+      this.spellState.shieldedSquares[landingSq] = shieldExpiry;
     }
 
     if (this.spellState.bombs && this.spellState.bombs[landingSq]) {
@@ -376,6 +390,16 @@ export class SpellChessEngine {
     const activeCooldowns = this.turn === 'w' ? this.spellState.whiteCooldowns : this.spellState.blackCooldowns
     Object.keys(activeCooldowns).forEach(key => {
       if (activeCooldowns[key] > 0) activeCooldowns[key]--
+    })
+
+    // Revert expired berserk transforms
+    Object.keys(this.spellState.berserkTransforms).forEach(sq => {
+      const t = this.spellState.berserkTransforms[sq];
+      if (t.expiry <= this.halfMoveCount) {
+        const p = this.getPiece(sq);
+        if (p) p.type = t.fromType;
+        delete this.spellState.berserkTransforms[sq];
+      }
     })
 
     return true;
@@ -506,6 +530,7 @@ export class SpellChessEngine {
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
     if (!piece || piece.color !== this.turn || piece.type === 'k' || piece.type === pieceType || this.isFrozen(targetSquare)) return false;
+    this.spellState.berserkTransforms[targetSquare] = { fromType: piece.type, expiry: this.halfMoveCount + 6 };
     piece.type = pieceType;
     const config = SPELL_CONFIGS.berserk
     if (this.turn === 'w') {
@@ -522,7 +547,7 @@ export class SpellChessEngine {
     const check = this.canCastSpell('portal')
     if (!check.ok) return false
     if (this.getPiece(from) || this.getPiece(to) || from === to) return false;
-    this.spellState.portals = { from, to };
+    this.spellState.portals = { from, to, expiry: this.halfMoveCount + 6 };
     const config = SPELL_CONFIGS.portal
     if (this.turn === 'w') {
       this.spellState.whiteMana -= config.cost

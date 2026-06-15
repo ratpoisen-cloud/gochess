@@ -484,9 +484,9 @@ export default function SpellLocalPage() {
                 <RuleItem icon="freezing.png" title="Заморозка" text="Область 3x3 на 1 ход. Фигуры не ходят и не бьют." />
                 <RuleItem icon="jump.png" title="Прыжок" text="Позволяет перепрыгнуть через одну фигуру." />
                 <RuleItem icon="bomb.png" title="Взрыв" text="Устанавливает бомбу-ловушку. Взрывается крестом (+), если на неё наступит любая фигура. Не трогает королей." />
-                <RuleItem icon="shield.png" title="Щит" text="Фигуру нельзя съесть в течение 1 хода." />
-                <RuleItem icon="portal.png" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается." />
-                <RuleItem icon="berserk.png" title="Берсерк" text="Превращает любую свою фигуру (кроме короля) в Q/R/B/N/P. Не работает на замороженных фигурах." />
+                <RuleItem icon="shield.png" title="Щит" text="Защищает фигуру от съедения на 1 ход. Переносится вместе с фигурой." />
+                <RuleItem icon="portal.png" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается. Исчезает через 3 хода." />
+                <RuleItem icon="berserk.png" title="Берсерк" text="Превращает любую свою фигуру (кроме короля) в Q/R/B/N/P на 3 хода. Не работает на замороженных фигурах." />
               </div>
             </Card>
           </div>

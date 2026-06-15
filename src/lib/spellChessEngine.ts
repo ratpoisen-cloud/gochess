@@ -6,13 +6,32 @@ export interface Piece {
   color: Color;
 }
 
+export const SPELL_CONFIGS = {
+  jump: { cost: 1, cooldown: 1, unlock: 1 },
+  shield: { cost: 2, cooldown: 2, unlock: 1 },
+  freeze: { cost: 3, cooldown: 3, unlock: 5 },
+  portal: { cost: 3, cooldown: 4, unlock: 5 },
+  blast: { cost: 4, cooldown: 5, unlock: 10 }
+} as const
+
+export type SpellName = keyof typeof SPELL_CONFIGS
+
 export interface SpellState {
   frozenSquares: Record<string, number>;
   jumpSquare: string | null;
   shieldedSquares: Record<string, number>;
   portals: { from: string; to: string } | null;
-  whiteSpells: Record<string, { charges: number; cooldown: number }>;
-  blackSpells: Record<string, { charges: number; cooldown: number }>;
+  whiteMana: number;
+  blackMana: number;
+  whiteCooldowns: Record<string, number>;
+  blackCooldowns: Record<string, number>;
+}
+
+const MAX_MANA = 5
+const STARTING_MANA = 1
+
+function defaultCooldowns(): Record<string, number> {
+  return { freeze: 0, jump: 0, blast: 0, shield: 0, portal: 0 }
 }
 
 export class SpellChessEngine {
@@ -30,8 +49,10 @@ export class SpellChessEngine {
       jumpSquare: null,
       shieldedSquares: {},
       portals: null,
-      whiteSpells: { freeze: { charges: 5, cooldown: 0 }, jump: { charges: 2, cooldown: 0 }, blast: { charges: 1, cooldown: 0 }, shield: { charges: 2, cooldown: 0 }, portal: { charges: 1, cooldown: 0 } },
-      blackSpells: { freeze: { charges: 5, cooldown: 0 }, jump: { charges: 2, cooldown: 0 }, blast: { charges: 1, cooldown: 0 }, shield: { charges: 2, cooldown: 0 }, portal: { charges: 1, cooldown: 0 } }
+      whiteMana: STARTING_MANA,
+      blackMana: STARTING_MANA,
+      whiteCooldowns: defaultCooldowns(),
+      blackCooldowns: defaultCooldowns()
     };
 
     if (fen) {
@@ -41,6 +62,10 @@ export class SpellChessEngine {
     }
   }
 
+  getTurnNumber(): number {
+    return Math.floor(this.halfMoveCount / 2) + 1
+  }
+
   reset() {
     this.load('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     this.halfMoveCount = 0;
@@ -48,21 +73,16 @@ export class SpellChessEngine {
     this.spellState.shieldedSquares = {};
     this.spellState.jumpSquare = null;
     this.spellState.portals = null;
-    const defaultSpells = () => ({
-      freeze: { charges: 5, cooldown: 0 },
-      jump: { charges: 2, cooldown: 0 },
-      blast: { charges: 1, cooldown: 0 },
-      shield: { charges: 2, cooldown: 0 },
-      portal: { charges: 1, cooldown: 0 }
-    });
-    this.spellState.whiteSpells = defaultSpells();
-    this.spellState.blackSpells = defaultSpells();
+    this.spellState.whiteMana = STARTING_MANA;
+    this.spellState.blackMana = STARTING_MANA;
+    this.spellState.whiteCooldowns = defaultCooldowns();
+    this.spellState.blackCooldowns = defaultCooldowns();
   }
 
   load(fen: string) {
     const [position, turn] = fen.split(' ');
     this.turn = turn as Color;
-    
+
     const rows = position.split('/');
     for (let r = 0; r < 8; r++) {
       let c = 0;
@@ -172,7 +192,6 @@ export class SpellChessEngine {
         moves.push(this.idxToSq(tr, tc));
         return true;
       } else if (target.color !== piece.color) {
-        // Shield Check: Cannot move to capture a shielded piece
         const targetSq = this.idxToSq(tr, tc);
         if (this.spellState.shieldedSquares[targetSq] > this.halfMoveCount) {
           return false;
@@ -333,18 +352,40 @@ export class SpellChessEngine {
 
     this.spellState.jumpSquare = null;
 
+    // Mana regen for current player before switching turn
+    if (this.turn === 'w') {
+      this.spellState.whiteMana = Math.min(MAX_MANA, this.spellState.whiteMana + 1)
+    } else {
+      this.spellState.blackMana = Math.min(MAX_MANA, this.spellState.blackMana + 1)
+    }
+
     this.turn = this.turn === 'w' ? 'b' : 'w';
     this.halfMoveCount++;
 
-    Object.values(this.spellState.whiteSpells).forEach(s => { if (s.cooldown > 0) s.cooldown--; });
-    Object.values(this.spellState.blackSpells).forEach(s => { if (s.cooldown > 0) s.cooldown--; });
+    // Decrement cooldowns of the new active player
+    const activeCooldowns = this.turn === 'w' ? this.spellState.whiteCooldowns : this.spellState.blackCooldowns
+    Object.keys(activeCooldowns).forEach(key => {
+      if (activeCooldowns[key] > 0) activeCooldowns[key]--
+    })
 
     return true;
   }
 
+  private canCastSpell(spell: SpellName): { ok: boolean; reason?: string } {
+    const config = SPELL_CONFIGS[spell]
+    const mana = this.turn === 'w' ? this.spellState.whiteMana : this.spellState.blackMana
+    const cooldowns = this.turn === 'w' ? this.spellState.whiteCooldowns : this.spellState.blackCooldowns
+    const currentTurnNum = this.getTurnNumber()
+
+    if (mana < config.cost) return { ok: false, reason: 'mana' }
+    if (cooldowns[spell] > 0) return { ok: false, reason: 'cooldown' }
+    if (currentTurnNum < config.unlock) return { ok: false, reason: 'locked' }
+    return { ok: true }
+  }
+
   castFreeze(targetSquare: string): boolean {
-    const spells = this.turn === 'w' ? this.spellState.whiteSpells : this.spellState.blackSpells;
-    if (spells.freeze.charges <= 0 || spells.freeze.cooldown > 0) return false;
+    const check = this.canCastSpell('freeze')
+    if (!check.ok) return false
     const { r, c } = this.sqToIdx(targetSquare);
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
@@ -352,23 +393,37 @@ export class SpellChessEngine {
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 3;
       }
     }
-    spells.freeze.charges--; spells.freeze.cooldown = 3;
+    const config = SPELL_CONFIGS.freeze
+    if (this.turn === 'w') {
+      this.spellState.whiteMana -= config.cost
+      this.spellState.whiteCooldowns.freeze = config.cooldown
+    } else {
+      this.spellState.blackMana -= config.cost
+      this.spellState.blackCooldowns.freeze = config.cooldown
+    }
     return true;
   }
 
   castJump(targetSquare: string): boolean {
-    const spells = this.turn === 'w' ? this.spellState.whiteSpells : this.spellState.blackSpells;
-    if (spells.jump.charges <= 0 || spells.jump.cooldown > 0) return false;
+    const check = this.canCastSpell('jump')
+    if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
     if (!piece || piece.color !== this.turn || piece.type === 'n' || piece.type === 'k') return false;
     this.spellState.jumpSquare = targetSquare;
-    spells.jump.charges--; spells.jump.cooldown = 3;
+    const config = SPELL_CONFIGS.jump
+    if (this.turn === 'w') {
+      this.spellState.whiteMana -= config.cost
+      this.spellState.whiteCooldowns.jump = config.cooldown
+    } else {
+      this.spellState.blackMana -= config.cost
+      this.spellState.blackCooldowns.jump = config.cooldown
+    }
     return true;
   }
 
   castBlast(targetSquare: string): boolean {
-    const spells = this.turn === 'w' ? this.spellState.whiteSpells : this.spellState.blackSpells;
-    if (spells.blast.charges <= 0 || spells.blast.cooldown > 0) return false;
+    const check = this.canCastSpell('blast')
+    if (!check.ok) return false
     const { r, c } = this.sqToIdx(targetSquare);
     [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
       const tr = r + dr, tc = c + dc;
@@ -379,26 +434,47 @@ export class SpellChessEngine {
         if (p && p.type !== 'k' && !isShielded) this.board[tr][tc] = null;
       }
     });
-    spells.blast.charges--; spells.blast.cooldown = 5;
+    const config = SPELL_CONFIGS.blast
+    if (this.turn === 'w') {
+      this.spellState.whiteMana -= config.cost
+      this.spellState.whiteCooldowns.blast = config.cooldown
+    } else {
+      this.spellState.blackMana -= config.cost
+      this.spellState.blackCooldowns.blast = config.cooldown
+    }
     return true;
   }
 
   castShield(targetSquare: string): boolean {
-    const spells = this.turn === 'w' ? this.spellState.whiteSpells : this.spellState.blackSpells;
-    if (spells.shield.charges <= 0 || spells.shield.cooldown > 0) return false;
+    const check = this.canCastSpell('shield')
+    if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
     if (!piece || piece.color !== this.turn) return false;
     this.spellState.shieldedSquares[targetSquare] = this.halfMoveCount + 2;
-    spells.shield.charges--; spells.shield.cooldown = 3;
+    const config = SPELL_CONFIGS.shield
+    if (this.turn === 'w') {
+      this.spellState.whiteMana -= config.cost
+      this.spellState.whiteCooldowns.shield = config.cooldown
+    } else {
+      this.spellState.blackMana -= config.cost
+      this.spellState.blackCooldowns.shield = config.cooldown
+    }
     return true;
   }
 
   castPortal(from: string, to: string): boolean {
-    const spells = this.turn === 'w' ? this.spellState.whiteSpells : this.spellState.blackSpells;
-    if (spells.portal.charges <= 0 || spells.portal.cooldown > 0) return false;
+    const check = this.canCastSpell('portal')
+    if (!check.ok) return false
     if (this.getPiece(from) || this.getPiece(to) || from === to) return false;
     this.spellState.portals = { from, to };
-    spells.portal.charges--; spells.portal.cooldown = 6;
+    const config = SPELL_CONFIGS.portal
+    if (this.turn === 'w') {
+      this.spellState.whiteMana -= config.cost
+      this.spellState.whiteCooldowns.portal = config.cooldown
+    } else {
+      this.spellState.blackMana -= config.cost
+      this.spellState.blackCooldowns.portal = config.cooldown
+    }
     return true;
   }
 

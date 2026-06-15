@@ -10,6 +10,7 @@ import UserMenu from '@/components/UserMenu'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
+import { SPELL_CONFIGS } from '@/lib/spellChessEngine'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -114,7 +115,9 @@ export default function SpellLocalPage() {
     selectSquare(square)
   }
 
-  const currentSpells = turn === 'w' ? spellState.whiteSpells : spellState.blackSpells
+  const currentMana = turn === 'w' ? spellState.whiteMana : spellState.blackMana
+  const currentCooldowns = turn === 'w' ? spellState.whiteCooldowns : spellState.blackCooldowns
+  const turnNumber = Math.floor(halfMoveCount / 2) + 1
   const previewTarget = pendingTarget || hoveredSquare
 
   const customSquareStyles = useMemo(() => {
@@ -315,15 +318,37 @@ export default function SpellLocalPage() {
           <div className="game-side-column space-y-[var(--space-16)]">
             <Card padding="sm">
               <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Инвентарь</h3>
+
+              {/* Mana Pool */}
+              <div className="mb-4 px-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[8px] font-bold text-text-secondary uppercase tracking-wider">Мана</span>
+                  <span className="text-[8px] font-bold text-[var(--accent-brand)]">{currentMana} / 5</span>
+                </div>
+                <div className="flex gap-1">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className={`flex-1 h-2 rounded-[2px] transition-all duration-300 ${
+                      i < currentMana
+                        ? 'bg-[var(--accent-brand)] shadow-[0_0_6px_rgba(126,184,126,0.4)]'
+                        : 'bg-[rgba(255,255,255,0.06)]'
+                    }`} />
+                  ))}
+                </div>
+              </div>
+
               <div className="grid grid-cols-5 gap-1.5">
                 {(Object.keys(spellIcons) as Array<keyof typeof spellIcons>).map(spell => {
-                  const s = currentSpells[spell]
+                  const config = SPELL_CONFIGS[spell]
+                  const cooldown = currentCooldowns[spell]
+                  const isLocked = turnNumber < config.unlock
+                  const noMana = currentMana < config.cost
                   const isActive = activeSpell === spell
+                  const isDisabled = isGameOver || hasCastSpellThisTurn || noMana || cooldown > 0 || isLocked
                   return (
                     <button
                       key={spell}
                       onClick={() => castSpell(spell)}
-                      disabled={isGameOver || hasCastSpellThisTurn || s.charges <= 0 || s.cooldown > 0}
+                      disabled={isDisabled}
                       className={`relative p-2 rounded-[var(--radius-4)] border transition-all flex flex-col items-center justify-center gap-1 group ${
                         isActive 
                           ? 'bg-[var(--accent-brand)] border-[var(--accent-brand)] text-bg shadow-[0_0_10px_rgba(126,184,126,0.3)]' 
@@ -337,10 +362,23 @@ export default function SpellLocalPage() {
                         className="w-6 h-6 object-contain"
                         style={{ imageRendering: 'pixelated' }}
                       />
-                      <span className="text-[7px] font-bold">{s.charges}</span>
-                      {s.cooldown > 0 && (
+                      {isLocked ? (
+                        <span className="text-[7px] font-bold tracking-wider">🔒</span>
+                      ) : (
+                        <span className="text-[7px] font-bold drop-shadow-[0_0_3px_rgba(126,184,126,0.5)]">
+                          {config.cost}💧
+                        </span>
+                      )}
+                      {cooldown > 0 && (
                         <div className="absolute inset-0 bg-bg/85 flex items-center justify-center rounded-[var(--radius-4)]">
-                          <span className="text-[10px] font-bold text-[var(--accent-brand)]">{s.cooldown}</span>
+                          <span className="text-[10px] font-bold text-[var(--accent-brand)]">{cooldown}</span>
+                        </div>
+                      )}
+                      {isLocked && cooldown <= 0 && (
+                        <div className="absolute inset-0 bg-bg/70 flex items-center justify-center rounded-[var(--radius-4)]">
+                          <span className="text-[6px] font-bold text-text-secondary text-center leading-tight px-1">
+                            Ход {config.unlock}+
+                          </span>
                         </div>
                       )}
                     </button>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
 
-export type VFXType = 'ice-shatter' | 'blast' | 'jump' | 'portal' | 'confetti'
+export type VFXType = 'ice-shatter' | 'blast' | 'jump' | 'portal' | 'confetti' | 'sparkle'
 
 interface VFXConfig {
   x: number
@@ -37,7 +37,8 @@ const COLORS = {
   blast: ['#ff4444', '#ff8800', '#ffcc00', '#444444'],
   jump: ['#44ff44', '#aaffaa', '#00ff88'],
   portal: ['#a020f0', '#ff00ff', '#5500aa', '#000000'],
-  confetti: ['#f0f0f0', '#ff4444', '#121416', '#accent-brand']
+  confetti: ['#f0f0f0', '#ff4444', '#121416', '#accent-brand'],
+  sparkle: ['#ffd700', '#ffec8b', '#fff8dc', '#daa520']
 }
 
 export const MagicVFX = forwardRef<MagicVFXHandle, { boardWidth: number }>(({}, ref) => {
@@ -147,8 +148,31 @@ export const MagicVFX = forwardRef<MagicVFXHandle, { boardWidth: number }>(({}, 
           })
         }
         break
+      case 'sparkle':
+        count = 25
+        typeColors = COLORS.sparkle
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const force = Math.random() * 8 + 3
+          newParticles.push({
+            x: config.x,
+            y: config.y,
+            size: Math.random() * 5 + 2,
+            color: typeColors[Math.floor(Math.random() * typeColors.length)],
+            vx: Math.cos(angle) * force,
+            vy: Math.sin(angle) * force - 3,
+            rotation: Math.random() * Math.PI * 2,
+            rotationSpeed: (Math.random() - 0.5) * 0.4,
+            alpha: 1,
+            decay: 0.04,
+            gravity: 0.08,
+            friction: 0.95,
+            shrink: 0.94
+          })
+        }
+        break
     }
-
+ 
     particlesRef.current = [...particlesRef.current, ...newParticles]
     
     if (!requestRef.current) {

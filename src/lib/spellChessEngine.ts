@@ -11,7 +11,8 @@ export const SPELL_CONFIGS = {
   shield: { cost: 2, cooldown: 2, unlock: 1 },
   freeze: { cost: 3, cooldown: 3, unlock: 5 },
   portal: { cost: 3, cooldown: 4, unlock: 5 },
-  blast: { cost: 4, cooldown: 5, unlock: 10 }
+  blast: { cost: 4, cooldown: 5, unlock: 10 },
+  berserk: { cost: 4, cooldown: 4, unlock: 8 }
 } as const
 
 export type SpellName = keyof typeof SPELL_CONFIGS
@@ -32,7 +33,7 @@ const MAX_MANA = 5
 const STARTING_MANA = 1
 
 function defaultCooldowns(): Record<string, number> {
-  return { freeze: 0, jump: 0, blast: 0, shield: 0, portal: 0 }
+  return { freeze: 0, jump: 0, blast: 0, shield: 0, portal: 0, berserk: 0 }
 }
 
 export class SpellChessEngine {
@@ -417,7 +418,7 @@ export class SpellChessEngine {
     const check = this.canCastSpell('jump')
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn || piece.type === 'n' || piece.type === 'k') return false;
+    if (!piece || piece.color !== this.turn || piece.type === 'n' || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
     this.spellState.jumpSquare = targetSquare;
     const config = SPELL_CONFIGS.jump
     if (this.turn === 'w') {
@@ -496,6 +497,23 @@ export class SpellChessEngine {
     } else {
       this.spellState.blackMana -= config.cost
       this.spellState.blackCooldowns.shield = config.cooldown
+    }
+    return true;
+  }
+
+  castBerserk(targetSquare: string, pieceType: PieceType): boolean {
+    const check = this.canCastSpell('berserk')
+    if (!check.ok) return false
+    const piece = this.getPiece(targetSquare);
+    if (!piece || piece.color !== this.turn || piece.type === 'k' || piece.type === pieceType || this.isFrozen(targetSquare)) return false;
+    piece.type = pieceType;
+    const config = SPELL_CONFIGS.berserk
+    if (this.turn === 'w') {
+      this.spellState.whiteMana -= config.cost
+      this.spellState.whiteCooldowns.berserk = config.cooldown
+    } else {
+      this.spellState.blackMana -= config.cost
+      this.spellState.blackCooldowns.berserk = config.cooldown
     }
     return true;
   }

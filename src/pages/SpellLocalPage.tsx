@@ -20,7 +20,8 @@ export default function SpellLocalPage() {
   const { 
     fen, turn, spellState, selectedSquare, legalMoves, lastMove, 
     isGameOver, winner, activeSpell, portalStart, halfMoveCount,
-    makeMove, selectSquare, castSpell, resetGame, hasCastSpellThisTurn
+    makeMove, selectSquare, castSpell, resetGame, hasCastSpellThisTurn,
+    berserkTarget, confirmBerserk
   } = useSpellGameStore()
   
   const engine = useSpellGameStore.getState().engine
@@ -84,7 +85,8 @@ export default function SpellLocalPage() {
       if (spell === 'freeze') vfxRef.current?.trigger({ ...center, type: 'ice-shatter' })
       if (spell === 'blast') vfxRef.current?.trigger({ ...center, type: 'blast' })
       if (spell === 'jump') vfxRef.current?.trigger({ ...center, type: 'jump' })
-      if (spell === 'shield') vfxRef.current?.trigger({ ...center, type: 'jump' }) 
+      if (spell === 'shield') vfxRef.current?.trigger({ ...center, type: 'jump' })
+      if (spell === 'berserk') vfxRef.current?.trigger({ ...center, type: 'sparkle' })
       if (spell === 'portal' && portalStart) {
         const start = getSquareCenter(portalStart)
         vfxRef.current?.trigger({ ...start, type: 'portal' })
@@ -118,6 +120,11 @@ export default function SpellLocalPage() {
     
     if (activeSpell) {
       if (activeSpell === 'portal' && !portalStart) {
+        selectSquare(square)
+        return
+      }
+      
+      if (activeSpell === 'berserk') {
         selectSquare(square)
         return
       }
@@ -230,7 +237,8 @@ export default function SpellLocalPage() {
     jump: 'jump.png',
     blast: 'bomb.png',
     shield: 'shield.png',
-    portal: 'portal.png'
+    portal: 'portal.png',
+    berserk: 'berserk.png'
   }
 
   return (
@@ -281,6 +289,7 @@ export default function SpellLocalPage() {
                        activeSpell === 'portal' ? 'Выберите выход портала' :
                        activeSpell === 'freeze' ? 'Выберите область 3x3' : 
                        activeSpell === 'blast' ? 'Выберите место для установки бомбы' :
+                       activeSpell === 'berserk' ? 'Выберите фигуру для превращения' :
                        'Выберите фигуру'}
                     </h2>
                   ) : hasCastSpellThisTurn ? (
@@ -324,6 +333,69 @@ export default function SpellLocalPage() {
                   bombs={activeBombs}
                 />
               )}
+
+              {berserkTarget && stableWidth && (() => {
+                const col = berserkTarget.charCodeAt(0) - 97
+                const rank = parseInt(berserkTarget[1])
+                const leftPct = col * 12.5
+                const isAtTop = rank === 8
+                const piece = engine.getPiece(berserkTarget)
+                const currentType = piece?.type
+                const types = (['q', 'r', 'b', 'n', 'p'] as const).filter(t => t !== currentType)
+                return (
+                  <div
+                    className="absolute inset-0 z-[100] cursor-default bg-black/10"
+                    onClick={() => useSpellGameStore.setState({ berserkTarget: null })}
+                  >
+                    <div 
+                      className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
+                      style={{
+                        left: `${leftPct}%`,
+                        top: isAtTop ? 0 : 'auto',
+                        bottom: isAtTop ? 'auto' : 0,
+                        width: '12.5%',
+                        height: `${types.length * 12.5}%`,
+                        backgroundColor: 'rgba(18, 20, 18, 0.96)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: 'var(--radius-14)',
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {types.map((t) => {
+                        const code = `${turn}${t.toUpperCase()}`
+                        return (
+                          <button
+                            key={t}
+                            onClick={() => {
+                              const center = getSquareCenter(berserkTarget)
+                              vfxRef.current?.trigger({ ...center, type: 'sparkle' })
+                              confirmBerserk(berserkTarget, t)
+                            }}
+                            className="flex-1 flex items-center justify-center transition-colors group"
+                            style={{
+                              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                              borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+                            }}
+                          >
+                            <img
+                              src={`${BASE}piece/${code}.svg`}
+                              alt={t}
+                              className="w-[60%] h-[60%] object-contain"
+                              draggable={false}
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
@@ -414,6 +486,7 @@ export default function SpellLocalPage() {
                 <RuleItem icon="bomb.png" title="Взрыв" text="Устанавливает бомбу-ловушку. Взрывается крестом (+), если на неё наступит любая фигура. Не трогает королей." />
                 <RuleItem icon="shield.png" title="Щит" text="Фигуру нельзя съесть в течение 1 хода." />
                 <RuleItem icon="portal.png" title="Портал" text="Вход и выход. Любая фигура мгновенно перемещается." />
+                <RuleItem icon="berserk.png" title="Берсерк" text="Превращает любую свою фигуру (кроме короля) в Q/R/B/N/P. Не работает на замороженных фигурах." />
               </div>
             </Card>
           </div>

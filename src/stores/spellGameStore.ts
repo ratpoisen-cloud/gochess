@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { SpellChessEngine, type SpellState } from '@/lib/spellChessEngine'
+import { SpellChessEngine, type SpellState, type PieceType } from '@/lib/spellChessEngine'
 import type { Color } from '@/types'
 import { soundManager } from '@/lib/soundManager'
 
@@ -12,15 +12,17 @@ interface SpellGameState {
   legalMoves: string[]
   isGameOver: boolean
   winner: Color | null
-  activeSpell: 'freeze' | 'jump' | 'blast' | 'shield' | 'portal' | null
+  activeSpell: 'freeze' | 'jump' | 'blast' | 'shield' | 'portal' | 'berserk' | null
   portalStart: string | null
   halfMoveCount: number
   lastMove: { from: string; to: string } | null
   hasCastSpellThisTurn: boolean
+  berserkTarget: string | null
 
   makeMove: (from: string, to: string) => boolean
   selectSquare: (square: string) => void
-  castSpell: (spell: 'freeze' | 'jump' | 'blast' | 'shield' | 'portal', square?: string) => void
+  castSpell: (spell: 'freeze' | 'jump' | 'blast' | 'shield' | 'portal' | 'berserk', square?: string) => void
+  confirmBerserk: (square: string, type: PieceType) => void
   resetGame: () => void
 }
 
@@ -40,6 +42,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
   halfMoveCount: 0,
   lastMove: null,
   hasCastSpellThisTurn: false,
+  berserkTarget: null,
 
   makeMove: (from, to) => {
     const { engine } = get()
@@ -77,6 +80,13 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
           castSpell('portal', square)
           return
         }
+      }
+      if (activeSpell === 'berserk') {
+        const piece = engine.getPiece(square)
+        if (piece && piece.color === engine.turn && piece.type !== 'k') {
+          set({ berserkTarget: square, activeSpell: null, selectedSquare: null, legalMoves: [] })
+        }
+        return
       }
       castSpell(activeSpell, square)
       return
@@ -139,6 +149,23 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
     }
   },
 
+  confirmBerserk: (square, type) => {
+    const { engine } = get()
+    const success = engine.castBerserk(square, type)
+    if (success) {
+      soundManager.play('move')
+      set({
+        spellState: { ...engine.spellState },
+        berserkTarget: null,
+        selectedSquare: null,
+        legalMoves: [],
+        halfMoveCount: engine.halfMoveCount,
+        fen: engine.fen(),
+        hasCastSpellThisTurn: true
+      })
+    }
+  },
+
   resetGame: () => {
     const engine = new SpellChessEngine()
     set({
@@ -154,7 +181,8 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       portalStart: null,
       halfMoveCount: 0,
       lastMove: null,
-      hasCastSpellThisTurn: false
+      hasCastSpellThisTurn: false,
+      berserkTarget: null
     })
   }
 }))

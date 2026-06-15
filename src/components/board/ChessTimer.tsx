@@ -34,19 +34,19 @@ export default function ChessTimer({
       const now = Date.now()
       const delta = now - lastTickRef.current
       lastTickRef.current = now
-      
-      setLocalTime(prev => {
-        const next = Math.max(0, prev - delta)
-        if (next === 0 && !hasTimedOut.current) {
-          hasTimedOut.current = true
-          onTimeout?.()
-        }
-        return next
-      })
+      setLocalTime(prev => Math.max(0, prev - delta))
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isActive, localTime, onTimeout])
+  }, [isActive, localTime])
+
+  // Fire onTimeout when timer hits zero
+  useEffect(() => {
+    if (localTime === 0 && isActive && !hasTimedOut.current) {
+      hasTimedOut.current = true
+      onTimeout?.()
+    }
+  }, [localTime, isActive, onTimeout])
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000)

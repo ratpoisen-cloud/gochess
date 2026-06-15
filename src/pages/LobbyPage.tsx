@@ -16,6 +16,13 @@ import Footer from '@/components/Footer'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
+const modeNames: Record<string, string> = {
+  classic: 'Классику',
+  fog_of_war: 'Туман войны',
+  rapid: 'Рапид',
+  spell_chess: 'Магию'
+}
+
 interface HubTileProps {
   to: string
   icon: string
@@ -407,7 +414,7 @@ export default function LobbyPage() {
                {incomingChallenges[0].fromName}
              </div>
              <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-6">
-               Приглашает вас в {incomingChallenges[0].mode === 'classic' ? 'Классику' : 'Туман войны'}
+                Приглашает вас в {modeNames[incomingChallenges[0].mode] || 'игру'}
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <Button variant="primary" onClick={() => handleAcceptChallenge(incomingChallenges[0])}>Принять</Button>

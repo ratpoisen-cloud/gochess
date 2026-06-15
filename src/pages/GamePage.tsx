@@ -104,6 +104,7 @@ export default function GamePage() {
   const gameRef = useRef(game)
   const lastPgnRef = useRef('')
   const opponentJoinedRef = useRef(false)
+  const localMoveRef = useRef(false)
 
   const getCheckSquare = (g: Chess): string | null => {
     if (!g.inCheck()) return null
@@ -392,8 +393,12 @@ export default function GamePage() {
           g.loadPgn(newData.pgn)
           updateGameState(g)
           lastPgnRef.current = g.pgn()
-          soundManager.play('move')
-          useReactionStore.getState().resetMoveCounter()
+
+          if (!localMoveRef.current) {
+            soundManager.play('move')
+            useReactionStore.getState().resetMoveCounter()
+          }
+          localMoveRef.current = false
 
           if (newData.game_mode === 'fog_of_war' && myColor) {
             setVisibleSquares(getVisibleSquares(g, myColor))
@@ -533,6 +538,7 @@ export default function GamePage() {
       }
 
       try {
+        localMoveRef.current = true
         await updateDoc(doc(db, 'games', gameDocId), updateData)
         useReactionStore.getState().resetMoveCounter()
         
@@ -543,6 +549,7 @@ export default function GamePage() {
         }
       } catch (err) {
         console.error('[Game] Move sync failed:', err)
+        localMoveRef.current = false
         // Rollback on failure
         const rollback = new Chess()
         if (prevPgn) rollback.loadPgn(prevPgn)

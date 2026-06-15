@@ -16,6 +16,7 @@ interface SpellGameState {
   portalStart: string | null
   halfMoveCount: number
   lastMove: { from: string; to: string } | null
+  hasCastSpellThisTurn: boolean
 
   makeMove: (from: string, to: string) => boolean
   selectSquare: (square: string) => void
@@ -38,6 +39,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
   portalStart: null,
   halfMoveCount: 0,
   lastMove: null,
+  hasCastSpellThisTurn: false,
 
   makeMove: (from, to) => {
     const { engine } = get()
@@ -56,7 +58,8 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         lastMove: { from, to },
         activeSpell: null,
         portalStart: null,
-        halfMoveCount: engine.halfMoveCount
+        halfMoveCount: engine.halfMoveCount,
+        hasCastSpellThisTurn: false
       })
     }
     return success
@@ -103,12 +106,14 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
   },
 
   castSpell: (spell, square) => {
-    const { engine, activeSpell, portalStart } = get()
+    const { engine, activeSpell, portalStart, hasCastSpellThisTurn } = get()
     
     if (!square) {
       set({ activeSpell: activeSpell === spell ? null : spell, portalStart: null })
       return
     }
+
+    if (hasCastSpellThisTurn) return
 
     let success = false
     if (spell === 'freeze') success = engine.castFreeze(square)
@@ -126,7 +131,8 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         selectedSquare: null,
         legalMoves: [],
         halfMoveCount: engine.halfMoveCount,
-        fen: engine.fen()
+        fen: engine.fen(),
+        hasCastSpellThisTurn: true
       })
     } else {
       set({ activeSpell: null, portalStart: null })
@@ -147,7 +153,8 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       activeSpell: null,
       portalStart: null,
       halfMoveCount: 0,
-      lastMove: null
+      lastMove: null,
+      hasCastSpellThisTurn: false
     })
   }
 }))

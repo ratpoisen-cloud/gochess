@@ -34,6 +34,7 @@
   --danger-soft: #250d0e;
   --danger-border: #3d1516;
   --success: #e8e8d8; /* Milky White */
+  --warning: #ffaa44;
   --text: #e8e8d8; /* Milky White from Logo */
   --text-secondary: #b4b4a4;
   --border: rgba(232, 232, 216, 0.12);
@@ -260,11 +261,6 @@ option {
   box-shadow: inset 0 0 0 4px var(--board-check-outline), 0 0 16px var(--board-check-glow) !important;
   border-radius: 4px;
   z-index: 3;
-}
-
-/* Hide cursor during drag — piece follows cursor directly */
-.board-container:active {
-  cursor: none !important;
 }
 
 @keyframes move-indicator-in {

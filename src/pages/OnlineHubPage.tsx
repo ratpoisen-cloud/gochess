@@ -14,9 +14,15 @@ import Footer from '@/components/Footer'
 import Modal from '@/components/Modal'
 import ColorPickerModal from '@/components/ColorPickerModal'
 import BoardPreview from '@/components/board/BoardPreview'
-import FogRulesModal from '@/components/FogRulesModal'
 
 const BASE = import.meta.env.BASE_URL || '/'
+
+const modeNames: Record<string, string> = {
+  classic: 'Классику',
+  fog_of_war: 'Туман войны',
+  rapid: 'Рапид',
+  spell_chess: 'Магию'
+}
 
 export default function OnlineHubPage() {
   const { user } = useAuth()
@@ -27,7 +33,6 @@ export default function OnlineHubPage() {
 
   const [gameMode, setGameMode] = useState<GameMode>('classic')
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
-  const [isRulesOpen, setIsRulesOpen] = useState(false)
   const [recentGames, setRecentGames] = useState<any[]>([])
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all')
   const [recentPlayers, setRecentPlayers] = useState<AppUser[]>([])
@@ -346,7 +351,7 @@ export default function OnlineHubPage() {
                {incomingChallenges[0].fromName}
              </div>
              <div className="text-[10px] text-text-secondary uppercase tracking-widest mb-6">
-               Приглашает вас в {incomingChallenges[0].mode === 'classic' ? 'Классику' : 'Туман войны'}
+                Приглашает вас в {modeNames[incomingChallenges[0].mode] || 'игру'}
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <Button variant="primary" onClick={() => handleAcceptChallenge(incomingChallenges[0])}>Принять</Button>
@@ -361,10 +366,6 @@ export default function OnlineHubPage() {
         onClose={() => setIsColorPickerOpen(false)} 
         gameMode={gameMode}
         recentPlayers={recentPlayers}
-      />
-      <FogRulesModal 
-        isOpen={isRulesOpen} 
-        onClose={() => setIsRulesOpen(false)} 
       />
       <Footer />
     </div>

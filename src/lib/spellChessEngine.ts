@@ -100,6 +100,64 @@ export class SpellChessEngine {
     return expiry !== undefined && expiry > this.halfMoveCount;
   }
 
+  getKingSquare(color: Color): string | null {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = this.board[r][c];
+        if (p?.type === 'k' && p.color === color) {
+          return this.idxToSq(r, c);
+        }
+      }
+    }
+    return null;
+  }
+
+  isSquareAttacked(square: string, attackerColor: Color): boolean {
+    const { r: tr, c: tc } = this.sqToIdx(square);
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = this.board[r][c];
+        if (!p || p.color !== attackerColor) continue;
+
+        const dr = tr - r;
+        const dc = tc - c;
+        const adr = Math.abs(dr);
+        const adc = Math.abs(dc);
+
+        switch (p.type) {
+          case 'p': {
+            const dir = attackerColor === 'w' ? -1 : 1;
+            if (dr === dir && adc === 1) return true;
+            break;
+          }
+          case 'n': {
+            if ((adr === 2 && adc === 1) || (adr === 1 && adc === 2)) return true;
+            break;
+          }
+          case 'b': {
+            if (adr === adc && adr > 0 && this.isClearDiagonal(r, c, tr, tc)) return true;
+            break;
+          }
+          case 'r': {
+            if ((dr === 0 || dc === 0) && (dr !== 0 || dc !== 0) && this.isClearStraight(r, c, tr, tc)) return true;
+            break;
+          }
+          case 'q': {
+            if (adr === adc && adr > 0 && this.isClearDiagonal(r, c, tr, tc)) return true;
+            if ((dr === 0 || dc === 0) && (dr !== 0 || dc !== 0) && this.isClearStraight(r, c, tr, tc)) return true;
+            break;
+          }
+          case 'k': {
+            if (adr <= 1 && adc <= 1 && (dr !== 0 || dc !== 0)) return true;
+            break;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   getLegalMoves(square: string): string[] {
     const piece = this.getPiece(square);
     if (!piece || piece.color !== this.turn || this.isFrozen(square)) return [];
@@ -226,6 +284,32 @@ export class SpellChessEngine {
     return moves;
   }
 
+  private isClearDiagonal(r1: number, c1: number, r2: number, c2: number): boolean {
+    const dr = r2 > r1 ? 1 : -1;
+    const dc = c2 > c1 ? 1 : -1;
+    let r = r1 + dr, c = c1 + dc;
+    while (r !== r2) {
+      if (this.board[r][c]) return false;
+      r += dr; c += dc;
+    }
+    return true;
+  }
+
+  private isClearStraight(r1: number, c1: number, r2: number, c2: number): boolean {
+    if (r1 === r2) {
+      const step = c2 > c1 ? 1 : -1;
+      for (let c = c1 + step; c !== c2; c += step) {
+        if (this.board[r1][c]) return false;
+      }
+    } else {
+      const step = r2 > r1 ? 1 : -1;
+      for (let r = r1 + step; r !== r2; r += step) {
+        if (this.board[r][c1]) return false;
+      }
+    }
+    return true;
+  }
+
   move(from: string, to: string): boolean {
     const legal = this.getLegalMoves(from);
     if (!legal.includes(to)) return false;
@@ -244,9 +328,10 @@ export class SpellChessEngine {
         this.board[pr][pc] = piece;
         this.board[tr][tc] = null;
       }
+      this.spellState.portals = null;
     }
 
-    if (this.spellState.jumpSquare === from) this.spellState.jumpSquare = null;
+    this.spellState.jumpSquare = null;
 
     this.turn = this.turn === 'w' ? 'b' : 'w';
     this.halfMoveCount++;
@@ -264,7 +349,7 @@ export class SpellChessEngine {
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
         const tr = r + dr, tc = c + dc;
-        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 2;
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 3;
       }
     }
     spells.freeze.charges--; spells.freeze.cooldown = 3;
@@ -289,7 +374,9 @@ export class SpellChessEngine {
       const tr = r + dr, tc = c + dc;
       if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
         const p = this.board[tr][tc];
-        if (p && p.type !== 'k') this.board[tr][tc] = null;
+        const sqName = this.idxToSq(tr, tc);
+        const isShielded = this.spellState.shieldedSquares[sqName] > this.halfMoveCount;
+        if (p && p.type !== 'k' && !isShielded) this.board[tr][tc] = null;
       }
     });
     spells.blast.charges--; spells.blast.cooldown = 5;

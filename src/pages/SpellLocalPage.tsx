@@ -19,8 +19,16 @@ export default function SpellLocalPage() {
   const { 
     fen, turn, spellState, selectedSquare, legalMoves, lastMove, 
     isGameOver, winner, activeSpell, portalStart, halfMoveCount,
-    makeMove, selectSquare, castSpell, resetGame 
+    makeMove, selectSquare, castSpell, resetGame, hasCastSpellThisTurn
   } = useSpellGameStore()
+  
+  const engine = useSpellGameStore.getState().engine
+  const kingSquare = turn ? engine.getKingSquare(turn) : null
+  const checkSquare = useMemo(() => {
+    if (!kingSquare) return null
+    const opponentColor = turn === 'w' ? 'b' : 'w'
+    return engine.isSquareAttacked(kingSquare, opponentColor) ? kingSquare : null
+  }, [fen, turn])
   
   const [initialized, setInitialized] = useState(false)
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
@@ -245,7 +253,7 @@ export default function SpellLocalPage() {
                     Победа {winner === 'w' ? 'белых' : 'чёрных'}!
                   </h2>
                 ) : (
-                  activeSpell && (
+                  activeSpell ? (
                     <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse text-center leading-tight">
                       {pendingTarget ? 'Нажмите ещё раз для подтверждения' : 
                        activeSpell === 'portal' && !portalStart ? 'Выберите вход портала' : 
@@ -254,7 +262,11 @@ export default function SpellLocalPage() {
                        activeSpell === 'blast' ? 'Выберите центр взрыва (+)' :
                        'Выберите фигуру'}
                     </h2>
-                  )
+                  ) : hasCastSpellThisTurn ? (
+                    <h2 className="text-[10px] font-bold text-[var(--danger)] uppercase tracking-[0.2em] text-center leading-tight">
+                      Магия уже использована в этот ход
+                    </h2>
+                  ) : null
                 )}
               </div>
 
@@ -276,7 +288,7 @@ export default function SpellLocalPage() {
                 <ChessBoard
                   position={fen}
                   lastMove={lastMove}
-                  checkSquare={null}
+                  checkSquare={checkSquare}
                   selectedSquare={selectedSquare}
                   legalMoves={legalMoves}
                   onDrop={onDrop}
@@ -311,7 +323,7 @@ export default function SpellLocalPage() {
                     <button
                       key={spell}
                       onClick={() => castSpell(spell)}
-                      disabled={isGameOver || s.charges <= 0 || s.cooldown > 0}
+                      disabled={isGameOver || hasCastSpellThisTurn || s.charges <= 0 || s.cooldown > 0}
                       className={`relative p-2 rounded-[var(--radius-4)] border transition-all flex flex-col items-center justify-center gap-1 group ${
                         isActive 
                           ? 'bg-[var(--accent-brand)] border-[var(--accent-brand)] text-bg shadow-[0_0_10px_rgba(126,184,126,0.3)]' 

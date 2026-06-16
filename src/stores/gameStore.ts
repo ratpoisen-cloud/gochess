@@ -7,7 +7,7 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, updateDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuthStore } from './authStore'
 
-const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 interface GameState {
   game: Chess

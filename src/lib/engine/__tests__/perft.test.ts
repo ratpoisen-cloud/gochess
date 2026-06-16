@@ -22,29 +22,26 @@ describe('PoisenChessEngine Perft', () => {
     expect(perft(e, 4)).toBe(197281)
   }, 60000)
 
-  // Note: Positions 2-4 have <0.3% discrepancy at depth 3+ vs chess.js reference.
-  // Likely due to edge cases in non-start positions — start position (Pos 1)
-  // and promotion-heavy position (Pos 5) pass perfectly at all depths.
   it('Position 2 — Kiwipete', () => {
     const e = new PoisenChessEngine('r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1')
     expect(perft(e, 1)).toBe(48)
-    expect(perft(e, 2)).toBe(2042)
-    expect(perft(e, 3)).toBe(98150)
+    expect(perft(e, 2)).toBe(2039)
+    expect(perft(e, 3)).toBe(97862)
   }, 120000)
 
   it('Position 3 — Promotion + en-passant', () => {
     const e = new PoisenChessEngine('8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1')
     expect(perft(e, 1)).toBe(14)
     expect(perft(e, 2)).toBe(191)
-    expect(perft(e, 3)).toBe(2818)
-    expect(perft(e, 4)).toBe(43691)
+    expect(perft(e, 3)).toBe(2812)
+    expect(perft(e, 4)).toBe(43238)
   }, 120000)
 
   it('Position 4 — Castling + en-passant complex', () => {
     const e = new PoisenChessEngine('r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1')
     expect(perft(e, 1)).toBe(6)
     expect(perft(e, 2)).toBe(264)
-    expect(perft(e, 3)).toBe(9479)
+    expect(perft(e, 3)).toBe(9467)
   }, 120000)
 
   it('Position 5 — Many promotions', () => {

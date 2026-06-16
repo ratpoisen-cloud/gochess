@@ -492,7 +492,7 @@ export class PoisenChessEngine {
         const testHalf = this.halfMoveClock
         const testFull = this.fullMoveNumber
 
-        if (m.flags.includes('p')) {
+        if (m.flags === 'p' || m.flags === 'pc') {
           for (const promo of ['q', 'r', 'b', 'n']) {
             const saveBoard = this._board.map(row => [...row])
             const saveTurn = this._turn
@@ -699,11 +699,18 @@ export class PoisenChessEngine {
           this._board[epR][tc] = null
         }
 
-        if (!this.inCheck(piece.color)) {
-          this._board = saveBoard; this._turn = saveTurn
-          this.castlingRights = saveCastle; this.epSquare = saveEp
-          this.halfMoveClock = saveHalf; this.fullMoveNumber = saveFull
-          return true
+        // Try each promotion if applicable
+        const promoPieces = (m.flags === 'p' || m.flags === 'pc') ? ['q', 'r', 'b', 'n'] : [null]
+        for (const promo of promoPieces) {
+          if (promo) {
+            this._board[tr][tc] = { type: promo as PieceType, color: piece.color }
+          }
+          if (!this.inCheck(piece.color)) {
+            this._board = saveBoard; this._turn = saveTurn
+            this.castlingRights = saveCastle; this.epSquare = saveEp
+            this.halfMoveClock = saveHalf; this.fullMoveNumber = saveFull
+            return true
+          }
         }
 
         this._board = saveBoard; this._turn = saveTurn

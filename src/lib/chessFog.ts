@@ -1,4 +1,4 @@
-import { Chess } from 'chess.js'
+import type { Chess } from '@/lib/engine'
 
 /**
  * Calculates which squares are visible to a player.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Chess, type Move } from 'chess.js'
+import { Chess, type Move } from '@/lib/engine'
 import { db } from '@/lib/firebase'
 import { 
   doc, 

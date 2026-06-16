@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useCallback } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
 import { useReactionStore } from '@/stores/reactionStore'
-import type { Chess } from 'chess.js'
+import type { Chess } from '@/lib/engine'
 
 interface ChessBoardProps {
   game?: Chess | any

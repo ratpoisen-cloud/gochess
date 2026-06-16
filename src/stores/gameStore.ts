@@ -7,8 +7,11 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, updateDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { useAuthStore } from './authStore'
 
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
 interface GameState {
   game: Chess
+  fen: string
   status: GameStatus
   currentTurn: Color
   selectedSquare: string | null
@@ -68,6 +71,7 @@ export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       game: new Chess(),
+      fen: START_FEN,
       status: 'playing',
       currentTurn: 'w',
       selectedSquare: null,
@@ -83,6 +87,7 @@ export const useGameStore = create<GameState>()(
       initGame: () => {
         set({
           game: new Chess(),
+          fen: START_FEN,
           status: 'playing',
           currentTurn: 'w',
           selectedSquare: null,
@@ -118,6 +123,7 @@ export const useGameStore = create<GameState>()(
           }
 
           set({
+            fen: game.fen(),
             status: game.isCheckmate() ? 'checkmate'
               : game.isStalemate() ? 'stalemate'
               : game.isDraw() ? 'draw'
@@ -179,6 +185,7 @@ export const useGameStore = create<GameState>()(
         const { game } = get()
         game.undo()
         set({
+          fen: game.fen(),
           status: game.inCheck() ? 'check' : 'playing',
           currentTurn: game.turn() as Color,
           moveHistory: game.history(),
@@ -265,6 +272,7 @@ export const useGameStore = create<GameState>()(
 
           set({
             game: chess,
+            fen: chess.fen(),
             status: chess.isCheckmate() ? 'checkmate'
               : chess.isStalemate() ? 'stalemate'
               : chess.isDraw() ? 'draw'
@@ -366,16 +374,8 @@ export const useGameStore = create<GameState>()(
           if (!str) return null
           try {
             const data = JSON.parse(str)
-            const chess = new Chess()
-            if (data.state.moveHistory && Array.isArray(data.state.moveHistory)) {
-              for (const m of data.state.moveHistory) {
-                try {
-                  chess.move(m)
-                } catch {
-                  break
-                }
-              }
-            }
+            const fen = data.state?.fen || START_FEN
+            const chess = new Chess(fen)
             return {
               ...data,
               state: {

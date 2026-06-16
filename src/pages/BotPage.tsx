@@ -26,7 +26,7 @@ export default function BotPage() {
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
-    resetGame, saveGame, playerColor, setPlayerColor,
+    undoMove, resetGame, saveGame, playerColor, setPlayerColor,
     createBotGameDoc, updateBotGameDoc, botGameDocId, loadBotGameFromFirestore 
   } = useGameStore()
   
@@ -456,6 +456,11 @@ export default function BotPage() {
                   ))
                 )}
               </div>
+              {moveHistory.length > 0 && (
+                <Button variant="outline" size="sm" onClick={() => undoMove(true)} fullWidth className="mt-[var(--space-12)]">
+                  Отмена хода
+                </Button>
+              )}
             </Card>
           </div>
         </div>

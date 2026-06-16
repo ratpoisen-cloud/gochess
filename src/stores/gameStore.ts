@@ -181,9 +181,14 @@ export const useGameStore = create<GameState>()(
         }
       },
 
-      undoMove: () => {
+      undoMove: (takeback?: boolean) => {
         const { game } = get()
-        game.undo()
+        if (takeback && game.history().length >= 2) {
+          game.undo()
+          game.undo()
+        } else {
+          game.undo()
+        }
         set({
           fen: game.fen(),
           status: game.inCheck() ? 'check' : 'playing',

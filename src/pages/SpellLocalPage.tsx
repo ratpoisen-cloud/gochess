@@ -86,7 +86,7 @@ export default function SpellLocalPage() {
       const center = getSquareCenter(square)
       if (spell === 'freeze') vfxRef.current?.trigger({ ...center, type: 'ice-shatter' })
       if (spell === 'jump') vfxRef.current?.trigger({ ...center, type: 'jump' })
-      if (spell === 'shield') vfxRef.current?.trigger({ ...center, type: 'jump' })
+      if (spell === 'shield') vfxRef.current?.trigger({ ...center, type: 'shield' })
       if (spell === 'berserk') vfxRef.current?.trigger({ ...center, type: 'sparkle' })
       if (spell === 'portal' && portalStart) {
         const start = getSquareCenter(portalStart)
@@ -345,7 +345,7 @@ export default function SpellLocalPage() {
                 const types = (['q', 'r', 'b', 'n', 'p'] as const).filter(t => t !== currentType)
                 return (
                   <div
-                    className="absolute inset-0 z-[100] cursor-default bg-black/10"
+                    className="absolute inset-0 z-[10001] cursor-default bg-black/10"
                     onClick={() => useSpellGameStore.setState({ berserkTarget: null })}
                   >
                     <div 

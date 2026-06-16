@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Chess, type Move } from 'chess.js'
+import { Chess, type Move } from '@/lib/engine'
 import type { GameStatus, Color } from '@/types'
 import { soundManager } from '@/lib/soundManager'
 import { db } from '@/lib/firebase'

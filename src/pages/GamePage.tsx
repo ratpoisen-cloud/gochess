@@ -1,28 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Chess, type Move } from 'chess.js'
+import { type Move } from 'chess.js'
 import { db } from '@/lib/firebase'
-import { 
-  doc, 
-  onSnapshot, 
-  updateDoc, 
-  query, 
-  collection, 
-  where, 
-  getDocs, 
-  getDoc, 
-  limit, 
-  runTransaction,
-  serverTimestamp
-} from 'firebase/firestore'
+import { doc, updateDoc, runTransaction } from 'firebase/firestore'
 import LoadingScreen from '@/components/LoadingScreen'
 import { useAuth } from '@/hooks/useAuth'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
+import { useGameSync } from '@/hooks/useGameSync'
 import { useReactionStore, type Reaction } from '@/stores/reactionStore'
 import { useBoardStore } from '@/stores/boardStore'
-import { getKingSquare } from '@/stores/gameStore'
-import { getVisibleSquares } from '@/lib/chessFog'
-import { soundManager } from '@/lib/soundManager'
 import ChessBoard from '@/components/board/ChessBoard'
 import ChessTimer from '@/components/board/ChessTimer'
 import Button from '@/components/Button'
@@ -36,13 +22,8 @@ import Footer from '@/components/Footer'
 import AuthModal from '@/components/AuthModal'
 import PixelConfetti from '@/components/PixelConfetti'
 import FogRulesModal from '@/components/FogRulesModal'
-import type { GameStatus, GameData, GameMode } from '@/types'
 
 const BASE = import.meta.env.BASE_URL || '/'
-
-function generateId(): string {
-  return Math.random().toString(36).slice(2, 10)
-}
 
 export default function GamePage() {
   const { user, isLoading: authLoading } = useAuth()
@@ -50,76 +31,59 @@ export default function GamePage() {
   const { getPieceUrl, getTheme } = useBoardStore()
   const { roomCode } = useParams<{ roomCode: string }>()
 
-  // Game Core State
-  const [game, setGame] = useState(new Chess())
-  const [status, setStatus] = useState<GameStatus>('playing')
+  const sync = useGameSync(roomCode, user, authLoading)
+
+  // UI-only state
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null)
   const [legalMoves, setLegalMoves] = useState<string[]>([])
-  const [moveHistory, setMoveHistory] = useState<string[]>([])
-  const [lastMove, setLastMove] = useState<{ from: string; to: string } | null>(null)
-  const [checkSquare, setCheckSquare] = useState<string | null>(null)
-  const [isMyTurn, setIsMyTurn] = useState(false)
-  const [playerColor, setPlayerColor] = useState<'w' | 'b' | null>(null)
-  const [opponentName, setOpponentName] = useState('')
-  const [gameDocId, setGameDocId] = useState<string | null>(null)
-  
-  // UI State
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [isRulesOpen, setIsRulesOpen] = useState(false)
-  const [gameOver, setGameOver] = useState(false)
-  const [resultText, setResultText] = useState('')
-  const [winnerColor, setWinnerColor] = useState<'w' | 'b' | null>(null)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
-  const [opponentJoined, setOpponentJoined] = useState(false)
-  const [gameMode, setGameMode] = useState<GameMode>('classic')
-  const [visibleSquares, setVisibleSquares] = useState<string[] | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
-  
-  // Rapid Mode States
-  const [whiteTimeLeft, setWhiteTimeLeft] = useState<number | null>(null)
-  const [blackTimeLeft, setBlackTimeLeft] = useState<number | null>(null)
-  const [lastTimerUpdate, setLastTimerUpdate] = useState<number | null>(null)
-  const [timerStatus, setTimerStatus] = useState<'active' | 'paused' | null>(null)
-  const [timeControl, setTimeControl] = useState<GameData['time_control']>(null)
-  
-  const { addToast } = useToast()
   const [showResignConfirm, setShowResignConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
   const [pgnCopied, setPgnCopied] = useState(false)
-  const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
-  const [isRematchProposed, setIsRematchProposed] = useState(false)
-  const [rematchGameId, setRematchGameId] = useState<string | null>(null)
 
-  const [undoRequest, setUndoRequest] = useState<GameData['undo_request']>(null)
-  const [drawRequest, setDrawRequest] = useState<GameData['draw_request']>(null)
-  
-  const addReaction = useReactionStore((s) => s.addReaction)
+  const {
+    game,
+    status,
+    moveHistory,
+    lastMove,
+    checkSquare,
+    isMyTurn,
+    playerColor,
+    opponentName,
+    opponentJoined,
+    gameMode,
+    visibleSquares,
+    loading,
+    error,
+    gameOver,
+    resultText,
+    winnerColor,
+    endGameState,
+    gameDocId,
+    whiteTimeLeft,
+    blackTimeLeft,
+    timerStatus,
+    timeControl,
+    undoRequest,
+    drawRequest,
+    rematchGameId,
+    isRematchProposed,
+    makeMove,
+    handleResign,
+    handleRematch,
+    handleAcceptUndo,
+    handleRejectUndo,
+    handleAcceptDraw,
+  } = sync
 
+  const { addToast } = useToast()
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
-  const gameRef = useRef(game)
-  const lastPgnRef = useRef('')
-  const opponentJoinedRef = useRef(false)
-  const localMoveRef = useRef(false)
-
-  const getCheckSquare = (g: Chess): string | null => {
-    if (!g.inCheck()) return null
-    const turn = g.turn()
-    const board = g.board()
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const piece = board[r][c]
-        if (piece && piece.type === 'k' && piece.color === turn) {
-          return `${'abcdefgh'[c]}${8 - r}`
-        }
-      }
-    }
-    return null
-  }
 
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = game.get(from as any)
@@ -129,452 +93,14 @@ export default function GamePage() {
     return false
   }
 
-  const updateGameState = useCallback((g: Chess) => {
-    setGame(g)
-    gameRef.current = g
-    setStatus(
-      g.isCheckmate() ? 'checkmate'
-        : g.isStalemate() ? 'stalemate'
-        : g.isDraw() ? 'draw'
-        : g.inCheck() ? 'check'
-        : 'playing'
-    )
-    const newHistory = g.history({ verbose: true }) as { from: string; to: string }[]
-    setMoveHistory(g.history())
-    setLastMove(newHistory.length > 0 ? { from: newHistory[newHistory.length - 1].from, to: newHistory[newHistory.length - 1].to } : null)
-    setCheckSquare(getCheckSquare(g))
-    setSelectedSquare(null)
-    setLegalMoves([])
-  }, [])
-
-  const parseResult = (data: GameData) => {
-    if (data.game_state !== 'game_over') return ''
-    if (data.message === 'timeout') {
-      return `Время вышло! ${data.winner === 'white' ? 'Белые' : 'Чёрные'} победили`
-    }
-    return data.message === 'resign'
-      ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
-      : data.message === 'draw' ? 'Ничья'
-      : data.winner === 'white' ? 'Белые победили'
-      : data.winner === 'black' ? 'Чёрные победили'
-      : 'Игра окончена'
-  }
-
-  // 1. Initial Document Lookup & Room Joining
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) {
-      setLoading(false)
-      setIsAuthModalOpen(true)
-      return
-    }
-    if (!roomCode) return
-
-    let cancelled = false
-
-    const initRoom = async () => {
-      try {
-        console.log('[Game] Resolving room:', roomCode)
-        
-        // 1. Try fetching directly by Document ID first
-        const docRef = doc(db, 'games', roomCode)
-        const docSnap = await getDoc(docRef)
-        
-        let gameDoc = null
-        let data = null
-
-        if (docSnap.exists()) {
-          gameDoc = docSnap
-          data = docSnap.data() as GameData
-        } else {
-          // 2. Fallback to searching by room_code field
-          const q = query(collection(db, 'games'), where('room_code', '==', roomCode), limit(1))
-          const snapshot = await getDocs(q)
-          if (!snapshot.empty) {
-            gameDoc = snapshot.docs[0]
-            data = gameDoc.data() as GameData
-          }
-        }
-        
-        if (!gameDoc || !data) {
-          console.warn('[Game] Room not found')
-          if (!cancelled) {
-            setError('Комната не найдена')
-            setLoading(false)
-          }
-          return
-        }
-
-        // Handle Join Transaction if necessary
-        if (!data.white_player_id && data.black_player_id !== user.uid) {
-           await runTransaction(db, async (transaction) => {
-             const freshDoc = await transaction.get(gameDoc.ref)
-             const freshData = freshDoc.data()
-             if (!freshData) return
-             if (!freshData.white_player_id && freshData.black_player_id !== user.uid) {
-               transaction.update(gameDoc.ref, {
-                 white_player_id: user.uid,
-                 white_name: user.displayName || 'Игрок',
-               })
-             }
-           })
-        } else if (!data.black_player_id && data.white_player_id !== user.uid) {
-           await runTransaction(db, async (transaction) => {
-             const freshDoc = await transaction.get(gameDoc.ref)
-             const freshData = freshDoc.data()
-             if (!freshData) return
-             if (!freshData.black_player_id && freshData.white_player_id !== user.uid) {
-               transaction.update(gameDoc.ref, {
-                 black_player_id: user.uid,
-                 black_name: user.displayName || 'Игрок',
-               })
-             }
-           })
-        } else if (data.white_player_id !== user.uid && data.black_player_id !== user.uid) {
-           console.warn('[Game] Room is full')
-           if (!cancelled) {
-             setError('Комната уже заполнена')
-             setLoading(false)
-           }
-           return
-        }
-
-        if (cancelled) return
-        console.log('[Game] Room resolved, setting doc ID:', gameDoc.id)
-        setGameDocId(gameDoc.id)
-      } catch (err: any) {
-        console.error('[Game] Initialization error:', err)
-        if (!cancelled) {
-          setError('Ошибка входа в комнату')
-          setLoading(false)
-        }
-      }
-    }
-
-    initRoom()
-    return () => { cancelled = true }
-  }, [roomCode, user, authLoading])
-
-  // 2. Realtime Listener & State Synchronization
-  useEffect(() => {
-    if (!gameDocId || !user) return
-
-    console.log('[Game] Starting listener for:', gameDocId)
-    const unsubscribe = onSnapshot(doc(db, 'games', gameDocId), (snapshot) => {
-      const newData = snapshot.data() as GameData
-      if (!newData) {
-        console.warn('[Game] Snapshot is empty')
-        return
-      }
-
-      console.log('[Firestore] Update received')
-
-      // Determine local identity
-      let myColor: 'w' | 'b' | null = null
-      let opponent: string = ''
-      let joined: boolean = false
-
-      if (newData.white_player_id === user.uid) {
-        myColor = 'w'
-        opponent = newData.black_name || ''
-        joined = !!newData.black_player_id
-      } else if (newData.black_player_id === user.uid) {
-        myColor = 'b'
-        opponent = newData.white_name || ''
-        joined = !!newData.white_player_id
-      }
-
-      setPlayerColor(myColor)
-      setOpponentName(opponent)
-      setOpponentJoined(joined)
-      setGameMode(newData.game_mode || 'classic')
-      opponentJoinedRef.current = joined
-
-      // Rapid Sync
-      if (newData.time_control) {
-        setTimeControl(newData.time_control)
-        setWhiteTimeLeft(newData.white_time_left || null)
-        setBlackTimeLeft(newData.black_time_left || null)
-        setLastTimerUpdate(newData.last_timer_update || null)
-        setTimerStatus(newData.timer_status || null)
-
-        // Local Timeout Detection (Claim victory)
-        if (newData.game_state !== 'game_over' && newData.timer_status === 'active' && newData.last_timer_update) {
-          const now = Date.now()
-          const elapsed = now - newData.last_timer_update
-          const turn = newData.turn
-          const timeLeft = turn === 'w' ? newData.white_time_left : newData.black_time_left
-          
-          if (timeLeft !== null && timeLeft !== undefined && (timeLeft - elapsed) <= -1000) {
-            // Claim victory if opponent's time is out (give 1s grace)
-            if (turn !== myColor) {
-               console.log('[Rapid] Claiming timeout victory')
-               updateDoc(doc(db, 'games', gameDocId), {
-                 game_state: 'game_over',
-                 winner: myColor === 'w' ? 'white' : 'black',
-                 message: 'timeout'
-               })
-            }
-          }
-        }
-      }
-
-      // Game Over logic
-      if (newData.game_state === 'game_over') {
-        if (!gameOver) {
-          setGameOver(true)
-          setResultText(parseResult(newData))
-          setWinnerColor(null)
-          if (newData.game_mode !== 'fog_of_war') {
-            soundManager.play('checkmate')
-          }
-
-          // Calculate End Game King Effects
-          const currentGame = new Chess()
-          if (newData.pgn) {
-            try { currentGame.loadPgn(newData.pgn) } catch (e) {
-              if (newData.fen) currentGame.load(newData.fen)
-            }
-          } else if (newData.fen) {
-            currentGame.load(newData.fen)
-          }
-
-          const whiteKingSquare = getKingSquare(currentGame, 'w')
-          const blackKingSquare = getKingSquare(currentGame, 'b')
-
-          if (newData.message === 'resign') {
-            const loserColor = newData.winner === 'white' ? 'b' : 'w'
-            const wc = newData.winner === 'white' ? 'w' : 'b'
-            setWinnerColor(wc)
-            const kingSq = getKingSquare(currentGame, loserColor)
-            const winnerKingSq = getKingSquare(currentGame, wc)
-            setEndGameState({
-              defeated: kingSq,
-              emojis: [
-                ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/surrender.png` }] : []),
-                ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
-              ]
-            })
-          } else if (newData.message === 'checkmate') {
-            const loserColor = currentGame.turn()
-            const wc = currentGame.turn() === 'w' ? 'b' : 'w'
-            setWinnerColor(wc)
-            const kingSq = getKingSquare(currentGame, loserColor)
-            const winnerKingSq = getKingSquare(currentGame, wc)
-            setEndGameState({
-              defeated: kingSq,
-              emojis: [
-                ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []),
-                ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
-              ]
-            })
-          } else if (newData.message === 'draw' || newData.message === 'stalemate') {
-            setWinnerColor(null)
-            setEndGameState({
-              defeated: null,
-              emojis: [
-                ...(whiteKingSquare ? [{ square: whiteKingSquare, url: `${BASE}emojis/end game/draw.png` }] : []),
-                ...(blackKingSquare ? [{ square: blackKingSquare, url: `${BASE}emojis/end game/draw.png` }] : [])
-              ]
-            })
-          }
-        }
-      } else {
-        setGameOver(false)
-        setResultText('')
-        setEndGameState(null)
-        setWinnerColor(null)
-      }
-
-      // Sync PGN / Move history
-      if (newData.pgn && newData.pgn !== lastPgnRef.current) {
-        const g = new Chess()
-        try {
-          g.loadPgn(newData.pgn)
-          updateGameState(g)
-          lastPgnRef.current = g.pgn()
-
-          if (!localMoveRef.current) {
-            soundManager.play('move')
-            useReactionStore.getState().resetMoveCounter()
-          }
-          localMoveRef.current = false
-
-          if (newData.game_mode === 'fog_of_war' && myColor) {
-            setVisibleSquares(getVisibleSquares(g, myColor))
-          } else {
-            setVisibleSquares(null)
-          }
-        } catch (e) {
-          console.error('[Game] PGN load error:', e)
-        }
-      } else if (!newData.pgn && lastPgnRef.current !== '') {
-        // Reset to initial state
-        const g = new Chess()
-        updateGameState(g)
-        lastPgnRef.current = ''
-
-        if (newData.game_mode === 'fog_of_war' && myColor) {
-          setVisibleSquares(getVisibleSquares(g, myColor))
-        } else {
-          setVisibleSquares(null)
-        }
-      }
-
-      // Turn management
-      if (newData.turn) {
-        setIsMyTurn(newData.turn === myColor)
-      }
-
-      // Requests
-      setUndoRequest(newData.undo_request)
-      setDrawRequest(newData.draw_request)
-
-      // Rematch logic
-      if (newData.rematch_game_id) {
-        setRematchGameId(newData.rematch_game_id)
-      } else if (newData.rematch_proposed_by && newData.rematch_proposed_by !== user.uid) {
-        setIsRematchProposed(true)
-      }
-
-      // Reactions
-      if (newData.reactions && Array.isArray(newData.reactions)) {
-        const currentReactions = useReactionStore.getState().reactions
-        if (newData.reactions.length > currentReactions.length) {
-          const latest = newData.reactions[newData.reactions.length - 1]
-          if (latest.playerId !== user.uid) {
-            addReaction(latest)
-          }
-        }
-      }
-
-      // FINALLY: Clear loading state on first successful data receive
-      setLoading(false)
-      console.log('[Game] Loading finished')
-    }, (err) => {
-      console.error('[Game] Snapshot error:', err)
-      setError('Потеряно соединение с сервером')
-      setLoading(false)
-    })
-
-    return () => {
-      console.log('[Game] Stopping listener')
-      unsubscribe()
-    }
-  }, [gameDocId, user, updateGameState, gameOver, addReaction])
-
-  const makeMove = useCallback(async (from: string, to: string, promotion?: string) => {
-    if (!isMyTurn || !gameDocId || gameOver) return false
-
-    const g = new Chess()
-    if (gameRef.current.pgn()) {
-      g.loadPgn(gameRef.current.pgn())
-    }
-
-    try {
-      const result = g.move({ from, to, promotion })
-      if (!result) return false
-
-      const newPgn = g.pgn()
-      const prevPgn = lastPgnRef.current
-      const wasMyTurn = isMyTurn
-      
-      // Responsive local update
-      lastPgnRef.current = newPgn
-      updateGameState(g)
-      setIsMyTurn(false)
-      
-      if (gameMode === 'fog_of_war' && playerColor) {
-        setVisibleSquares(getVisibleSquares(g, playerColor))
-      }
-
-      const isCheckmate = g.isCheckmate()
-      const isStalemate = g.isStalemate()
-      const isDraw = g.isDraw()
-      const gameOverNow = isCheckmate || isStalemate || isDraw
-
-      const winner = isCheckmate
-        ? (g.turn() === 'w' ? 'black' : 'white')
-        : null
-
-      const updateData: any = {
-        pgn: newPgn,
-        fen: g.fen(),
-        turn: g.turn(),
-        last_move_time: Date.now(),
-      }
-
-      // Rapid Time Deduction
-      if (timeControl && lastTimerUpdate) {
-        const now = Date.now()
-        const elapsed = now - lastTimerUpdate
-        const playerTimeKey = playerColor === 'w' ? 'white_time_left' : 'black_time_left'
-        const currentTimeLeft = playerColor === 'w' ? whiteTimeLeft : blackTimeLeft
-        
-        if (currentTimeLeft !== null) {
-          const timeLeft = Math.max(0, currentTimeLeft - elapsed + (timeControl.increment * 1000))
-          updateData[playerTimeKey] = timeLeft
-          updateData.last_timer_update = now
-          updateData.timer_status = 'active' // Ensure it's active for next player
-
-          if (timeLeft <= 0) {
-            updateData.game_state = 'game_over'
-            updateData.winner = playerColor === 'w' ? 'black' : 'white'
-            updateData.message = 'timeout'
-          }
-        }
-      } else if (timeControl && !lastTimerUpdate) {
-        // First move in Rapid
-        updateData.last_timer_update = Date.now()
-        updateData.timer_status = 'active'
-      }
-
-      if (gameOverNow) {
-        updateData.game_state = 'game_over'
-        updateData.winner = winner
-        updateData.message = isCheckmate ? 'checkmate'
-          : isStalemate ? 'stalemate'
-          : 'draw'
-      }
-
-      try {
-        localMoveRef.current = true
-        await updateDoc(doc(db, 'games', gameDocId), updateData)
-        useReactionStore.getState().resetMoveCounter()
-        
-        if (!gameOverNow) {
-          soundManager.play(result.captured ? 'capture' : 'move')
-        } else if (gameMode !== 'fog_of_war') {
-          soundManager.play('checkmate')
-        }
-      } catch (err) {
-        console.error('[Game] Move sync failed:', err)
-        localMoveRef.current = false
-        // Rollback on failure
-        const rollback = new Chess()
-        if (prevPgn) rollback.loadPgn(prevPgn)
-        updateGameState(rollback)
-        lastPgnRef.current = prevPgn
-        setIsMyTurn(wasMyTurn)
-        addToast('Ошибка синхронизации хода', 'error')
-      }
-
-      return true
-    } catch {
-      return false
-    }
-  }, [isMyTurn, gameDocId, gameOver, updateGameState, addToast, timeControl, lastTimerUpdate, playerColor, whiteTimeLeft, blackTimeLeft, gameMode])
-
   const onDrop = useCallback((from: string, to: string) => {
     if (!isMyTurn || gameOver) return false
-    
     if (checkPromotion(from, to)) {
       if (legalMoves.includes(to)) {
         setPendingPromotion({ from, to })
         return true
       }
     }
-    
     makeMove(from, to)
     return true
   }, [makeMove, isMyTurn, gameOver, legalMoves])
@@ -582,7 +108,7 @@ export default function GamePage() {
   const onSquareClick = useCallback((square: string) => {
     if (gameOver || !isMyTurn) return
 
-    const g = gameRef.current
+    const g = game
     const piece = g.get(square as any)
 
     if (selectedSquare) {
@@ -611,21 +137,7 @@ export default function GamePage() {
       setSelectedSquare(square)
       setLegalMoves(moves.map((m) => m.to))
     }
-  }, [gameOver, isMyTurn, selectedSquare, legalMoves, playerColor, makeMove])
-
-  const handleResign = async () => {
-    if (!gameDocId || !playerColor || gameOver) return
-    try {
-      await updateDoc(doc(db, 'games', gameDocId), {
-        game_state: 'game_over',
-        winner: playerColor === 'w' ? 'black' : 'white',
-        message: 'resign',
-      })
-      addToast('Вы сдались', 'info')
-    } catch {
-      addToast('Ошибка при сдаче', 'error')
-    }
-  }
+  }, [gameOver, isMyTurn, selectedSquare, legalMoves, playerColor, makeMove, game])
 
   const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
     setReactionSquare(square)
@@ -637,7 +149,7 @@ export default function GamePage() {
     if (!gameDocId || !user || !reactionSquare || !playerColor) return
 
     const reaction: Reaction = {
-      id: generateId(),
+      id: Math.random().toString(36).slice(2, 10),
       square: reactionSquare,
       emojiUrl,
       playerId: user.uid,
@@ -659,11 +171,10 @@ export default function GamePage() {
         const freshDoc = await transaction.get(gameRef)
         const reactions = freshDoc.data()?.reactions || []
         transaction.update(gameRef, {
-          reactions: [...reactions, reaction].slice(-20)
+          reactions: [...reactions, reaction].slice(-20),
         })
       })
-    } catch (err) {
-      console.error('[Game] Reaction sync failed:', err)
+    } catch {
       addToast('Ошибка отправки реакции', 'error')
     }
   }
@@ -676,70 +187,6 @@ export default function GamePage() {
     }
   }, [rematchGameId, navigate, addToast])
 
-  const handleRematch = async () => {
-    if (!gameDocId || !user || !playerColor) return
-    
-    try {
-      await runTransaction(db, async (transaction) => {
-        const docRef = doc(db, 'games', gameDocId)
-        const freshDoc = await transaction.get(docRef)
-        const data = freshDoc.data() as GameData
-        
-        if (!data) return
-
-        if (data.rematch_game_id) {
-          // Rematch already exists, listener will catch it
-          return
-        }
-
-        if (data.rematch_proposed_by && data.rematch_proposed_by !== user.uid) {
-          // ACCEPT Rematch -> Create new game
-          const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-          
-          // Swap colors for rematch
-          const newGameData = {
-            room_code: newRoomCode,
-            white_player_id: data.black_player_id,
-            white_name: data.black_name || 'Игрок',
-            black_player_id: data.white_player_id,
-            black_name: data.white_name || 'Игрок',
-            game_type: 'online',
-            game_mode: data.game_mode || 'classic',
-            pgn: '',
-            fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-            game_state: 'active',
-            turn: 'w',
-            created_at: serverTimestamp(),
-            last_move_time: serverTimestamp(),
-            reactions: [],
-            undo_request: null,
-            draw_request: null,
-            rematch_proposed_by: null,
-            rematch_game_id: null
-          }
-          
-          // Since we can't add a document inside a transaction with a generated ID easily in a cross-collection way, 
-          // we use the fact that we're in a transaction to update the status and then the listener handles the rest.
-          // Wait, Firestore transactions can create documents.
-          const newGameRef = doc(collection(db, 'games'))
-          transaction.set(newGameRef, newGameData)
-          transaction.update(docRef, { rematch_game_id: newGameRef.id })
-        } else {
-          // PROPOSE Rematch
-          transaction.update(docRef, { rematch_proposed_by: user.uid })
-        }
-      })
-      
-      const snap = await getDoc(doc(db, 'games', gameDocId))
-      if (snap.data()?.rematch_proposed_by === user.uid && !snap.data()?.rematch_game_id) {
-        addToast('Предложение реванша отправлено', 'info')
-      }
-    } catch (err) {
-      console.error('[Rematch] Error:', err)
-      addToast('Ошибка при создании реванша', 'error')
-    }
-  }
-
   const copyPgn = () => {
     try {
       navigator.clipboard.writeText(game.pgn())
@@ -751,60 +198,7 @@ export default function GamePage() {
     }
   }
 
-  const handleAcceptUndo = async () => {
-    if (!gameDocId || !undoRequest) return
-    try {
-      const snap = await getDoc(doc(db, 'games', gameDocId))
-      const data = snap.data()
-      const requestorColor = undoRequest.from_id === data?.white_player_id ? 'w' : 'b'
-
-      const g = new Chess()
-      g.loadPgn(lastPgnRef.current)
-
-      if (requestorColor === g.turn()) {
-        g.undo()
-        g.undo()
-      } else {
-        g.undo()
-      }
-      
-      await updateDoc(doc(db, 'games', gameDocId), {
-        pgn: g.pgn(),
-        fen: g.fen(),
-        turn: g.turn(),
-        last_move_time: Date.now(),
-        undo_request: null
-      })
-    } catch {
-      addToast('Ошибка при отмене хода', 'error')
-    }
-  }
-
-  const handleRejectUndo = async () => {
-    if (!gameDocId) return
-    try {
-      await updateDoc(doc(db, 'games', gameDocId), { undo_request: null })
-      setUndoRequest(null)
-    } catch {
-      addToast('Ошибка сети', 'error')
-    }
-  }
-
-  const handleAcceptDraw = async () => {
-    if (!gameDocId || !drawRequest) return
-    try {
-      await updateDoc(doc(db, 'games', gameDocId), {
-        game_state: 'game_over',
-        winner: null,
-        message: 'draw',
-        draw_request: null
-      })
-    } catch {
-      addToast('Ошибка при согласии на ничью', 'error')
-    }
-  }
-
-  // Render logic
+  // Render
   if (authLoading && !user) return <LoadingScreen isLoading={true} />
   if (error) {
     return (
@@ -828,7 +222,7 @@ export default function GamePage() {
   if (loading) return <LoadingScreen isLoading={true} />
 
   return (
-            <div className="min-h-[100dvh] flex flex-col bg-bg">
+    <div className="min-h-[100dvh] flex flex-col bg-bg">
       <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
           <Link to="/">
@@ -859,7 +253,7 @@ export default function GamePage() {
               </div>
             )}
 
-            <div 
+            <div
               className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
               style={{ width: stableWidth || '100%', maxWidth: '100%' }}
             >
@@ -875,20 +269,20 @@ export default function GamePage() {
 
               <div className="text-center flex flex-col items-center justify-center gap-1">
                 {gameMode === 'fog_of_war' && !gameOver && (
-                  <button 
+                  <button
                     onClick={() => setIsRulesOpen(true)}
                     className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] hover:text-[var(--accent-brand)] transition-colors"
                   >
                     Правила
                   </button>
                 )}
-                
+
                 {(status === 'check' || status === 'checkmate' || status === 'stalemate' || status === 'draw') && (
                   <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse ${
                     status === 'check' || status === 'checkmate' ? 'text-[var(--danger)]' : 'text-text-secondary'
                   }`}>
-                    {gameMode === 'fog_of_war' 
-                      ? (status === 'draw' || status === 'stalemate' ? 'Ничья' : '') 
+                    {gameMode === 'fog_of_war'
+                      ? (status === 'draw' || status === 'stalemate' ? 'Ничья' : '')
                       : (status === 'check' ? 'Шах!' : status === 'checkmate' ? 'Мат!' : 'Ничья')
                     }
                   </h2>
@@ -928,36 +322,36 @@ export default function GamePage() {
                     arePiecesDraggable={!gameOver}
                   />
 
-                    {pendingPromotion && (
-                      <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
-                        <div className="bg-[var(--surface-elevated)] max-sm:p-2 max-sm:gap-2 sm:p-4 sm:gap-4 rounded-[var(--radius-14)] shadow-2xl flex">
-                          {(['q', 'r', 'b', 'n'] as const).map((piece) => (
-                            <button
-                              key={piece}
-                              onClick={() => {
-                                makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                                setPendingPromotion(null)
-                              }}
-                              className="max-sm:w-12 max-sm:h-12 sm:w-16 sm:h-16 hover:bg-white/10 rounded-lg transition-colors p-1"
-                            >
-                              <img 
-                                src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)} 
-                                alt={piece} 
-                                className="w-full h-full object-contain"
-                              />
-                            </button>
-                          ))}
-                        </div>
+                  {pendingPromotion && (
+                    <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
+                      <div className="bg-[var(--surface-elevated)] max-sm:p-2 max-sm:gap-2 sm:p-4 sm:gap-4 rounded-[var(--radius-14)] shadow-2xl flex">
+                        {(['q', 'r', 'b', 'n'] as const).map((piece) => (
+                          <button
+                            key={piece}
+                            onClick={() => {
+                              makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                              setPendingPromotion(null)
+                            }}
+                            className="max-sm:w-12 max-sm:h-12 sm:w-16 sm:h-16 hover:bg-white/10 rounded-lg transition-colors p-1"
+                          >
+                            <img
+                              src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)}
+                              alt={piece}
+                              className="w-full h-full object-contain"
+                            />
+                          </button>
+                        ))}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="w-full h-full aspect-square flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
-                    <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
-                      Загрузка шахматной доски...
                     </div>
+                  )}
+                </>
+              ) : (
+                <div className="w-full h-full aspect-square flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
+                  <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
+                    Загрузка шахматной доски...
                   </div>
-                )}
+                </div>
+              )}
             </div>
 
             {timeControl && (
@@ -970,9 +364,9 @@ export default function GamePage() {
                 />
               </div>
             )}
-            
+
             {gameOver && resultText && (
-              <div 
+              <div
                 className="mx-auto mt-4 py-[var(--space-12)] px-[var(--space-16)] bg-[var(--surface-elevated)] border border-[var(--border)] rounded-[var(--radius-14)] text-center animate-modal-pixel-in shadow-xl"
                 style={{ width: stableWidth || '100%', maxWidth: '100%' }}
               >
@@ -1009,20 +403,20 @@ export default function GamePage() {
                       className="shrink-0 px-2 py-1 rounded-[var(--radius-4)] text-[9px] font-bold uppercase tracking-wider transition-all"
                       style={{
                         background: copied ? 'var(--success)' : 'var(--accent-brand)',
-                        color: 'black'
+                        color: 'black',
                       }}
                     >
                       {copied ? 'OK' : 'Копия'}
                     </button>
                   </div>
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent('Сыграем в шахматы?')}`, '_blank')}
                       className="flex-1 py-2 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.03)] border border-[var(--border)] text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)] transition-all"
                     >
                       Telegram
                     </button>
-                    <button 
+                    <button
                       onClick={() => window.open(`https://vk.com/share.php?url=${encodeURIComponent(window.location.href)}`, '_blank')}
                       className="flex-1 py-2 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.03)] border border-[var(--border)] text-[9px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] hover:border-[var(--accent-brand)] transition-all"
                     >
@@ -1037,7 +431,7 @@ export default function GamePage() {
               <div className="flex items-center justify-between mb-[var(--space-12)]">
                 <div className="flex items-center gap-2">
                   <h3 className="text-[var(--font-size-sm)] font-semibold text-text">Ходы</h3>
-                  <button 
+                  <button
                     onClick={copyPgn}
                     title="Копировать PGN"
                     className={`p-1 rounded hover:bg-white/5 transition-colors ${pgnCopied ? 'text-[var(--success)]' : 'text-text-secondary'}`}
@@ -1073,28 +467,28 @@ export default function GamePage() {
             <div className="grid grid-cols-2 gap-[var(--space-12)]">
               {!gameOver ? (
                 <>
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
-                    fullWidth 
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
                     onClick={() => {
                       if (!gameDocId || !user || gameOver || moveHistory.length === 0) return
                       updateDoc(doc(db, 'games', gameDocId), {
-                        undo_request: { from_id: user.uid, created_at: Date.now() }
+                        undo_request: { from_id: user.uid, created_at: Date.now() },
                       }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
                     }}
                     disabled={moveHistory.length === 0 || (!!(undoRequest && user && undoRequest.from_id === user.uid))}
                   >
                     Отмена
                   </Button>
-                  <Button 
-                    variant="primary" 
-                    size="sm" 
-                    fullWidth 
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
                     onClick={() => {
                       if (!gameDocId || !user || gameOver || !opponentJoined) return
                       updateDoc(doc(db, 'games', gameDocId), {
-                        draw_request: { from_id: user.uid, created_at: Date.now() }
+                        draw_request: { from_id: user.uid, created_at: Date.now() },
                       }).catch(() => addToast('Ошибка при предложении ничьей', 'error'))
                     }}
                     disabled={!opponentJoined}
@@ -1103,10 +497,10 @@ export default function GamePage() {
                   </Button>
                 </>
               ) : (
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  fullWidth 
+                <Button
+                  variant="primary"
+                  size="sm"
+                  fullWidth
                   onClick={handleRematch}
                   className="col-span-2 border-[var(--accent-brand)] border"
                   disabled={rematchGameId !== null}
@@ -1116,10 +510,10 @@ export default function GamePage() {
               )}
             </div>
             {!gameOver && (
-              <Button 
-                variant="primary" 
-                size="sm" 
-                fullWidth 
+              <Button
+                variant="primary"
+                size="sm"
+                fullWidth
                 className="hover:!bg-[var(--danger-soft)]"
                 onClick={() => setShowResignConfirm(true)}
               >
@@ -1132,7 +526,6 @@ export default function GamePage() {
 
       <Footer />
 
-      {/* Modals & Pickers */}
       {showReactionPicker && reactionPos && (
         <ReactionPicker
           anchorX={reactionPos.x}
@@ -1165,9 +558,9 @@ export default function GamePage() {
         onCancel={() => setShowResignConfirm(false)}
       />
 
-      <FogRulesModal 
-        isOpen={isRulesOpen} 
-        onClose={() => setIsRulesOpen(false)} 
+      <FogRulesModal
+        isOpen={isRulesOpen}
+        onClose={() => setIsRulesOpen(false)}
       />
     </div>
   )
@@ -1180,7 +573,7 @@ function ConfirmDialog({ isOpen, title, onConfirm, onCancel }: any) {
       <Card className="max-w-[320px] w-full animate-modal-pixel-in">
         <h3 className="text-center font-bold mb-6">{title}</h3>
         <div className="flex flex-col gap-2">
-          <Button variant="primary" fullWidth onClick={() => { onConfirm(); onCancel(); }}>Да</Button>
+          <Button variant="primary" fullWidth onClick={() => { onConfirm(); onCancel() }}>Да</Button>
           <Button variant="primary" fullWidth onClick={onCancel} className="bg-transparent opacity-60">Нет</Button>
         </div>
       </Card>

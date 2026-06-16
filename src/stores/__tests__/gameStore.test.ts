@@ -110,6 +110,29 @@ describe('gameStore', () => {
     expect(() => useGameStore.getState().undoMove()).not.toThrow()
   })
 
+  it('undoMove takeback undoes 2 plies (bot mode)', () => {
+    const fenBefore = useGameStore.getState().fen
+    useGameStore.getState().makeMove('e2', 'e4')
+    useGameStore.getState().makeMove('e7', 'e5')
+    useGameStore.getState().undoMove(true)
+    const s = useGameStore.getState()
+    const pos = s.fen.split(' ').slice(0, 4).join(' ')
+    const posBefore = fenBefore.split(' ').slice(0, 4).join(' ')
+    expect(pos).toBe(posBefore)
+    expect(s.currentTurn).toBe('w')
+    expect(s.moveHistory).toEqual([])
+  })
+
+  it('undoMove takeback with 1 ply falls back to 1 undo', () => {
+    const fenBefore = useGameStore.getState().fen
+    useGameStore.getState().makeMove('e2', 'e4')
+    useGameStore.getState().undoMove(true)
+    const s = useGameStore.getState()
+    expect(s.fen).toBe(fenBefore)
+    expect(s.currentTurn).toBe('w')
+    expect(s.moveHistory).toEqual([])
+  })
+
   it('detects checkmate (Scholar\'s Mate)', () => {
     makeMoves([
       ['e2', 'e4'],

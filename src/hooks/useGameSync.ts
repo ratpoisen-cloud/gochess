@@ -341,6 +341,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
         const prevFen = gameRef.current.fen()
         const prevSsj = lastSpellStateJsonRef.current
+        const preMoveTurn = gameRef.current.turn()
 
         // Optimistic local update
         updateGameState(g)
@@ -372,7 +373,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
             const freshDoc = await transaction.get(gameRef2)
             const freshData = freshDoc.data()
             if (!freshData) return 'error'
-            if (freshData.turn !== g.turn() && !gameOverNow) return 'stale'
+            if (freshData.turn !== preMoveTurn && !gameOverNow) return 'stale'
             transaction.update(gameRef2, updateData)
             return 'ok'
           })
@@ -420,6 +421,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       const newPgn = g.pgn()
       const prevPgn = lastPgnRef.current
       const wasMyTurn = isMyTurn
+      const preMoveTurn = gameRef.current.turn()
 
       // Optimistic local update
       lastPgnRef.current = newPgn
@@ -476,7 +478,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           const freshData = freshDoc.data()
           if (!freshData) return 'error'
 
-          if (freshData.turn !== g.turn() && !gameOverNow) {
+          if (freshData.turn !== preMoveTurn && !gameOverNow) {
             return 'stale'
           }
 

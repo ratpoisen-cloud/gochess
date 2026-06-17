@@ -27,7 +27,7 @@ interface GameState {
   initGame: () => void
   makeMove: (from: string, to: string, promotion?: string) => boolean
   selectSquare: (square: string) => void
-  undoMove: () => void
+  undoMove: (takeback?: boolean) => void
   resetGame: () => void
   setStatus: (status: GameStatus) => void
   setPlayerColor: (color: Color) => void

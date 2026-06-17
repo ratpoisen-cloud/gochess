@@ -6,35 +6,47 @@ export interface Piece {
   color: Color;
 }
 
-export const SPELL_CONFIGS = {
-  jump: { cost: 1, cooldown: 1, unlock: 1 },
-  shield: { cost: 2, cooldown: 2, unlock: 1 },
-  freeze: { cost: 3, cooldown: 3, unlock: 5 },
-  portal: { cost: 3, cooldown: 4, unlock: 5 },
-  blast: { cost: 4, cooldown: 5, unlock: 10 },
-  berserk: { cost: 4, cooldown: 4, unlock: 8 }
-} as const
+export type SpellName = 'jump' | 'shield' | 'freeze' | 'portal' | 'blast' | 'berserk' | 'divineGrace' | 'shadowGrave' | 'mirage'
 
-export type SpellName = keyof typeof SPELL_CONFIGS
+export const FREE_ACTIONS: SpellName[] = ['jump', 'shield', 'portal']
+export const TERMINAL_ACTIONS: SpellName[] = ['freeze', 'blast', 'berserk', 'divineGrace', 'shadowGrave', 'mirage']
+
+export const SPELL_UNLOCK: Record<SpellName, number> = {
+  jump: 1,
+  shield: 4,
+  freeze: 10,
+  portal: 10,
+  blast: 16,
+  berserk: 7,
+  divineGrace: 13,
+  shadowGrave: 13,
+  mirage: 13,
+}
+
+export const WHITE_CHARGES: Record<SpellName, number> = {
+  jump: 3, shield: 2, freeze: 2, portal: 1, blast: 1,
+  berserk: 1, divineGrace: 1, shadowGrave: 0, mirage: 0,
+}
+
+export const BLACK_CHARGES: Record<SpellName, number> = {
+  jump: 3, shield: 2, freeze: 2, portal: 1, blast: 1,
+  berserk: 0, divineGrace: 0, shadowGrave: 1, mirage: 1,
+}
+
+export function defaultCharges(color: Color): Record<SpellName, number> {
+  return { ...(color === 'w' ? WHITE_CHARGES : BLACK_CHARGES) }
+}
 
 export interface SpellState {
   frozenSquares: Record<string, number>;
   jumpSquare: string | null;
   shieldedSquares: Record<string, number>;
   portals: { from: string; to: string; expiry: number } | null;
-  whiteMana: number;
-  blackMana: number;
-  whiteCooldowns: Record<string, number>;
-  blackCooldowns: Record<string, number>;
   bombs: Record<string, Color>;
   berserkTransforms: Record<string, { fromType: PieceType; expiry: number }>;
-}
-
-const MAX_MANA = 5
-const STARTING_MANA = 1
-
-function defaultCooldowns(): Record<string, number> {
-  return { freeze: 0, jump: 0, blast: 0, shield: 0, portal: 0, berserk: 0 }
+  charges: Record<Color, Record<SpellName, number>>;
+  impassableSquares: Record<string, number>;
+  pendingBlastMine: { square: string; color: Color } | null;
 }
 
 export class SpellChessEngine {
@@ -52,12 +64,11 @@ export class SpellChessEngine {
       jumpSquare: null,
       shieldedSquares: {},
       portals: null,
-      whiteMana: STARTING_MANA,
-      blackMana: STARTING_MANA,
-      whiteCooldowns: defaultCooldowns(),
-      blackCooldowns: defaultCooldowns(),
       bombs: {},
-      berserkTransforms: {}
+      berserkTransforms: {},
+      charges: { w: defaultCharges('w'), b: defaultCharges('b') },
+      impassableSquares: {},
+      pendingBlastMine: null,
     };
 
     if (fen) {
@@ -78,12 +89,11 @@ export class SpellChessEngine {
     this.spellState.shieldedSquares = {};
     this.spellState.jumpSquare = null;
     this.spellState.portals = null;
-    this.spellState.whiteMana = STARTING_MANA;
-    this.spellState.blackMana = STARTING_MANA;
-    this.spellState.whiteCooldowns = defaultCooldowns();
-    this.spellState.blackCooldowns = defaultCooldowns();
     this.spellState.bombs = {};
     this.spellState.berserkTransforms = {};
+    this.spellState.charges = { w: defaultCharges('w'), b: defaultCharges('b') };
+    this.spellState.impassableSquares = {};
+    this.spellState.pendingBlastMine = null;
   }
 
   load(fen: string) {
@@ -124,6 +134,11 @@ export class SpellChessEngine {
 
   isFrozen(square: string): boolean {
     const expiry = this.spellState.frozenSquares[square];
+    return expiry !== undefined && expiry > this.halfMoveCount;
+  }
+
+  isImpassable(square: string): boolean {
+    const expiry = this.spellState.impassableSquares[square];
     return expiry !== undefined && expiry > this.halfMoveCount;
   }
 
@@ -188,18 +203,20 @@ export class SpellChessEngine {
   getLegalMoves(square: string): string[] {
     const piece = this.getPiece(square);
     if (!piece || piece.color !== this.turn || this.isFrozen(square)) return [];
+    if (this.isImpassable(square)) return [];
 
     const moves: string[] = [];
     const { r, c } = this.sqToIdx(square);
 
     const addMove = (tr: number, tc: number) => {
       if (tr < 0 || tr >= 8 || tc < 0 || tc >= 8) return false;
+      const targetSq = this.idxToSq(tr, tc);
+      if (this.isImpassable(targetSq)) return false;
       const target = this.board[tr][tc];
       if (!target) {
-        moves.push(this.idxToSq(tr, tc));
+        moves.push(targetSq);
         return true;
       } else if (target.color !== piece.color) {
-        const targetSq = this.idxToSq(tr, tc);
         if (this.spellState.shieldedSquares[targetSq] > this.halfMoveCount) {
           return false;
         }
@@ -214,9 +231,15 @@ export class SpellChessEngine {
         const dir = piece.color === 'w' ? -1 : 1;
         const startRank = piece.color === 'w' ? 6 : 1;
         if (r + dir >= 0 && r + dir < 8 && !this.board[r + dir][c]) {
-          moves.push(this.idxToSq(r + dir, c));
-          if (r === startRank && !this.board[r + 2 * dir][c]) {
-            moves.push(this.idxToSq(r + 2 * dir, c));
+          const sq = this.idxToSq(r + dir, c);
+          if (!this.isImpassable(sq)) {
+            moves.push(sq);
+            if (r === startRank && !this.board[r + 2 * dir][c]) {
+              const sq2 = this.idxToSq(r + 2 * dir, c);
+              if (!this.isImpassable(sq2)) {
+                moves.push(sq2);
+              }
+            }
           }
         }
         for (const dc of [-1, 1]) {
@@ -262,12 +285,13 @@ export class SpellChessEngine {
     dirs.forEach(([dr, dc]) => {
       let tr = r + dr, tc = c + dc;
       while (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+        const targetSq = this.idxToSq(tr, tc);
+        if (this.isImpassable(targetSq)) break;
         const target = this.board[tr][tc];
         if (!target) {
-          moves.push(this.idxToSq(tr, tc));
+          moves.push(targetSq);
         } else {
           if (target.color !== color) {
-            const targetSq = this.idxToSq(tr, tc);
             if (!(this.spellState.shieldedSquares[targetSq] > this.halfMoveCount)) {
               moves.push(targetSq);
             }
@@ -294,9 +318,10 @@ export class SpellChessEngine {
         if (this.board[tr][tc]) {
           const jr = tr + dr, jc = tc + dc;
           if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8) {
+            const targetSq = this.idxToSq(jr, jc);
+            if (this.isImpassable(targetSq)) break;
             const jt = this.board[jr][jc];
             if (!jt || jt.color !== piece.color) {
-              const targetSq = this.idxToSq(jr, jc);
               if (!(this.spellState.shieldedSquares[targetSq] > this.halfMoveCount)) {
                 moves.push(targetSq);
               }
@@ -336,6 +361,41 @@ export class SpellChessEngine {
     return true;
   }
 
+  private canAffordSpell(spell: SpellName): { ok: boolean; reason?: 'charges' | 'locked' | 'color' } {
+    const charge = this.spellState.charges[this.turn][spell]
+    if (!charge || charge <= 0) return { ok: false, reason: 'charges' }
+    const currentTurnNum = this.getTurnNumber()
+    if (currentTurnNum < SPELL_UNLOCK[spell]) return { ok: false, reason: 'locked' }
+    if (spell === 'divineGrace' && this.turn !== 'w') return { ok: false, reason: 'color' }
+    if ((spell === 'shadowGrave' || spell === 'mirage') && this.turn !== 'b') return { ok: false, reason: 'color' }
+    return { ok: true }
+  }
+
+  private deductCharge(spell: SpellName) {
+    this.spellState.charges[this.turn][spell]--
+  }
+
+  completeTurn() {
+    this.turn = this.turn === 'w' ? 'b' : 'w'
+    this.halfMoveCount++
+
+    // Process pending blast mine — explodes at start of caster's next turn
+    if (this.spellState.pendingBlastMine && this.spellState.pendingBlastMine.color === this.turn) {
+      this.triggerBlastExplosion(this.spellState.pendingBlastMine.square)
+      this.spellState.pendingBlastMine = null
+    }
+
+    // Revert expired berserk transforms
+    Object.keys(this.spellState.berserkTransforms).forEach(sq => {
+      const t = this.spellState.berserkTransforms[sq];
+      if (t.expiry <= this.halfMoveCount) {
+        const p = this.getPiece(sq);
+        if (p) p.type = t.fromType;
+        delete this.spellState.berserkTransforms[sq];
+      }
+    })
+  }
+
   move(from: string, to: string): boolean {
     const legal = this.getLegalMoves(from);
     if (!legal.includes(to)) return false;
@@ -370,29 +430,24 @@ export class SpellChessEngine {
       this.spellState.shieldedSquares[landingSq] = shieldExpiry;
     }
 
+    // Bomb check — if step on a bomb, trigger blast explosion
     if (this.spellState.bombs && this.spellState.bombs[landingSq]) {
-      this.triggerExplosion(landingSq);
+      this.triggerBlastExplosion(landingSq);
+      delete this.spellState.bombs[landingSq];
     }
 
     this.spellState.jumpSquare = null;
 
-    // Mana regen for current player before switching turn
-    if (this.turn === 'w') {
-      this.spellState.whiteMana = Math.min(MAX_MANA, this.spellState.whiteMana + 1)
-    } else {
-      this.spellState.blackMana = Math.min(MAX_MANA, this.spellState.blackMana + 1)
-    }
-
     this.turn = this.turn === 'w' ? 'b' : 'w';
     this.halfMoveCount++;
 
-    // Decrement cooldowns of the new active player
-    const activeCooldowns = this.turn === 'w' ? this.spellState.whiteCooldowns : this.spellState.blackCooldowns
-    Object.keys(activeCooldowns).forEach(key => {
-      if (activeCooldowns[key] > 0) activeCooldowns[key]--
-    })
+    // Process pending blast mine — explodes at start of this player's turn
+    if (this.spellState.pendingBlastMine && this.spellState.pendingBlastMine.color === this.turn) {
+      this.triggerBlastExplosion(this.spellState.pendingBlastMine.square)
+      this.spellState.pendingBlastMine = null
+    }
 
-    // Revert expired berserk transforms
+    // Revert expired berserk transforms (for the side that just moved)
     Object.keys(this.spellState.berserkTransforms).forEach(sq => {
       const t = this.spellState.berserkTransforms[sq];
       if (t.expiry <= this.halfMoveCount) {
@@ -405,158 +460,191 @@ export class SpellChessEngine {
     return true;
   }
 
-  private canCastSpell(spell: SpellName): { ok: boolean; reason?: string } {
-    const config = SPELL_CONFIGS[spell]
-    const mana = this.turn === 'w' ? this.spellState.whiteMana : this.spellState.blackMana
-    const cooldowns = this.turn === 'w' ? this.spellState.whiteCooldowns : this.spellState.blackCooldowns
-    const currentTurnNum = this.getTurnNumber()
+  // --- FREE ACTIONS (can still move after) ---
 
-    if (mana < config.cost) return { ok: false, reason: 'mana' }
-    if (cooldowns[spell] > 0) return { ok: false, reason: 'cooldown' }
-    if (currentTurnNum < config.unlock) return { ok: false, reason: 'locked' }
-    return { ok: true }
+  castJump(targetSquare: string): boolean {
+    const check = this.canAffordSpell('jump')
+    if (!check.ok) return false
+    const piece = this.getPiece(targetSquare);
+    if (!piece || piece.color !== this.turn || piece.type === 'n' || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
+    this.spellState.jumpSquare = targetSquare;
+    this.deductCharge('jump')
+    return true;
   }
 
+  castShield(targetSquare: string): boolean {
+    const check = this.canAffordSpell('shield')
+    if (!check.ok) return false
+    const piece = this.getPiece(targetSquare);
+    if (!piece || piece.color !== this.turn) return false;
+    this.spellState.shieldedSquares[targetSquare] = this.halfMoveCount + 4;
+    this.deductCharge('shield')
+    return true;
+  }
+
+  castPortal(from: string, to: string): boolean {
+    const check = this.canAffordSpell('portal')
+    if (!check.ok) return false
+    if (this.getPiece(from) || this.getPiece(to) || from === to) return false;
+    this.spellState.portals = { from, to, expiry: this.halfMoveCount + 6 };
+    this.deductCharge('portal')
+    return true;
+  }
+
+  // --- TERMINAL ACTIONS (call completeTurn after) ---
+
   castFreeze(targetSquare: string): boolean {
-    const check = this.canCastSpell('freeze')
+    const check = this.canAffordSpell('freeze')
     if (!check.ok) return false
     const { r, c } = this.sqToIdx(targetSquare);
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
         const tr = r + dr, tc = c + dc;
-        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 3;
-      }
-    }
-    const config = SPELL_CONFIGS.freeze
-    if (this.turn === 'w') {
-      this.spellState.whiteMana -= config.cost
-      this.spellState.whiteCooldowns.freeze = config.cooldown
-    } else {
-      this.spellState.blackMana -= config.cost
-      this.spellState.blackCooldowns.freeze = config.cooldown
-    }
-    return true;
-  }
-
-  castJump(targetSquare: string): boolean {
-    const check = this.canCastSpell('jump')
-    if (!check.ok) return false
-    const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn || piece.type === 'n' || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
-    this.spellState.jumpSquare = targetSquare;
-    const config = SPELL_CONFIGS.jump
-    if (this.turn === 'w') {
-      this.spellState.whiteMana -= config.cost
-      this.spellState.whiteCooldowns.jump = config.cooldown
-    } else {
-      this.spellState.blackMana -= config.cost
-      this.spellState.blackCooldowns.jump = config.cooldown
-    }
-    return true;
-  }
-
-  triggerExplosion(targetSquare: string) {
-    const explodedSquares = new Set<string>();
-    const queue = [targetSquare];
-    
-    while (queue.length > 0) {
-      const curr = queue.shift()!;
-      if (explodedSquares.has(curr)) continue;
-      explodedSquares.add(curr);
-      
-      if (this.spellState.bombs) {
-        delete this.spellState.bombs[curr];
-      }
-      
-      const { r, c } = this.sqToIdx(curr);
-      [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => {
-        const tr = r + dr, tc = c + dc;
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-          const sqName = this.idxToSq(tr, tc);
-          if (this.spellState.bombs && this.spellState.bombs[sqName] && !explodedSquares.has(sqName)) {
-            queue.push(sqName);
-          }
-          
-          const p = this.board[tr][tc];
-          const isShielded = this.spellState.shieldedSquares[sqName] > this.halfMoveCount;
-          if (p && p.type !== 'k' && !isShielded) {
-            this.board[tr][tc] = null;
-          }
+          this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 6;
         }
-      });
+      }
     }
+    this.deductCharge('freeze')
+    this.completeTurn()
+    return true;
   }
 
   castBlast(targetSquare: string): boolean {
-    const check = this.canCastSpell('blast')
-    if (!check.ok) return false;
-    
-    if (this.spellState.bombs && this.spellState.bombs[targetSquare]) return false;
-    
-    if (this.spellState.bombs) {
-      this.spellState.bombs[targetSquare] = this.turn;
-    }
-    
-    const config = SPELL_CONFIGS.blast
-    if (this.turn === 'w') {
-      this.spellState.whiteMana -= config.cost
-      this.spellState.whiteCooldowns.blast = config.cooldown
-    } else {
-      this.spellState.blackMana -= config.cost
-      this.spellState.blackCooldowns.blast = config.cooldown
-    }
-    return true;
-  }
-
-  castShield(targetSquare: string): boolean {
-    const check = this.canCastSpell('shield')
+    const check = this.canAffordSpell('blast')
     if (!check.ok) return false
-    const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn) return false;
-    this.spellState.shieldedSquares[targetSquare] = this.halfMoveCount + 2;
-    const config = SPELL_CONFIGS.shield
-    if (this.turn === 'w') {
-      this.spellState.whiteMana -= config.cost
-      this.spellState.whiteCooldowns.shield = config.cooldown
-    } else {
-      this.spellState.blackMana -= config.cost
-      this.spellState.blackCooldowns.shield = config.cooldown
-    }
+
+    // Place a mine that will explode at start of player's next turn
+    this.spellState.pendingBlastMine = { square: targetSquare, color: this.turn }
+    this.deductCharge('blast')
+    this.completeTurn()
     return true;
   }
 
   castBerserk(targetSquare: string, pieceType: PieceType): boolean {
-    const check = this.canCastSpell('berserk')
+    const check = this.canAffordSpell('berserk')
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
     if (!piece || piece.color !== this.turn || piece.type === 'k' || piece.type === pieceType || this.isFrozen(targetSquare)) return false;
-    this.spellState.berserkTransforms[targetSquare] = { fromType: piece.type, expiry: this.halfMoveCount + 6 };
+    this.spellState.berserkTransforms[targetSquare] = { fromType: piece.type, expiry: this.halfMoveCount + 12 };
     piece.type = pieceType;
-    const config = SPELL_CONFIGS.berserk
-    if (this.turn === 'w') {
-      this.spellState.whiteMana -= config.cost
-      this.spellState.whiteCooldowns.berserk = config.cooldown
-    } else {
-      this.spellState.blackMana -= config.cost
-      this.spellState.blackCooldowns.berserk = config.cooldown
-    }
+    this.deductCharge('berserk')
+    this.completeTurn()
     return true;
   }
 
-  castPortal(from: string, to: string): boolean {
-    const check = this.canCastSpell('portal')
+  castDivineGrace(targetSquare: string): boolean {
+    const check = this.canAffordSpell('divineGrace')
     if (!check.ok) return false
-    if (this.getPiece(from) || this.getPiece(to) || from === to) return false;
-    this.spellState.portals = { from, to, expiry: this.halfMoveCount + 6 };
-    const config = SPELL_CONFIGS.portal
-    if (this.turn === 'w') {
-      this.spellState.whiteMana -= config.cost
-      this.spellState.whiteCooldowns.portal = config.cooldown
-    } else {
-      this.spellState.blackMana -= config.cost
-      this.spellState.blackCooldowns.portal = config.cooldown
+    const { r, c } = this.sqToIdx(targetSquare);
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const tr = r + dr, tc = c + dc;
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const sq = this.idxToSq(tr, tc);
+          delete this.spellState.frozenSquares[sq];
+        }
+      }
     }
+    this.deductCharge('divineGrace')
+    this.completeTurn()
     return true;
+  }
+
+  castShadowGrave(targetSquare: string): boolean {
+    const check = this.canAffordSpell('shadowGrave')
+    if (!check.ok) return false
+    const piece = this.getPiece(targetSquare);
+    if (!piece || piece.color !== this.turn || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
+
+    // Remove own piece
+    const { r: sr, c: sc } = this.sqToIdx(targetSquare);
+    this.board[sr][sc] = null;
+
+    // Mark square as impassable
+    this.spellState.impassableSquares[targetSquare] = this.halfMoveCount + 6;
+
+    // Find adjacent enemy pieces (not king)
+    const adjacentEnemies: string[] = [];
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const tr = sr + dr, tc = sc + dc;
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const enemy = this.board[tr][tc];
+          if (enemy && enemy.color !== this.turn && enemy.type !== 'k') {
+            adjacentEnemies.push(this.idxToSq(tr, tc));
+          }
+        }
+      }
+    }
+
+    // Remove one random adjacent enemy
+    if (adjacentEnemies.length > 0) {
+      const target = adjacentEnemies[Math.floor(Math.random() * adjacentEnemies.length)];
+      const { r: er, c: ec } = this.sqToIdx(target);
+      this.board[er][ec] = null;
+    }
+
+    this.deductCharge('shadowGrave')
+    this.completeTurn()
+    return true;
+  }
+
+  castMirage(sq1: string, sq2: string): boolean {
+    const check = this.canAffordSpell('mirage')
+    if (!check.ok) return false
+
+    const piece1 = this.getPiece(sq1);
+    const piece2 = this.getPiece(sq2);
+    if (!piece1 || !piece2 || piece1.color !== this.turn || piece2.color !== this.turn) return false;
+    if (piece1.type === 'k' || piece2.type === 'k') return false;
+    if (sq1 === sq2) return false;
+
+    const { r: r1, c: c1 } = this.sqToIdx(sq1);
+    const { r: r2, c: c2 } = this.sqToIdx(sq2);
+
+    // Swap board positions
+    this.board[r1][c1] = piece2;
+    this.board[r2][c2] = piece1;
+
+    // Swap shield if any
+    const shield1 = this.spellState.shieldedSquares[sq1];
+    const shield2 = this.spellState.shieldedSquares[sq2];
+    if (shield1 !== undefined && shield1 > this.halfMoveCount) {
+      delete this.spellState.shieldedSquares[sq1];
+      if (shield2 !== undefined && shield2 > this.halfMoveCount) {
+        delete this.spellState.shieldedSquares[sq2];
+        this.spellState.shieldedSquares[sq1] = shield2;
+        this.spellState.shieldedSquares[sq2] = shield1;
+      } else {
+        this.spellState.shieldedSquares[sq2] = shield1;
+      }
+    } else if (shield2 !== undefined && shield2 > this.halfMoveCount) {
+      delete this.spellState.shieldedSquares[sq2];
+      this.spellState.shieldedSquares[sq1] = shield2;
+    }
+
+    this.deductCharge('mirage')
+    this.completeTurn()
+    return true;
+  }
+
+  triggerBlastExplosion(centerSquare: string) {
+    const { r, c } = this.sqToIdx(centerSquare);
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const tr = r + dr, tc = c + dc;
+        if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
+          const sq = this.idxToSq(tr, tc);
+          const p = this.board[tr][tc];
+          const isShielded = this.spellState.shieldedSquares[sq] > this.halfMoveCount;
+          if (p && p.type !== 'k' && !isShielded) {
+            this.board[tr][tc] = null;
+          }
+        }
+      }
+    }
   }
 
   fen(): string {

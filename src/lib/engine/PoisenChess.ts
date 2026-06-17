@@ -23,6 +23,7 @@ export class PoisenChessEngine implements EngineAPI {
   private fullMoveNumber = 1
   private _history: HistoryEntry[] = []
   private positionCount: Record<string, number> = {}
+  private _gameResult: string = '*'
 
   constructor(fen?: string) {
     this.load(fen || START_FEN)
@@ -64,6 +65,7 @@ export class PoisenChessEngine implements EngineAPI {
     if (parts[4]) this.halfMoveClock = parseInt(parts[4])
     if (parts[5]) this.fullMoveNumber = parseInt(parts[5])
 
+    this._gameResult = '*'
     this.storePosition()
   }
 
@@ -577,6 +579,14 @@ export class PoisenChessEngine implements EngineAPI {
     this.makeMoveInternal(from, to, promotion)
     this.storePosition()
 
+    if (this.isCheckmate()) {
+      this._gameResult = this._turn === 'w' ? '0-1' : '1-0'
+    } else if (this.isDraw()) {
+      this._gameResult = '1/2-1/2'
+    } else {
+      this._gameResult = '*'
+    }
+
     return found
   }
 
@@ -584,6 +594,7 @@ export class PoisenChessEngine implements EngineAPI {
     const entry = this._history.pop()
     if (!entry) return null
 
+    this._gameResult = '*'
     this.removePosition()
     this._board = entry.board
     this._turn = entry.turnColor
@@ -603,13 +614,14 @@ export class PoisenChessEngine implements EngineAPI {
   }
 
   pgn(): string {
-    const headers = '[Event "?"]\n[Site "?"]\n[Date "?"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result "*"]\n\n'
+    const headers = `[Event "?"]\n[Site "?"]\n[Date "?"]\n[Round "?"]\n[White "?"]\n[Black "?"]\n[Result "${this._gameResult}"]\n\n`
     let moves = ''
     for (let i = 0; i < this._history.length; i++) {
       if (i % 2 === 0) moves += `${Math.floor(i / 2) + 1}. `
       moves += `${this._history[i].move.san} `
     }
-    return headers + moves.trim()
+    const result = this._gameResult !== '*' ? ` ${this._gameResult}` : ''
+    return headers + moves.trim() + result
   }
 
   loadPgn(pgn: string) {
@@ -624,7 +636,7 @@ export class PoisenChessEngine implements EngineAPI {
 
     this.load(START_FEN)
 
-    const moveStr = pgn.replace(/\[.*?\]\s*/g, '').replace(/\{.*?\}/g, '').replace(/\d+\.\s*/g, '').replace(/[+#]/g, '').trim()
+    const moveStr = pgn.replace(/\[.*?\]\s*/g, '').replace(/\{.*?\}/g, '').replace(/\(.*?\)/g, '').replace(/\d+\.\s*/g, '').replace(/[+#!?]/g, '').replace(/\$\d+/g, '').trim()
     const tokens = moveStr.split(/\s+/)
 
     for (const token of tokens) {
@@ -760,6 +772,10 @@ export class PoisenChessEngine implements EngineAPI {
 
   isGameOver(): boolean {
     return this.isCheckmate() || this.isStalemate() || this.isDraw()
+  }
+
+  gameResult(): string {
+    return this._gameResult
   }
 
   reset() {

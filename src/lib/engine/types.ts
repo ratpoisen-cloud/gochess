@@ -49,5 +49,6 @@ export interface EngineAPI {
   isThreefoldRepetition(): boolean
   isGameOver(): boolean
   squareColor(sq: string): 'light' | 'dark'
+  gameResult(): string
   reset(): void
 }

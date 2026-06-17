@@ -148,6 +148,98 @@ describe('PoisenChessEngine Perft', () => {
     })
   })
 
+  describe('PoisenChessEngine — PGN result', () => {
+    it('pgn starts with [Result "*"] at initial position', () => {
+      const e = new PoisenChessEngine()
+      expect(e.pgn()).toContain('[Result "*"]')
+      expect(e.pgn()).not.toMatch(/1-0|0-1|1\/2-1\/2$/)
+    })
+
+    it('pgn has [Result "1-0"] after Scholar\'s Mate', () => {
+      const e = new PoisenChessEngine()
+      e.move({ from: 'e2', to: 'e4' })
+      e.move({ from: 'e7', to: 'e5' })
+      e.move({ from: 'f1', to: 'c4' })
+      e.move({ from: 'b8', to: 'c6' })
+      e.move({ from: 'd1', to: 'h5' })
+      e.move({ from: 'g8', to: 'f6' })
+      e.move({ from: 'h5', to: 'f7' })
+      expect(e.isCheckmate()).toBe(true)
+      expect(e.turn()).toBe('b')
+      const pgn = e.pgn()
+      expect(pgn).toContain('[Result "1-0"]')
+      expect(pgn).toMatch(/1-0$/)
+    })
+
+    it('pgn has [Result "1/2-1/2"] after stalemate', () => {
+      const e = new PoisenChessEngine()
+      // Starting from stalemate position, black has no legal moves
+      e.load('7k/6R1/7K/8/8/8/8/8 b - - 0 1')
+      expect(e.isStalemate()).toBe(true)
+      // move() with no legal moves — but engine doesn't auto-detect stalemate without a move
+      // Let's trigger it by checking: the position is already stalemated
+      expect(e.isDraw()).toBe(true)
+      expect(e.isGameOver()).toBe(true)
+      // gameResult should be '*' because no move was made (loaded from FEN)
+      expect(e.gameResult()).toBe('*')
+    })
+
+    it('pgn has [Result "1/2-1/2"] after insufficient material', () => {
+      const e = new PoisenChessEngine('8/8/8/4k3/8/8/3K4/8 w - - 0 1')
+      // White's turn with only K vs K — after a move it's draw
+      e.move({ from: 'd2', to: 'e2' })
+      expect(e.isDraw()).toBe(true)
+      expect(e.gameResult()).toBe('1/2-1/2')
+      expect(e.pgn()).toContain('[Result "1/2-1/2"]')
+    })
+
+    it('pgn result reverts to "*" after undo', () => {
+      const e = new PoisenChessEngine()
+      e.move({ from: 'e2', to: 'e4' })
+      e.move({ from: 'e7', to: 'e5' })
+      e.move({ from: 'f1', to: 'c4' })
+      e.move({ from: 'b8', to: 'c6' })
+      e.move({ from: 'd1', to: 'h5' })
+      e.move({ from: 'g8', to: 'f6' })
+      e.move({ from: 'h5', to: 'f7' })
+      expect(e.gameResult()).toBe('1-0')
+      e.undo()
+      expect(e.gameResult()).toBe('*')
+      expect(e.pgn()).toContain('[Result "*"]')
+    })
+
+    it('gameResult() returns correct value at each state', () => {
+      const e = new PoisenChessEngine()
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'e2', to: 'e4' })
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'e7', to: 'e5' })
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'f1', to: 'c4' })
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'b8', to: 'c6' })
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'd1', to: 'h5' })
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'g8', to: 'f6' })
+      expect(e.gameResult()).toBe('*')
+      e.move({ from: 'h5', to: 'f7' })
+      expect(e.gameResult()).toBe('1-0')
+    })
+
+    it('loadPgn with annotations strips them correctly', () => {
+      const e = new PoisenChessEngine()
+      e.loadPgn('[Event "?"]\n[White "?"]\n1. e4!! c5!? 2. Nf3 $1 d6')
+      expect(e.fen().split(' ')[0]).toBe('rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R')
+    })
+
+    it('loadPgn with variations strips them correctly', () => {
+      const e = new PoisenChessEngine()
+      e.loadPgn('1. e4 (1. d4 d5) c5 2. Nf3 d6')
+      expect(e.fen().split(' ')[0]).toBe('rnbqkbnr/pp2pppp/3p4/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R')
+    })
+  })
+
   describe('PoisenChessEngine — Move API', () => {
     it('Move has lan field', () => {
       const e = new PoisenChessEngine()

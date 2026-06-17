@@ -2,10 +2,10 @@ import { useMemo, useState, useRef, useCallback } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
 import { useReactionStore } from '@/stores/reactionStore'
-import type { Chess } from '@/lib/engine'
+import type { EngineAPI } from '@/lib/engine'
 
 interface ChessBoardProps {
-  game?: Chess | any
+  game?: EngineAPI | any
   position?: string
   lastMove: { from: string; to: string } | null
   checkSquare: string | null

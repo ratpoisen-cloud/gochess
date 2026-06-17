@@ -1,24 +1,7 @@
-export type PieceType = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
-export type Color = 'w' | 'b'
+import { type EngineAPI, type PieceType, type Color, type Piece, type Move } from './types'
 
-export interface Piece {
-  type: PieceType
-  color: Color
-}
-
-export interface Move {
-  from: string
-  to: string
-  piece: PieceType
-  captured?: PieceType
-  promotion?: PieceType
-  color: Color
-  flags: string
-  san: string
-  lan: string
-  before?: string
-  after?: string
-}
+// Re-export types for backward compatibility
+export type { PieceType, Color, Piece, Move }
 
 interface HistoryEntry {
   move: Move
@@ -31,7 +14,7 @@ interface HistoryEntry {
 
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
-export class PoisenChessEngine {
+export class PoisenChessEngine implements EngineAPI {
   private _board: (Piece | null)[][] = []
   private _turn: Color = 'w'
   private castlingRights: string = 'KQkq'

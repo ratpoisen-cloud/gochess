@@ -1,4 +1,4 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useGameStore, getKingSquare } from '@/stores/gameStore'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
@@ -8,13 +8,12 @@ import type { Color } from '@/types'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
-import SettingsDropdown from '@/components/SettingsDropdown'
-import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
-import Footer from '@/components/Footer'
-import { useToast } from '@/components/Toast'
 import { useAuth } from '@/hooks/useAuth'
 import PixelConfetti from '@/components/PixelConfetti'
+import GameLayout from '@/components/GameLayout'
+import PromotionPicker from '@/components/PromotionPicker'
+import { usePgnCopy } from '@/hooks/usePgnCopy'
 import ChessTimer from '@/components/board/ChessTimer'
 import { useBoardStore } from '@/stores/boardStore'
 
@@ -26,8 +25,7 @@ export default function LocalPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { addToast } = useToast()
-  const { getPieceUrl, getTheme } = useBoardStore()
+  const { getTheme } = useBoardStore()
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
@@ -41,7 +39,8 @@ export default function LocalPage() {
   const [resultText, setResultText] = useState('')
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
-  const [pgnCopied, setPgnCopied] = useState(false)
+
+  const { pgnCopied, copyPgn } = usePgnCopy(() => game.pgn())
 
   // Setup States
   const [whiteName, setWhiteName] = useState(user?.displayName || 'Игрок 1')
@@ -86,17 +85,6 @@ export default function LocalPage() {
       }
     }
   }, [currentTurn, isRapid, isSetupModalOpen, isActuallyGameOver, timeControl.increment])
-
-  const copyPgn = () => {
-    try {
-      navigator.clipboard.writeText(game.pgn())
-      setPgnCopied(true)
-      addToast('PGN скопирован', 'success')
-      setTimeout(() => setPgnCopied(false), 2000)
-    } catch {
-      addToast('Ошибка копирования', 'error')
-    }
-  }
 
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = game.get(from as any)
@@ -264,20 +252,6 @@ export default function LocalPage() {
     playing: currentTurn === 'w' ? 'text-[var(--accent-brand)]' : 'text-text opacity-60',
   }
 
-  const headerContent = useMemo(() => (
-    <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
-      <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
-        <Link to="/">
-          <img src={`${BASE}logo/gochess_wordmark_dark.svg`} alt="GoChess" className="h-[28px] w-auto" />
-        </Link>
-        <div className="flex items-center gap-[var(--space-12)]">
-          <SettingsDropdown />
-          {user && <UserMenu />}
-        </div>
-      </div>
-    </header>
-  ), [user])
-
   // MEMOIZED BOARD to prevent flickering
   const memoizedBoard = useMemo(() => (
     <ChessBoard
@@ -299,17 +273,14 @@ export default function LocalPage() {
   ), [game, lastMove, checkSquare, selectedSquare, legalMoves, stableWidth, boardOrientation, endGameState, isActuallyGameOver])
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-bg">
+    <GameLayout user={user}>
       {boardView === 'face-to-face' && (
         <style>
           {` [data-square] img[alt^="b"] { rotate: 180deg; } `}
         </style>
       )}
 
-      {headerContent}
-
-      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-48)] max-sm:py-[var(--space-24)] flex-1 w-full">
-        <div className="game-layout-container">
+      <div className="game-layout-container">
           <div className="game-main-column">
             <div className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]" style={{ width: stableWidth || '100%' }}>
               <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold min-w-0">
@@ -349,15 +320,15 @@ export default function LocalPage() {
                   <>
                     {memoizedBoard}
                     {pendingPromotion && (
-                      <div className="absolute inset-0 z-[100] bg-black/10" onClick={() => setPendingPromotion(null)}>
-                         <div className="absolute flex flex-col bg-modal border border-white/10 rounded-xl overflow-hidden" style={{ left: '40%', top: '25%', width: '20%', height: '50%' }}>
-                            {['q','r','b','n'].map(p => (
-                              <button key={p} className="flex-1 hover:bg-[var(--accent-soft)] transition-colors" onClick={() => { makeMove(pendingPromotion.from, pendingPromotion.to, p); setPendingPromotion(null); }}>
-                                <img src={getPieceUrl(`${currentTurn}${p.toUpperCase()}` as any)} className="w-8 h-8 mx-auto" />
-                              </button>
-                            ))}
-                         </div>
-                      </div>
+                      <PromotionPicker
+                        to={pendingPromotion.to}
+                        color={currentTurn}
+                        onSelect={(piece) => {
+                          makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                          setPendingPromotion(null)
+                        }}
+                        onCancel={() => setPendingPromotion(null)}
+                      />
                     )}
                   </>
                 )}
@@ -388,13 +359,13 @@ export default function LocalPage() {
                        <Button variant="outline" size="sm" onClick={handleDraw}>Ничья</Button>
                        <Button variant="danger" size="sm" onClick={handleResign}>Сдаться</Button>
                      </div>
-                   </>
-                 )}
+                    </>
+                  )}
+                  </div>
               </div>
             </div>
-          </div>
 
-          <div className="game-side-column">
+            <div className="game-side-column">
              <Card padding="sm">
                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
                  <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">История</h3>
@@ -404,11 +375,10 @@ export default function LocalPage() {
                </div>
                <div className="max-h-[300px] overflow-y-auto text-[10px] font-mono leading-relaxed opacity-60 custom-scrollbar pr-2">
                  {moveHistory.length > 0 ? moveHistory.join(', ') : 'Нет ходов'}
-               </div>
-             </Card>
           </div>
-        </div>
-      </main>
+              </Card>
+           </div>
+         </div>
 
       <Modal isOpen={isSetupModalOpen} onClose={() => {}} description={`Настройка (${isRapid ? 'Рапид' : 'Классика'})`}>
         <div className="space-y-6 pt-4 text-left">
@@ -445,8 +415,6 @@ export default function LocalPage() {
         </div>
       </Modal>
 
-      <Footer />
-
       {showReactionPicker && reactionPos && (
         <ReactionPicker
           onSelect={handleEmojiSelect}
@@ -459,6 +427,6 @@ export default function LocalPage() {
           anchorY={reactionPos.y}
         />
       )}
-    </div>
+    </GameLayout>
   )
 }

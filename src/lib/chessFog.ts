@@ -1,4 +1,4 @@
-import type { Chess } from '@/lib/engine'
+import type { EngineAPI } from '@/lib/engine'
 
 /**
  * Calculates which squares are visible to a player.
@@ -7,7 +7,7 @@ import type { Chess } from '@/lib/engine'
  * 2. Squares where player's pieces can legally move (attacks).
  * 3. For pawns, also the squares they attack (even if empty).
  */
-export function getVisibleSquares(game: Chess, playerColor: 'w' | 'b'): string[] {
+export function getVisibleSquares(game: EngineAPI, playerColor: 'w' | 'b'): string[] {
   const visible = new Set<string>()
   const board = game.board()
 

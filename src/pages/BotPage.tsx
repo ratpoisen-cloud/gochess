@@ -1,28 +1,26 @@
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import ChessBoard from '@/components/board/ChessBoard'
-import { useGameStore, getKingSquare } from '@/stores/gameStore'
+import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
-import SettingsDropdown from '@/components/SettingsDropdown'
-import UserMenu from '@/components/UserMenu'
-import Footer from '@/components/Footer'
-import { useToast } from '@/components/Toast'
 import PixelConfetti from '@/components/PixelConfetti'
+import GameLayout from '@/components/GameLayout'
+import PromotionPicker from '@/components/PromotionPicker'
+import { usePgnCopy } from '@/hooks/usePgnCopy'
+import { useEndGameEffects } from '@/hooks/useEndGameEffects'
 import { createBotEngine } from '@/lib/botEngine'
 import type { BotLevel } from '@/types'
 
 import { useBoardStore } from '@/stores/boardStore'
 
-const BASE = import.meta.env.BASE_URL || '/'
-
 export default function BotPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { getPieceUrl, getTheme } = useBoardStore()
+  const { getTheme } = useBoardStore()
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
@@ -35,27 +33,20 @@ export default function BotPage() {
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
-  const [winnerColor, setWinnerColor] = useState<'w' | 'b' | null>(null)
   const [isGameLoading, setIsGameLoading] = useState(true)
-  const [endGameState, setEndGameState] = useState<{ defeated: string | null; emojis: { square: string; url: string }[] } | null>(null)
-  const { addToast } = useToast()
-  const [pgnCopied, setPgnCopied] = useState(false)
+
+  const { pgnCopied, copyPgn } = usePgnCopy(() => game.pgn())
+  const { winnerColor, endGameState } = useEndGameEffects({
+    game,
+    isGameOver,
+    status,
+    currentTurn,
+    onSave: () => saveGame('bot', level),
+  })
   
   const [searchParams] = useSearchParams()
 
-  const copyPgn = () => {
-    try {
-      navigator.clipboard.writeText(game.pgn())
-      setPgnCopied(true)
-      addToast('PGN скопирован', 'success')
-      setTimeout(() => setPgnCopied(false), 2000)
-    } catch {
-      addToast('Ошибка копирования', 'error')
-    }
-  }
-  
   const gameRef = useRef(game)
-  const savedRef = useRef(false)
   const botEngineRef = useRef<ReturnType<typeof createBotEngine> | null>(null)
   
   const boardContainerRef = useRef<HTMLDivElement>(null)
@@ -64,46 +55,6 @@ export default function BotPage() {
   useEffect(() => {
     gameRef.current = game
   }, [game])
-
-  useEffect(() => {
-    if (isGameOver && !savedRef.current) {
-      savedRef.current = true
-      saveGame('bot', level)
-
-      // Calculate End Game King Effects
-      const whiteKingSquare = getKingSquare(game, 'w')
-      const blackKingSquare = getKingSquare(game, 'b')
-
-      if (status === 'checkmate') {
-        const loserColor = currentTurn
-        const wc = currentTurn === 'w' ? 'b' : 'w'
-        setWinnerColor(wc)
-        const kingSq = getKingSquare(game, loserColor as any)
-        const winnerKingSq = getKingSquare(game, wc)
-        setEndGameState({
-          defeated: kingSq,
-          emojis: [
-            ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []),
-            ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : [])
-          ]
-        })
-      } else if (status === 'stalemate' || status === 'draw') {
-        setWinnerColor(null)
-        setEndGameState({
-          defeated: null,
-          emojis: [
-            ...(whiteKingSquare ? [{ square: whiteKingSquare, url: `${BASE}emojis/end game/draw.png` }] : []),
-            ...(blackKingSquare ? [{ square: blackKingSquare, url: `${BASE}emojis/end game/draw.png` }] : [])
-          ]
-        })
-      }
-    }
-    if (!isGameOver) {
-      savedRef.current = false
-      setEndGameState(null)
-      setWinnerColor(null)
-    }
-  }, [isGameOver, saveGame, level, game, status, currentTurn])
 
   useEffect(() => {
     if (botGameDocId && !isGameOver && moveHistory.length > 0) {
@@ -259,25 +210,8 @@ export default function BotPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-bg">
-      <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
-          <Link to="/">
-            <img
-              src={`${import.meta.env.BASE_URL || '/'}logo/gochess_wordmark_dark.svg`}
-              alt="GoChess"
-              className="h-[28px] w-auto"
-            />
-          </Link>
-          <div className="flex items-center gap-[var(--space-12)]">
-            <SettingsDropdown />
-            {user && <UserMenu />}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-48)] max-sm:py-[var(--space-24)] flex-1 w-full">
-        <div className="game-layout-container">
+    <GameLayout user={user}>
+      <div className="game-layout-container">
           <div className="game-main-column">
             <div 
               className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
@@ -344,73 +278,18 @@ export default function BotPage() {
                   />
 
                   {/* Promotion Overlay */}
-                  {pendingPromotion && (() => {
-                    const square = pendingPromotion.to
-                    const col = square[0].charCodeAt(0) - 97
-                    const rank = parseInt(square[1])
-                    
-                    let leftIdx = col
-                    let isAtTop = rank === 8
-                    
-                    if (playerColor === 'b') {
-                      leftIdx = 7 - col
-                      isAtTop = rank === 1
-                    }
-
-                    return (
-                      <div
-                        className="absolute inset-0 z-[100] cursor-default bg-black/10"
-                        onClick={() => setPendingPromotion(null)}
-                      >
-                        <div 
-                          className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
-                          style={{
-                            left: `${leftIdx * 12.5}%`,
-                            top: isAtTop ? 0 : 'auto',
-                            bottom: isAtTop ? 'auto' : 0,
-                            width: '12.5%',
-                            height: '50%',
-                            backgroundColor: 'rgba(18, 20, 18, 0.96)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: 'var(--radius-14)',
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {(['q', 'r', 'b', 'n'] as const).map((piece) => {
-                            const code = `${playerColor}${piece.toUpperCase()}` as const
-                            return (
-                              <button
-                                key={piece}
-                                onClick={() => {
-                                  makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                                  setPendingPromotion(null)
-                                  selectSquare(pendingPromotion.to)
-                                }}
-                                className="flex-1 flex items-center justify-center transition-colors group"
-                                style={{
-                                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
-                                }}
-                              >
-                                <img
-                                  src={getPieceUrl(code)}
-                                  alt={piece}
-                                  className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform"
-                                  draggable={false}
-                                />
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })()}
+                  {pendingPromotion && (
+                    <PromotionPicker
+                      to={pendingPromotion.to}
+                      color={playerColor!}
+                      onSelect={(piece) => {
+                        makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                        setPendingPromotion(null)
+                        selectSquare(pendingPromotion.to)
+                      }}
+                      onCancel={() => setPendingPromotion(null)}
+                    />
+                  )}
                 </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
@@ -464,97 +343,36 @@ export default function BotPage() {
             </Card>
           </div>
         </div>
-      </main>
 
-      <Modal
-        isOpen={isLevelModalOpen}
-        onClose={() => {}}
-        description="Настройка партии с Ичи"
-      >
-        <div className="space-y-[var(--space-24)] pt-[var(--space-8)]">
-          <div className="space-y-[var(--space-12)]">
-            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">
-              Ваш цвет
-            </label>
-            <div className="space-y-2">
-              <Button 
-                fullWidth 
-                variant="primary" 
-                onClick={() => setTempColor('w')}
-                className={`border-2 ${tempColor === 'w' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
-              >
-                Белые
-              </Button>
-              <Button 
-                fullWidth 
-                variant="primary" 
-                onClick={() => setTempColor('b')}
-                className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
-              >
-                Чёрные
-              </Button>
-              <Button 
-                fullWidth 
-                variant="primary" 
-                onClick={() => setTempColor('random')}
-                className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
-              >
-                Случайно 🎲
-              </Button>
+        <Modal
+          isOpen={isLevelModalOpen}
+          onClose={() => {}}
+          description="Настройка партии с Ичи"
+        >
+          <div className="space-y-[var(--space-24)] pt-[var(--space-8)]">
+            <div className="space-y-[var(--space-12)]">
+              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">Ваш цвет</label>
+              <div className="space-y-2">
+                <Button fullWidth variant="primary" onClick={() => setTempColor('w')} className={`border-2 ${tempColor === 'w' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Белые</Button>
+                <Button fullWidth variant="primary" onClick={() => setTempColor('b')} className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Чёрные</Button>
+                <Button fullWidth variant="primary" onClick={() => setTempColor('random')} className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Случайно 🎲</Button>
+              </div>
+            </div>
+            <div className="space-y-[var(--space-12)]">
+              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">Сложность</label>
+              <div className="space-y-2">
+                <Button fullWidth onClick={() => handleStartGame('very-easy')} variant="primary">Очень лёгкий</Button>
+                <Button fullWidth onClick={() => handleStartGame('easy')} variant="primary">Лёгкий</Button>
+                <Button fullWidth onClick={() => handleStartGame('medium')} variant="primary">Средний</Button>
+                <Button fullWidth onClick={() => handleStartGame('hard')} variant="primary">Сильный</Button>
+              </div>
+            </div>
+            <div className="pt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
+              <Button fullWidth onClick={() => navigate('/')} variant="primary" className="hover:!bg-[var(--danger-soft)] hover:!border-[var(--danger-border)]">Отмена</Button>
             </div>
           </div>
-
-          <div className="space-y-[var(--space-12)]">
-            <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">
-              Сложность
-            </label>
-            <div className="space-y-2">
-              <Button 
-                fullWidth 
-                onClick={() => handleStartGame('very-easy')}
-                variant="primary"
-              >
-                Очень лёгкий
-              </Button>
-              <Button 
-                fullWidth 
-                onClick={() => handleStartGame('easy')}
-                variant="primary"
-              >
-                Лёгкий
-              </Button>
-              <Button 
-                fullWidth 
-                onClick={() => handleStartGame('medium')}
-                variant="primary"
-              >
-                Средний
-              </Button>
-              <Button 
-                fullWidth 
-                onClick={() => handleStartGame('hard')}
-                variant="primary"
-              >
-                Сильный
-              </Button>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
-            <Button 
-              fullWidth 
-              onClick={() => navigate('/')}
-              variant="primary"
-              className="hover:!bg-[var(--danger-soft)] hover:!border-[var(--danger-border)]"
-            >
-              Отмена
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Footer />
-    </div>
-  )
-}
+        </Modal>
+      </GameLayout>
+    )
+  }
 

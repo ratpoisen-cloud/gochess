@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
-import { Chess } from '@/lib/engine'
+import { createEngine } from '@/lib/engine'
 import { getVisibleSquares } from '@/lib/chessFog'
 
 const BASE = import.meta.env.BASE_URL || '/'
@@ -28,7 +28,7 @@ export default function BoardPreview({
   const visibleSquares = useMemo(() => {
     if (gameMode !== 'fog_of_war' || !playerColor) return null
     try {
-      const game = new Chess(fen)
+      const game = createEngine(fen)
       return getVisibleSquares(game, playerColor)
     } catch {
       return null

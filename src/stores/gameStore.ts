@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Chess, type Move } from '@/lib/engine'
+import { createEngine, type EngineAPI, type Move } from '@/lib/engine'
 import type { GameStatus, Color } from '@/types'
 import { soundManager } from '@/lib/soundManager'
 import { db } from '@/lib/firebase'
@@ -10,7 +10,7 @@ import { useAuthStore } from './authStore'
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 interface GameState {
-  game: Chess
+  game: EngineAPI
   fen: string
   status: GameStatus
   currentTurn: Color
@@ -37,7 +37,7 @@ interface GameState {
   saveGame: (gameType: 'bot' | 'local' | 'online', botLevel?: string) => Promise<void>
 }
 
-export const getKingSquare = (game: Chess, color: 'w' | 'b'): string | null => {
+export const getKingSquare = (game: EngineAPI, color: 'w' | 'b'): string | null => {
   const board = game.board()
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -51,7 +51,7 @@ export const getKingSquare = (game: Chess, color: 'w' | 'b'): string | null => {
   return null
 }
 
-const getCheckSquare = (game: Chess): string | null => {
+const getCheckSquare = (game: EngineAPI): string | null => {
   if (!game.inCheck()) return null
   const turn = game.turn()
   const board = game.board()
@@ -70,7 +70,7 @@ const getCheckSquare = (game: Chess): string | null => {
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
-      game: new Chess(),
+      game: createEngine(),
       fen: START_FEN,
       status: 'playing',
       currentTurn: 'w',
@@ -86,7 +86,7 @@ export const useGameStore = create<GameState>()(
 
       initGame: () => {
         set({
-          game: new Chess(),
+          game: createEngine(),
           fen: START_FEN,
           status: 'playing',
           currentTurn: 'w',
@@ -145,7 +145,7 @@ export const useGameStore = create<GameState>()(
 
       selectSquare: (square) => {
         const { game, selectedSquare, makeMove } = get()
-        const piece = game.get(square as any)
+        const piece = game.get(square)
 
         if (selectedSquare === square) {
           set({ selectedSquare: null, legalMoves: [] })
@@ -264,7 +264,7 @@ export const useGameStore = create<GameState>()(
           const data = snap.data()
           if (data.game_type !== 'bot') return null
 
-          const chess = new Chess()
+          const chess = createEngine()
           if (data.pgn) {
             try { chess.loadPgn(data.pgn) } catch {
               if (data.fen) chess.load(data.fen)
@@ -380,7 +380,7 @@ export const useGameStore = create<GameState>()(
           try {
             const data = JSON.parse(str)
             const fen = data.state?.fen || START_FEN
-            const chess = new Chess(fen)
+            const chess = createEngine(fen)
             return {
               ...data,
               state: {

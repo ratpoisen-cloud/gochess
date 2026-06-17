@@ -1,8 +1,3 @@
-export {
-  PoisenChessEngine as Chess,
-  PoisenChessEngine,
-  type PieceType,
-  type Color,
-  type Piece,
-  type Move
-} from './PoisenChess'
+export { PoisenChessEngine } from './PoisenChess'
+export { createEngine } from './factory'
+export type { EngineAPI, PieceType, Color, Piece, Move } from './types'

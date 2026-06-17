@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { type Move } from '@/lib/engine'
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, runTransaction } from 'firebase/firestore'
@@ -12,19 +12,17 @@ import { useBoardStore } from '@/stores/boardStore'
 import ChessBoard from '@/components/board/ChessBoard'
 import ChessTimer from '@/components/board/ChessTimer'
 import Button from '@/components/Button'
-import SettingsDropdown from '@/components/SettingsDropdown'
-import UserMenu from '@/components/UserMenu'
 import ReactionPicker from '@/components/ReactionPicker'
-import { useToast } from '@/components/Toast'
 import RequestModal from '@/components/RequestModal'
 import Card from '@/components/Card'
-import Footer from '@/components/Footer'
 import AuthModal from '@/components/AuthModal'
 import PixelConfetti from '@/components/PixelConfetti'
 import FogRulesModal from '@/components/FogRulesModal'
+import { useToast } from '@/components/Toast'
+import GameLayout from '@/components/GameLayout'
+import { usePgnCopy } from '@/hooks/usePgnCopy'
 
 
-const BASE = import.meta.env.BASE_URL || '/'
 
 export default function GamePage() {
   const { user, isLoading: authLoading } = useAuth()
@@ -45,7 +43,8 @@ export default function GamePage() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [showResignConfirm, setShowResignConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [pgnCopied, setPgnCopied] = useState(false)
+
+  const { pgnCopied, copyPgn } = usePgnCopy(() => game.pgn())
 
   const {
     game,
@@ -188,17 +187,6 @@ export default function GamePage() {
     }
   }, [rematchGameId, navigate, addToast])
 
-  const copyPgn = () => {
-    try {
-      navigator.clipboard.writeText(game.pgn())
-      setPgnCopied(true)
-      addToast('PGN скопирован', 'success')
-      setTimeout(() => setPgnCopied(false), 2000)
-    } catch {
-      addToast('Ошибка копирования', 'error')
-    }
-  }
-
   // Render
   if (authLoading && !user) return <LoadingScreen isLoading={true} />
   if (error) {
@@ -223,26 +211,9 @@ export default function GamePage() {
   if (loading) return <LoadingScreen isLoading={true} />
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-bg">
-      <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
-          <Link to="/">
-            <img
-              src={`${BASE}logo/gochess_wordmark_dark.svg`}
-              alt="GoChess"
-              className="h-[28px] w-auto"
-            />
-          </Link>
-          <div className="flex items-center gap-[var(--space-12)]">
-            <SettingsDropdown />
-            {user && <UserMenu />}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-48)] max-sm:py-[var(--space-24)] flex-1 w-full">
-        <div className="game-layout-container">
-          <div className="game-main-column">
+    <GameLayout user={user}>
+      <div className="game-layout-container">
+        <div className="game-main-column">
             {timeControl && (
               <div className="mx-auto mb-4" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
                 <ChessTimer
@@ -523,9 +494,6 @@ export default function GamePage() {
             )}
           </div>
         </div>
-      </main>
-
-      <Footer />
 
       {showReactionPicker && reactionPos && (
         <ReactionPicker
@@ -563,7 +531,7 @@ export default function GamePage() {
         isOpen={isRulesOpen}
         onClose={() => setIsRulesOpen(false)}
       />
-    </div>
+    </GameLayout>
   )
 }
 

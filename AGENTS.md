@@ -9,7 +9,7 @@
 - **Отображение доски:** `react-chessboard` (v4.7.2)
 - **Стейт-менеджмент:** Zustand (с persist middleware)
 - **Backend / База данных:** Firebase (Auth, Firestore)
-- **Бот:** Stockfish (Web Worker + WASM) — 3 уровня сложности
+- **Бот:** Ichi — собственный ИИ (minimax + αβ + PST, Web Worker) — 4 уровня сложности
 - **Маршрутизация:** React Router v6
 - **Кастомный шахматный движок:** `spellChessEngine.ts` — Spell Chess (5 заклинаний, взятие короля)
 - **VFX:** `MagicVFX.tsx` — пиксельные частицы для эффектов заклинаний (canvas + requestAnimationFrame)
@@ -149,7 +149,7 @@ src/
 | ✅ Исправлен вылет useBoardStore | `LocalPage.tsx`, `BotPage.tsx` | Устранена ошибка `ReferenceError: useBoardStore is not defined` в модалке превращения путём корректного импорта и инициализации стора в компонентах. |
 | ✅ Не загружалась страница игры (LoadingScreen бесконечно) | `GamePage.tsx` | `authLoading` блокировал рендер даже после `loading = false`. Убрана проверка `if (authLoading) return <LoadingScreen />` — LoadingScreen управляется только стейтом `loading`. |
 | ✅ Последние партии не грузились в лобби | `LobbyPage.tsx`, `firestore.indexes.json` | После смены `orderBy('created_at')` на `orderBy('last_move_time')` запрос перестал возвращать документы без поля `last_move_time` (старые игры). Исправлено: убран `orderBy` из Firestore-запроса, сортировка клиентская по `last_move_time` с fallback на `created_at`. |
-| ✅ Бот ходит случайно, уровни не работают | `BotPage.tsx`, `src/lib/botEngine.ts`, `public/engine/` | Подключён Stockfish 18 (WASM + Web Worker). Уровни: easy (depth=3, skill=0, 50ms), medium (depth=5, skill=2, 100ms), hard (depth=8, skill=4, 220ms). Fallback на случайный ход при ошибке движка. |
+| ✅ Бот ходит случайно, уровни не работают | `BotPage.tsx`, `src/lib/botEngine.ts`, `public/engine/` | Stockfish заменён на Ichi bot (minimax + αβ + PST, Web Worker). Levels: very-easy (depth=1, randomness=0.5), easy (depth=2, randomness=0.3), medium (depth=3, randomness=0.1), hard (depth=4, randomness=0). 0 latency first move, no WASM download. |
 | ✅ Spell Chess: коoldown на оба цвета | `spellChessEngine.ts`, `spellGameStore.ts` | Исправлено: уменьшение кулдауна применялось только для текущего игрока. Теперь кулдауны обоих цветов декрементятся каждый ход. |
 | ✅ Spell Chess: множественные экземпляры движка | `spellGameStore.ts` | Исправлено: создавалось 3 экземпляра SpellChessEngine вместо одного. Переведено на единый `defaultEngine`. |
 | ✅ Spell Chess: `customSquareStyles` без мемоизации | `SpellLocalPage.tsx` | `customSquareStyles` пересоздавался при каждом рендере. Обёрнут в `useMemo`. |

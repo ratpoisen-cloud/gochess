@@ -1,18 +1,15 @@
 import type { BotLevel } from '@/types'
 
-const BASE = import.meta.env.BASE_URL || '/'
-
 interface BotProfile {
-  skill: number
   depth: number
-  movetime: number
+  randomness: number
 }
 
 const LEVELS: Record<BotLevel, BotProfile> = {
-  'very-easy': { skill: 0, depth: 1, movetime: 200 },
-  easy: { skill: 0, depth: 3, movetime: 50 },
-  medium: { skill: 2, depth: 5, movetime: 100 },
-  hard: { skill: 4, depth: 8, movetime: 220 },
+  'very-easy': { depth: 1, randomness: 0.5 },
+  easy: { depth: 2, randomness: 0.3 },
+  medium: { depth: 3, randomness: 0.1 },
+  hard: { depth: 4, randomness: 0 },
 }
 
 export function createBotEngine(level: BotLevel = 'medium') {
@@ -26,46 +23,35 @@ export function createBotEngine(level: BotLevel = 'medium') {
     activeRejector = null
   }
 
-  const onWorkerMessage = (event: MessageEvent) => {
-    const line = String(event?.data || '').trim()
-    if (!line) return
-
-    if (line.startsWith('bestmove')) {
-      const bestMove = line.split(/\s+/)[1] || null
-      if (activeResolver) {
-        activeResolver(bestMove)
-      }
-      clearPendingRequest()
-    }
-  }
-
-  const send = (command: string) => {
-    if (!worker) return
-    worker.postMessage(command)
-  }
-
   const ensureInitialized = () => {
     if (worker) return
 
     try {
-      worker = new Worker(`${BASE}engine/stockfish-18-lite-single.js`)
+      const url = new URL('./engine/ichi.worker.ts', import.meta.url)
+      worker = new Worker(url, { type: 'module' })
     } catch (err) {
       console.error('[BotEngine] Failed to create worker:', err)
       return
     }
 
-    worker.onmessage = onWorkerMessage
-    worker.onerror = (error) => {
-      console.error('[BotEngine] Worker error:', error)
-      if (activeRejector) {
-        activeRejector(error)
+    worker.onmessage = (event: MessageEvent) => {
+      if (activeResolver) {
+        const data = event.data as { from: string; to: string; promotion?: string } | null
+        if (data) {
+          const lan = data.from + data.to + (data.promotion || '')
+          activeResolver(lan)
+        } else {
+          activeResolver(null)
+        }
       }
       clearPendingRequest()
     }
 
-    send('uci')
-    send('isready')
-    send(`setoption name Skill Level value ${profile.skill}`)
+    worker.onerror = (error) => {
+      console.error('[BotEngine] Worker error:', error)
+      if (activeRejector) activeRejector(error)
+      clearPendingRequest()
+    }
   }
 
   return {
@@ -84,16 +70,12 @@ export function createBotEngine(level: BotLevel = 'medium') {
         activeResolver = resolve
         activeRejector = reject
 
-        send('stop')
-        send(`position fen ${fen}`)
-        send(`go depth ${profile.depth} movetime ${profile.movetime}`)
+        worker!.postMessage({ fen, config: { depth: profile.depth, randomness: profile.randomness } })
       })
     },
     destroy() {
       try {
         if (worker) {
-          send('stop')
-          send('quit')
           worker.terminate()
         }
       } catch (error) {

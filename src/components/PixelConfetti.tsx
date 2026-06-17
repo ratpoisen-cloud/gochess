@@ -45,6 +45,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     let animationFrameId: number
     let particles: Particle[] = []
     let gyroPermissionRequested = false
+    let currentScale = 1
 
     const mousePos = { x: null as number | null, y: null as number | null }
     const tilt = { x: 0, y: 0 }
@@ -55,19 +56,19 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     const resize = () => {
       if (canvas.parentElement) {
         const rect = canvas.parentElement.getBoundingClientRect()
-        const scale = Math.min(window.devicePixelRatio || 1, 2)
-        canvas.width = rect.width * scale
-        canvas.height = rect.height * scale
+        currentScale = Math.min(window.devicePixelRatio || 1, 2)
+        canvas.width = rect.width * currentScale
+        canvas.height = rect.height * currentScale
         canvas.style.width = rect.width + 'px'
         canvas.style.height = rect.height + 'px'
-        ctx.scale(scale, scale)
+        ctx.setTransform(currentScale, 0, 0, currentScale, 0, 0)
       } else {
-        const scale = Math.min(window.devicePixelRatio || 1, 2)
-        canvas.width = window.innerWidth * scale
-        canvas.height = window.innerHeight * scale
+        currentScale = Math.min(window.devicePixelRatio || 1, 2)
+        canvas.width = window.innerWidth * currentScale
+        canvas.height = window.innerHeight * currentScale
         canvas.style.width = window.innerWidth + 'px'
         canvas.style.height = window.innerHeight + 'px'
-        ctx.scale(scale, scale)
+        ctx.setTransform(currentScale, 0, 0, currentScale, 0, 0)
       }
     }
 
@@ -75,11 +76,11 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       const count = isMobile ? 150 : 350
       const newParticles: Particle[] = []
 
-      const width = canvas.width
-      const height = canvas.height
+      const w = canvas.width / currentScale
+      const h = canvas.height / currentScale
 
-      const startX = isInsideBoard ? width / 2 : Math.random() * width
-      const startY = isInsideBoard ? height / 2 : -20
+      const startX = isInsideBoard ? w / 2 : Math.random() * w
+      const startY = isInsideBoard ? h / 2 : -20
 
       for (let i = 0; i < count; i++) {
         const isFeather = isInsideBoard && Math.random() < 0.2
@@ -153,8 +154,8 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
         if (isInsideBoard) {
           const padding = p.size
-          const maxX = canvas.width - padding
-          const maxY = canvas.height - padding
+          const maxX = canvas.width / currentScale - padding
+          const maxY = canvas.height / currentScale - padding
 
           if (p.x < padding) {
             p.x = padding
@@ -196,7 +197,9 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           return
         }
       } else {
-        particles = particles.filter(p => p.y < canvas.height + 20 && p.y > -100 && p.x > -100 && p.x < canvas.width + 100)
+        const h = canvas.height / currentScale
+        const w = canvas.width / currentScale
+        particles = particles.filter(p => p.y < h + 20 && p.y > -100 && p.x > -100 && p.x < w + 100)
         if (particles.length === 0) {
           cancelAnimationFrame(animationFrameId)
           return

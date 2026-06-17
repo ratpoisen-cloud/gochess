@@ -29,10 +29,10 @@ export const SPELL_UNLOCK: Record<SpellName, number> = {
   freeze: 10,
   portal: 10,
   blast: 16,
-  berserk: 7,
-  divineGrace: 13,
-  shadowGrave: 13,
-  mirage: 13,
+  berserk: 13,
+  divineGrace: 7,
+  shadowGrave: 7,
+  mirage: 7,
 }
 
 export const WHITE_CHARGES: Record<SpellName, number> = {
@@ -445,12 +445,15 @@ export class SpellChessEngine {
     if (this.spellState.portals) {
       if (this.spellState.portals.expiry <= this.halfMoveCount) {
         this.spellState.portals = null;
-      } else if (to === this.spellState.portals.from) {
-        const { r: pr, c: pc } = this.sqToIdx(this.spellState.portals.to);
+      } else if (to === this.spellState.portals.from || to === this.spellState.portals.to) {
+        const target = to === this.spellState.portals.from
+          ? this.spellState.portals.to
+          : this.spellState.portals.from;
+        const { r: pr, c: pc } = this.sqToIdx(target);
         if (!this._pieces[pr][pc]) {
           this._pieces[pr][pc] = piece;
           this._pieces[tr][tc] = null;
-          landingSq = this.spellState.portals.to;
+          landingSq = target;
         }
         this.spellState.portals = null;
       }
@@ -534,7 +537,7 @@ export class SpellChessEngine {
       for (let dc = -1; dc <= 1; dc++) {
         const tr = r + dr, tc = c + dc;
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-          this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 6;
+          this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 4;
         }
       }
     }
@@ -575,7 +578,10 @@ export class SpellChessEngine {
         const tr = r + dr, tc = c + dc;
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
           const sq = this.idxToSq(tr, tc);
-          delete this.spellState.frozenSquares[sq];
+          const p = this._pieces[tr][tc];
+          if (p && p.color === this._turn) {
+            delete this.spellState.frozenSquares[sq];
+          }
         }
       }
     }

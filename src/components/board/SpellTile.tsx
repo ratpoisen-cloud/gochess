@@ -1,0 +1,95 @@
+import React from 'react';
+import { type SpellName } from '@/lib/spellChessEngine';
+
+interface SpellTileProps {
+  spell: SpellName;
+  charges: number;
+  maxCharges: number;
+  unlocked: boolean;
+  unlockTurn: number;
+  isActive: boolean;
+  canCast: boolean;
+  isTerminal: boolean;
+  onClick: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  size?: 'sm' | 'md';
+}
+
+const spellIcon = (spell: SpellName): string => {
+  const icons: Record<SpellName, string> = {
+    jump: '⤵', shield: '🛡', portal: '🌀', freeze: '❄',
+    blast: '💣', berserk: '⚡', divineGrace: '✨', shadowGrave: '👻', mirage: '🪄',
+  };
+  return icons[spell] || '❓';
+};
+
+export const SpellTile: React.FC<SpellTileProps> = ({
+  spell,
+  charges,
+  maxCharges,
+  unlocked,
+  unlockTurn,
+  isActive,
+  canCast,
+  isTerminal,
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
+  size = 'md',
+}) => {
+  const isSm = size === 'sm';
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      disabled={!canCast && unlocked}
+      className={`
+        relative flex flex-col items-center justify-center rounded-[var(--radius-4)] transition-all border
+        ${isSm ? 'w-10 h-10' : 'w-14 h-14 sm:w-16 sm:h-16'}
+        ${unlocked 
+          ? (isActive 
+              ? 'border-[var(--accent-brand)] bg-[var(--accent-soft)] ring-2 ring-[var(--accent-brand)]' 
+              : 'border-[var(--border)] bg-white/5 hover:bg-white/10 hover:border-[var(--accent-brand)]'
+            )
+          : 'border-white/5 bg-white/[0.02] grayscale opacity-40 cursor-not-allowed'
+        }
+        ${!unlocked ? 'cursor-not-allowed' : 'cursor-pointer'}
+        ${isTerminal && unlocked ? 'hover:shadow-[0_0_10px_rgba(255,68,68,0.2)]' : ''}
+      `}
+    >
+      {/* Icon */}
+      <span className={`${isSm ? 'text-lg' : 'text-2xl'} mb-1`}>
+        {spellIcon(spell)}
+      </span>
+
+      {/* Charges Indicator */}
+      {unlocked && (
+        <div className="absolute bottom-1 right-1 flex gap-0.5">
+          {Array.from({ length: maxCharges }).map((_, i) => (
+            <div
+              key={i}
+              className={`w-1 h-1 rounded-full ${
+                i < charges ? (isTerminal ? 'bg-[var(--danger)]' : 'bg-[var(--accent-brand)]') : 'bg-white/20'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Lock Overlay */}
+      {!unlocked && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-[var(--radius-4)]">
+          <span className="text-[10px] font-bold text-white/80">{unlockTurn}</span>
+        </div>
+      )}
+
+      {/* Terminal Indicator */}
+      {unlocked && isTerminal && (
+        <div className="absolute top-0 right-0 w-1.5 h-1.5 bg-[var(--danger)] rounded-bl-[var(--radius-4)] rounded-tr-[var(--radius-4)]" />
+      )}
+    </button>
+  );
+};

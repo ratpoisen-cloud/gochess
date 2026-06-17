@@ -134,6 +134,20 @@
   }
 }
 
+/* Spell HUD specific styles */
+.spell-hud-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+}
+
+@media (max-width: 899px) {
+  .spell-info-desktop {
+    display: none;
+  }
+}
+
 /* Pure CSS Board Container */
 .board-container {
   width: 100%;

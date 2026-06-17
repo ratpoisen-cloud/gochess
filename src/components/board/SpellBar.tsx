@@ -13,7 +13,6 @@ interface SpellBarProps {
   gameOver: boolean;
   onSpellClick: (spell: SpellName) => void;
   onSpellHover: (spell: SpellName | null) => void;
-  isOpponent?: boolean;
 }
 
 export const SpellBar: React.FC<SpellBarProps> = ({
@@ -26,40 +25,36 @@ export const SpellBar: React.FC<SpellBarProps> = ({
   gameOver,
   onSpellClick,
   onSpellHover,
-  isOpponent = false,
 }) => {
   const maxChargesMap = defaultCharges(playerColor);
   const spells = Object.keys(maxChargesMap) as SpellName[];
 
-  // Filter spells that have 0 max charges for this color (like divineGrace for black)
-  const visibleSpells = spells.filter(s => maxChargesMap[s] > 0);
+  const visibleSpells = spells
+    .filter(s => maxChargesMap[s] > 0)
+    .sort((a, b) => SPELL_UNLOCK[a] - SPELL_UNLOCK[b]);
 
   return (
     <div
-      className={`w-full flex items-stretch gap-1.5 p-2 rounded-[var(--radius-14)] ${isOpponent ? 'opacity-60 scale-75 origin-center' : ''}`}
+      className="w-full flex items-stretch gap-1.5 p-2 rounded-[var(--radius-14)]"
       style={{ backgroundColor: 'rgba(18, 20, 18, 0.96)', border: '1px solid rgba(255, 255, 255, 0.12)' }}
     >
       {visibleSpells.map((spell) => {
         const charges = currentCharges[spell] || 0;
-        const maxCharges = maxChargesMap[spell];
         const unlockTurn = SPELL_UNLOCK[spell];
         const unlocked = turnNumber >= unlockTurn;
         const isTerminal = TERMINAL_ACTIONS.includes(spell);
-        const canCast = !gameOver && isMyTurn && !hasCastSpellThisTurn && charges > 0 && unlocked && !isOpponent;
+        const canCast = !gameOver && isMyTurn && !hasCastSpellThisTurn && charges > 0 && unlocked;
 
         return (
           <SpellTile
             key={spell}
             spell={spell}
-            charges={charges}
-            maxCharges={maxCharges}
             unlocked={unlocked}
             unlockTurn={unlockTurn}
             isActive={activeSpell === spell}
             canCast={canCast}
             isTerminal={isTerminal}
-            size={isOpponent ? 'sm' : 'md'}
-            onClick={() => !isOpponent && onSpellClick(spell)}
+            onClick={() => onSpellClick(spell)}
             onMouseEnter={() => onSpellHover(spell)}
             onMouseLeave={() => onSpellHover(null)}
           />

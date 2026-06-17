@@ -487,7 +487,6 @@ export default function GamePage() {
                 gameOver={gameOver}
                 onSpellClick={() => {}}
                 onSpellHover={setHoveredSpell}
-                isOpponent
               />
             </div>
           )}
@@ -502,7 +501,7 @@ export default function GamePage() {
               </span>
               {opponentJoined && <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />}
               {gameMode === 'fog_of_war' && (
-                <span className="text-[12px]" title="Туман войны">☁️</span>
+                <span className="text-[12px]">☁️</span>
               )}
             </div>
 
@@ -544,7 +543,7 @@ export default function GamePage() {
             </div>
 
             <div className="text-right">
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${
+              <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${
                 isMyTurn && !gameOver ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
               }`}>
                 {gameOver ? 'Игра окончена' : isMyTurn ? 'Ваш ход' : 'Ход соперника'}

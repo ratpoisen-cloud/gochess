@@ -35,7 +35,10 @@ export const SpellBar: React.FC<SpellBarProps> = ({
   const visibleSpells = spells.filter(s => maxChargesMap[s] > 0);
 
   return (
-    <div className={`flex items-center gap-2 p-2 rounded-[var(--radius-12)] bg-black/20 border border-[var(--border)] ${isOpponent ? 'opacity-80 scale-90 origin-center' : ''}`}>
+    <div
+      className={`w-full flex items-stretch gap-1.5 p-2 rounded-[var(--radius-14)] ${isOpponent ? 'opacity-60 scale-75 origin-center' : ''}`}
+      style={{ backgroundColor: 'rgba(18, 20, 18, 0.96)', border: '1px solid rgba(255, 255, 255, 0.12)' }}
+    >
       {visibleSpells.map((spell) => {
         const charges = currentCharges[spell] || 0;
         const maxCharges = maxChargesMap[spell];

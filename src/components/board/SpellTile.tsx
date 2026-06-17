@@ -56,58 +56,57 @@ export const SpellTile: React.FC<SpellTileProps> = ({
       onMouseLeave={onMouseLeave}
       disabled={!canCast && unlocked}
       className={`
-        relative flex flex-col items-center justify-center rounded-[var(--radius-8)] transition-all border flex-1
-        ${isSm ? 'h-10' : 'h-16 sm:h-20'}
+        relative flex flex-col items-center justify-center rounded-[var(--radius-8)] transition-all border
+        ${isSm ? 'w-full' : 'flex-1 aspect-square'}
         ${unlocked 
           ? (isActive 
-              ? 'border-[var(--accent-brand)] bg-[var(--accent-soft)] ring-2 ring-[var(--accent-brand)] shadow-[0_0_15px_rgba(126,184,126,0.2)]' 
-              : 'border-[var(--border)] bg-white/5 hover:bg-white/10 hover:border-[var(--accent-brand)]'
+              ? 'border-[var(--accent-brand)] bg-white/[0.06] ring-1 ring-[var(--accent-brand)]' 
+              : 'border-transparent bg-white/[0.03] hover:bg-white/[0.08] hover:border-[var(--accent-brand)]'
             )
-          : 'border-white/5 bg-white/[0.02] grayscale opacity-40 cursor-not-allowed'
+          : 'border-transparent bg-white/[0.02] grayscale opacity-30 cursor-not-allowed'
         }
         ${!unlocked ? 'cursor-not-allowed' : 'cursor-pointer'}
-        ${isTerminal && unlocked ? 'hover:shadow-[0_0_10px_rgba(255,68,68,0.2)]' : ''}
       `}
     >
       {/* Icon */}
       <img
         src={spellIconFile(spell)}
         alt={spell}
-        className={`${isSm ? 'w-5 h-5' : 'w-7 h-7 sm:w-9 sm:h-9'} object-contain ${isSm ? 'mb-0' : 'mb-2'}`}
+        className={`object-contain ${isSm ? 'w-[40%] h-[40%]' : 'w-[45%] h-[45%] sm:w-[50%] sm:h-[50%]'}`}
         style={{ imageRendering: 'pixelated' }}
       />
 
-      {/* Charges Indicator - Below icon */}
+      {/* Charges dots */}
       {unlocked && !isSm && (
-        <div className="flex gap-1 mt-auto pb-1.5">
+        <div className="flex gap-[3px] mt-auto pb-[6px]">
           {Array.from({ length: maxCharges }).map((_, i) => (
             <div
               key={i}
-              className={`w-1.5 h-1.5 rounded-full ${
-                i < charges ? (isTerminal ? 'bg-[var(--danger)]' : 'bg-[var(--accent-brand)] shadow-[0_0_4px_rgba(126,184,126,0.6)]') : 'bg-white/10'
+              className={`w-[5px] h-[5px] rounded-full ${
+                i < charges ? (isTerminal ? 'bg-[var(--danger)]' : 'bg-[var(--accent-brand)]') : 'bg-white/[0.12]'
               }`}
             />
           ))}
         </div>
       )}
 
-      {/* Sm Charges - Top Right */}
+      {/* Sm charges badge */}
       {unlocked && isSm && (
-        <div className="absolute top-0.5 right-0.5 flex flex-col gap-0.5">
-           <span className="text-[8px] font-bold text-[var(--accent-brand)]">{charges}</span>
-        </div>
+        <span className="absolute top-[2px] right-[2px] text-[7px] font-bold text-[var(--accent-brand)]">
+          {charges}
+        </span>
       )}
 
-      {/* Lock Overlay */}
+      {/* Lock overlay */}
       {!unlocked && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-[var(--radius-8)]">
-          <span className="text-[10px] font-bold text-white/80">{unlockTurn}</span>
+          <span className="text-[9px] font-bold text-white/70">{unlockTurn}</span>
         </div>
       )}
 
-      {/* Terminal Indicator */}
+      {/* Terminal indicator */}
       {unlocked && isTerminal && !isSm && (
-        <div className="absolute top-1 right-1 w-2 h-2 bg-[var(--danger)] rounded-full animate-pulse" />
+        <div className="absolute top-[3px] left-[3px] w-[6px] h-[6px] bg-[var(--danger)] rounded-full animate-pulse" />
       )}
     </button>
   );

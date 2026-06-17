@@ -99,9 +99,11 @@ export default function GamePage() {
 
   const { addToast } = useToast()
 
+  const isAtomicGame = gameMode === 'atomic_chess'
+
   // Trigger explosions for Atomic Chess
   useEffect(() => {
-    if (gameMode === 'atomic_chess' && spellStateJson) {
+    if (isAtomicGame && spellStateJson) {
       try {
         const state = JSON.parse(spellStateJson)
         if (state.lastBlastSquare) {
@@ -110,7 +112,7 @@ export default function GamePage() {
         }
       } catch {}
     }
-  }, [spellStateJson, gameMode])
+  }, [spellStateJson, isAtomicGame])
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)

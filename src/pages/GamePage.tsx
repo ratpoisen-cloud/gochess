@@ -99,7 +99,7 @@ export default function GamePage() {
 
   const { addToast } = useToast()
 
-  const isAtomicGame = gameMode === 'atomic_chess'
+  const isAtomicGame = (gameMode as string) === 'atomic_chess'
 
   // Trigger explosions for Atomic Chess
   useEffect(() => {

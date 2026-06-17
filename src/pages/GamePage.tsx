@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { type Move } from '@/lib/engine'
-import { type SpellName, type SpellState } from '@/lib/spellChessEngine'
+import { type SpellName, type SpellState, defaultCharges } from '@/lib/spellChessEngine'
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, runTransaction } from 'firebase/firestore'
 import LoadingScreen from '@/components/LoadingScreen'
@@ -423,7 +423,7 @@ export default function GamePage() {
             <div className="mx-auto mb-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
               <SpellBar
                 playerColor={playerColor === 'w' ? 'b' : 'w'}
-                currentCharges={parsedSpellState?.charges[playerColor === 'w' ? 'b' : 'w'] || {}}
+                currentCharges={parsedSpellState?.charges[playerColor === 'w' ? 'b' : 'w'] ?? defaultCharges(playerColor === 'w' ? 'b' : 'w')}
                 turnNumber={turnNumber}
                 isMyTurn={false}
                 hasCastSpellThisTurn={false}
@@ -582,7 +582,7 @@ export default function GamePage() {
             <div className="mx-auto mt-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
               <SpellBar
                 playerColor={playerColor || 'w'}
-                currentCharges={activeCharges || {}}
+                currentCharges={activeCharges ?? defaultCharges(playerColor === 'w' ? 'w' : 'b')}
                 turnNumber={turnNumber}
                 isMyTurn={isMyTurn}
                 hasCastSpellThisTurn={hasCastSpellThisTurn}

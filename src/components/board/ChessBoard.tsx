@@ -286,7 +286,7 @@ export default function ChessBoard({
                     }}
                   >
                     <img 
-                      src={`${BASE}emojis/bomb.png`} 
+                      src={`${BASE}emojis/spells/bomb.png`} 
                       alt="bomb" 
                       className="w-full h-full object-contain"
                       style={{ imageRendering: 'pixelated' }}

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { 
   onAuthStateChanged, 
-  signInWithPopup, 
+  signInWithRedirect, 
   GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -85,7 +85,7 @@ export function useAuth() {
     setError(null)
     const provider = new GoogleAuthProvider()
     try {
-      await signInWithPopup(auth, provider)
+      await signInWithRedirect(auth, provider)
     } catch (err: any) {
       setError(err.message)
       throw err

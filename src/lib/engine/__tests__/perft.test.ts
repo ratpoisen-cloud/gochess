@@ -50,4 +50,136 @@ describe('PoisenChessEngine Perft', () => {
     expect(perft(e, 2)).toBe(1486)
     expect(perft(e, 3)).toBe(62379)
   }, 120000)
+
+  it('Position 6 — Deep promotion + checks', () => {
+    const e = new PoisenChessEngine('r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10')
+    expect(perft(e, 1)).toBe(46)
+    expect(perft(e, 2)).toBe(2079)
+    expect(perft(e, 3)).toBe(89890)
+  }, 120000)
+
+  describe('PoisenChessEngine — Checkmate / Stalemate / Draw', () => {
+    it('Scholar\'s Mate (4-move checkmate)', () => {
+      const e = new PoisenChessEngine()
+      e.move({ from: 'e2', to: 'e4' })
+      e.move({ from: 'e7', to: 'e5' })
+      e.move({ from: 'f1', to: 'c4' })
+      e.move({ from: 'b8', to: 'c6' })
+      e.move({ from: 'd1', to: 'h5' })
+      e.move({ from: 'g8', to: 'f6' })
+      e.move({ from: 'h5', to: 'f7' })
+      expect(e.isCheckmate()).toBe(true)
+      expect(e.isGameOver()).toBe(true)
+      expect(e.turn()).toBe('b')
+    })
+
+    it('Fool\'s Mate (2-move checkmate)', () => {
+      const e = new PoisenChessEngine()
+      e.move({ from: 'f2', to: 'f3' })
+      e.move({ from: 'e7', to: 'e5' })
+      e.move({ from: 'g2', to: 'g4' })
+      e.move({ from: 'd8', to: 'h4' })
+      expect(e.isCheckmate()).toBe(true)
+      expect(e.isGameOver()).toBe(true)
+    })
+
+    it('Classic stalemate — rook + king trap black king', () => {
+      const e = new PoisenChessEngine('7k/6R1/7K/8/8/8/8/8 b - - 0 1')
+      expect(e.isStalemate()).toBe(true)
+      expect(e.isDraw()).toBe(true)
+    })
+
+    it('Not stalemate when king can move', () => {
+      const e = new PoisenChessEngine('k7/8/1K6/8/8/8/8/8 b - - 0 1')
+      expect(e.isStalemate()).toBe(false)
+      expect(e.isCheckmate()).toBe(false)
+    })
+
+    it('Insuffient material — K vs K', () => {
+      const e = new PoisenChessEngine('8/8/8/4k3/8/8/3K4/8 w - - 0 1')
+      expect(e.isInsufficientMaterial()).toBe(true)
+      expect(e.isDraw()).toBe(true)
+    })
+
+    it('Insuffient material — K vs KB', () => {
+      const e = new PoisenChessEngine('8/8/8/3B4/8/8/4K3/3k4 w - - 0 1')
+      expect(e.isInsufficientMaterial()).toBe(true)
+    })
+
+    it('Insuffient material — K vs KN', () => {
+      const e = new PoisenChessEngine('8/8/8/3N4/8/8/4K3/3k4 w - - 0 1')
+      expect(e.isInsufficientMaterial()).toBe(true)
+    })
+
+    it('Insuffient material — K+B+B same color vs K', () => {
+      const e = new PoisenChessEngine('k7/8/8/8/8/8/3B1B2/4K3 w - - 0 1')
+      expect(e.isInsufficientMaterial()).toBe(true)
+      expect(e.isDraw()).toBe(true)
+    })
+
+    it('NOT insufficient — K+B+B diff color vs K', () => {
+      const e = new PoisenChessEngine('k7/8/8/8/8/8/3B4/4K2B w - - 0 1')
+      expect(e.isInsufficientMaterial()).toBe(false)
+    })
+
+    it('NOT insufficient — K+N+N vs K', () => {
+      const e = new PoisenChessEngine('8/8/8/8/8/3N4/4K3/3k3N w - - 0 1')
+      expect(e.isInsufficientMaterial()).toBe(false)
+    })
+
+    it('50-move rule draw', () => {
+      const e = new PoisenChessEngine('4k3/8/8/8/8/8/8/4K3 w - - 100 1')
+      expect(e.isDraw()).toBe(true)
+    })
+
+    it('Threefold repetition', () => {
+      const e = new PoisenChessEngine()
+      // Repeat starting position 3 times: knights out and back thrice
+      e.move({ from: 'g1', to: 'f3' })
+      e.move({ from: 'g8', to: 'f6' })
+      e.move({ from: 'f3', to: 'g1' })
+      e.move({ from: 'f6', to: 'g8' })  // back to start (count=2)
+      e.move({ from: 'g1', to: 'f3' })
+      e.move({ from: 'g8', to: 'f6' })
+      e.move({ from: 'f3', to: 'g1' })
+      e.move({ from: 'f6', to: 'g8' })  // start AGAIN (count=3)
+      expect(e.isThreefoldRepetition()).toBe(true)
+      expect(e.isDraw()).toBe(true)
+    })
+  })
+
+  describe('PoisenChessEngine — Move API', () => {
+    it('Move has lan field', () => {
+      const e = new PoisenChessEngine()
+      const moves = e.moves({ verbose: true })
+      const e2 = moves.find(m => m.san === 'e4')
+      expect(e2).toBeDefined()
+      expect(e2!.lan).toBe('e2e4')
+    })
+
+    it('Promotion move has lan with promotion piece', () => {
+      const e = new PoisenChessEngine('8/2P5/8/8/8/8/8/4K3 w - - 0 1')
+      e.move({ from: 'c7', to: 'c8', promotion: 'q' })
+      const history = e.history({ verbose: true })
+      const last = history[history.length - 1]
+      expect(last.lan).toBe('c7c8q')
+    })
+
+    it('Capture move has correct lan', () => {
+      const e = new PoisenChessEngine('rnbqkb1r/pppppppp/5n2/8/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 0 1')
+      e.move({ from: 'f6', to: 'e4' })
+      const history = e.history({ verbose: true })
+      const last = history[history.length - 1]
+      expect(last.lan).toBe('f6e4')
+    })
+
+    it('squareColor returns correct values', () => {
+      const e = new PoisenChessEngine()
+      expect(e.squareColor('a1')).toBe('dark')
+      expect(e.squareColor('b1')).toBe('light')
+      expect(e.squareColor('h8')).toBe('dark')
+      expect(e.squareColor('a8')).toBe('light')
+      expect(e.squareColor('e4')).toBe('light')
+    })
+  })
 })

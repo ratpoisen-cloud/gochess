@@ -15,6 +15,7 @@ export interface Move {
   color: Color
   flags: string
   san: string
+  lan: string
   before?: string
   after?: string
 }
@@ -424,6 +425,7 @@ export class PoisenChessEngine {
     this._turn = this._turn === 'w' ? 'b' : 'w'
     if (this._turn === 'w') this.fullMoveNumber++
 
+    const promoStr = promotion && promotion !== ptype ? promotion : ''
     const moveObj: Move = {
       from, to,
       piece: ptype,
@@ -432,6 +434,7 @@ export class PoisenChessEngine {
       color,
       flags: flags || ((captured || epCaptured) ? 'c' : 'b'),
       san: '',
+      lan: from + to + promoStr,
       before: saveFen,
       after: ''
     }
@@ -587,7 +590,6 @@ export class PoisenChessEngine {
       turnColor: this._turn
     }
     this._history.push(entry)
-    this.removePosition()
 
     this.makeMoveInternal(from, to, promotion)
     this.storePosition()
@@ -605,7 +607,6 @@ export class PoisenChessEngine {
     this.castlingRights = entry.castlingRights
     this.epSquare = entry.epSquare
     this.halfMoveClock = entry.halfMoveClock
-    this.storePosition()
 
     return entry.move
   }
@@ -734,15 +735,44 @@ export class PoisenChessEngine {
   isDraw(): boolean {
     if (this.isStalemate()) return true
     if (this.halfMoveClock >= 100) return true
-    if (this.insufficientMaterial()) return true
+    if (this.isInsufficientMaterial()) return true
+    return this.isThreefoldRepetition()
+  }
+
+  isInsufficientMaterial(): boolean {
+    const pieces = this._board.flat().filter(Boolean) as Piece[]
+    if (pieces.length <= 2) return true
+
+    const nonKing: Piece[] = []
+    for (const p of pieces) {
+      if (p.type !== 'k') nonKing.push(p)
+    }
+
+    if (nonKing.length === 1 && (nonKing[0].type === 'b' || nonKing[0].type === 'n')) {
+      return true
+    }
+
+    if (nonKing.every(p => p.type === 'b')) {
+      const bishopColors = nonKing.map(p => {
+        for (let r = 0; r < 8; r++)
+          for (let c = 0; c < 8; c++)
+            if (this._board[r][c] === p) return (r + c) % 2
+        return 0
+      })
+      if (bishopColors.every(c => c === bishopColors[0])) return true
+    }
+
+    return false
+  }
+
+  isThreefoldRepetition(): boolean {
     return Object.values(this.positionCount).some(c => c >= 3)
   }
 
-  private insufficientMaterial(): boolean {
-    const pieces = this._board.flat().filter(Boolean) as Piece[]
-    if (pieces.length === 2) return true
-    if (pieces.length === 3 && pieces.some(p => p.type === 'b' || p.type === 'n')) return true
-    return false
+  squareColor(sq: string): 'light' | 'dark' {
+    const f = sq.charCodeAt(0) - 97
+    const r = parseInt(sq[1]) - 1
+    return (f + r) % 2 === 0 ? 'dark' : 'light'
   }
 
   isGameOver(): boolean {

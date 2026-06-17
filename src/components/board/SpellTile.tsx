@@ -26,9 +26,9 @@ const spellIconFile = (spell: SpellName): string => {
     portal: 'portal.png',
     blast: 'bomb.png',
     berserk: 'berserk.png',
-    divineGrace: 'shield.png',
-    shadowGrave: 'sleep.png',
-    mirage: 'portal.png',
+    divineGrace: 'divineGrace.png',
+    shadowGrave: 'shadowGrave.png',
+    mirage: 'mirage.png',
   };
   return `${BASE}emojis/spells/${files[spell] || 'shield.png'}`.replace(/\/+/g, '/')
 };

@@ -22,9 +22,9 @@ const SPELL_META: Record<SpellName, { label: string; icon: string; desc: string;
   freeze:{ label: 'Заморозка',icon: 'freezing.png',desc: 'Заморозить 3x3 область', type: 'terminal', target: 'square' },
   blast: { label: 'Взрыв',   icon: 'bomb.png',    desc: 'Установить мину',   type: 'terminal', target: 'square' },
   berserk:{ label: 'Берсерк',icon: 'berserk.png', desc: 'Превратить фигуру', type: 'terminal', target: 'piece' },
-  divineGrace:{ label: 'Благодать',icon: 'shield.png', desc: 'Снять заморозку в радиусе 1', type: 'terminal', target: 'square' },
-  shadowGrave:{ label: 'Тень',icon: 'sleep.png',   desc: 'Пожертвовать свою + убить врага', type: 'terminal', target: 'piece' },
-  mirage:{ label: 'Мираж',   icon: 'portal.png',  desc: 'Поменять местами две фигуры', type: 'terminal', target: 'pair' },
+  divineGrace:{ label: 'Благодать',icon: 'divineGrace.png', desc: 'Снять заморозку в радиусе 1', type: 'terminal', target: 'square' },
+  shadowGrave:{ label: 'Тень',icon: 'shadowGrave.png',   desc: 'Пожертвовать свою + убить врага', type: 'terminal', target: 'piece' },
+  mirage:{ label: 'Мираж',   icon: 'mirage.png',  desc: 'Поменять местами две фигуры', type: 'terminal', target: 'pair' },
 }
 
 const ALL_SPELLS: SpellName[] = ['jump', 'shield', 'portal', 'freeze', 'blast', 'berserk', 'divineGrace', 'shadowGrave', 'mirage']

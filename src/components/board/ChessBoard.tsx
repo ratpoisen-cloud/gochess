@@ -120,6 +120,7 @@ export default function ChessBoard({
   // Active moves: priority = selected > hover
   const activeMoveDetails = selectedSquare ? selectedMoveDetails : hoveredMoveDetails
   const isCheckmate = game?.isCheckmate ? game.isCheckmate() : false
+  const isGameOver = game?.isGameOver ? game.isGameOver() : false
 
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
@@ -220,6 +221,7 @@ export default function ChessBoard({
                 ${isCheck ? 'highlight-check' : ''}
               `}
               onMouseEnter={() => {
+                if (isGameOver) return
                 const piece = game?.get ? game.get(square as any) : null
                 if (piece) setHoveredSquare(square)
                 onSquareMouseEnter?.(square)

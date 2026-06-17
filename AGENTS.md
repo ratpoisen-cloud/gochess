@@ -1,68 +1,85 @@
 # Проект: GoChess
 
-**Описание:** Шахматное веб-приложение для игры с друзьями в реальном времени и против бота.
+**Описание:** Шахматное веб-приложение для игры с друзьями в реальном времени, против бота, вдвоём на одном устройстве и с магией.
 
-##  Технологический стек
+## Технологический стек
 - **Frontend:** React 18 + TypeScript + Vite
-- **Стили:** Tailwind CSS (ретро-пиксельная тема)
-- **Шахматная логика:** `chess.js` (v1.0.0-beta.8) — валидация ходов, FEN, PGN
+- **Стили:** Tailwind CSS (монохромная ретро-пиксельная тема)
+- **Шахматная логика:** EngineAPI (единый интерфейс) — PoisenChess Engine (784 строки, perft-валидирован, стандарт) + SpellChessEngine (886 строк, 9 заклинаний) + AtomicChessEngine (117 строк) через `createEngine(mode, fen?)` фабрику
 - **Отображение доски:** `react-chessboard` (v4.7.2)
 - **Стейт-менеджмент:** Zustand (с persist middleware)
-- **Backend / База данных:** Firebase (Auth, Firestore)
+- **Backend / База данных:** Firebase (Auth, Firestore) — `signInWithPopup`, email/password
 - **Бот:** Ichi — собственный ИИ (minimax + αβ + PST, Web Worker) — 4 уровня сложности
 - **Маршрутизация:** React Router v6
-- **Кастомный шахматный движок:** `spellChessEngine.ts` — Spell Chess (5 заклинаний, взятие короля)
-- **VFX:** `MagicVFX.tsx` — пиксельные частицы для эффектов заклинаний (canvas + requestAnimationFrame)
+- **VFX:** `MagicVFX.tsx` — пиксельные частицы для заклинаний (canvas + requestAnimationFrame); `PixelConfetti.tsx` — победные конфетти
 
-## 📐 Архитектура проекта
+## Архитектура проекта
 
 ```
 src/
-├── App.tsx                     # Роутинг: /, /game/:roomId, /bot, /settings, /offline, /local/:mode, /completed
+├── App.tsx                     # Роутинг: /, /game/:roomId, /bot, /settings, /offline, /local/:mode, /completed, /atomic
 ── main.tsx                    # Точка входа: BrowserRouter, ToastProvider
-├── index.css                   # CSS-переменные, layout, board highlights
+├── index.css                   # CSS-переменные, layout, board highlights, scroll fix
 ├── components/
 │   ├── board/
-│   │   ├── ChessBoard.tsx      # Обёртка react-chessboard: кастомные фигуры, подсветка
-│   │   └── ChessTimer.tsx      # Шахматные часы (delta-based, MM:SS, onTimeout)
-│   ├── AuthModal.tsx           # Модалка входа/регистрации (email + Google)
-│   ├── Button.tsx              # Кнопки: primary, outline, draw, danger, success, ghost
-│   ├── Card.tsx                # Карточка-контейнер
-│   ├── ErrorBoundary.tsx       # React Error Boundary
-│   ├── LoadingScreen.tsx       # Экран загрузки
-│   ├── MagicVFX.tsx            # Пиксельные частицы для заклинаний (canvas + rAF)
-│   ├── Modal.tsx               # Базовая модалка (overlay, escape, scroll lock)
-│   ├── PixelConfetti.tsx       # Победные конфетти (гироскоп, touch repulsion)
+│   │   ├── ChessBoard.tsx      # Обёртка react-chessboard: click-to-move, hover-превью, подсветка
+│   │   ├── ChessTimer.tsx      # Шахматные часы (delta-based, MM:SS, onTimeout)
+│   │   ├── SpellBar.tsx        # Панель заклинаний (минимал: иконки + long press tooltip)
+│   │   ├── SpellTile.tsx       # Тайл заклинания (без фона/рамки, long press)
+│   │   ├── SpellInfoPanel.tsx  # Боковая панель информации о заклинании
+│   │   └── ...
+│   ├── MagicVFX.tsx            # Пиксельные VFX для заклинаний
+│   ├── PixelConfetti.tsx       # Победные конфетти
 │   ├── ReactionPicker.tsx      # Выбор эмодзи-реакции на клетку
-│   ├── Toast.tsx               # Toast-уведомления (success, error, warning, info)
-│   └── UserMenu.tsx            # Меню пользователя: аватар, настройки, выход
+│   ├── Toast.tsx               # Toast-уведомления
+│   ├── Modal.tsx               # Базовая модалка
+│   ├── SettingsDropdown.tsx    # Выпадающее меню тем/фигур
+│   └── ...
 ├── pages/
-│   ├── LobbyPage.tsx           # Главная: хаб с тайлами (бот, игра, партии, игроки)
-│   ├── GamePage.tsx            # Игра с соперником: доска, история, реакции, таймеры
-│   ├── BotPage.tsx             # Игра с ботом: доска, выбор уровня, история
-│   ├── LocalPage.tsx           # Локальная игра: классика / рапид с часами
-│   ├── OfflineHubPage.tsx      # Лобби «Вдвоём»: выбор классика / рапид / магия
-│   ├── SpellLocalPage.tsx      # Spell Chess: заклинания, VFX, инвентарь
-│   ├── SettingsPage.tsx        # Настройки: профиль, тема доски, набор фигур
-│   └── OnlineHubPage.tsx       # Онлайн-лобби: создание/поиск комнат
+│   ├── GamePage.tsx            # Игра онлайн: доска, SpellBar (x2), таймеры, VFX, click-outside deselect
+│   ├── BotPage.tsx             # Игра с ботом
+│   ├── LocalPage.tsx           # Локальная классика / рапид
+│   ├── SpellLocalPage.tsx      # Локальный Spell Chess (старый инвентарь)
+│   ├── AtomicLocalPage.tsx     # Локальный Atomic Chess
+│   ├── OfflineHubPage.tsx      # Лобби «Вдвоём»
+│   ├── OnlineHubPage.tsx       # Онлайн-лобби
+│   ├── LobbyPage.tsx           # Главный хаб
+│   ├── SettingsPage.tsx        # Настройки профиля, темы, фигур
+│   └── ...
 ├── stores/
-│   ├── authStore.ts            # Zustand: user, isLoading
-│   ├── boardStore.ts           # Zustand: selectedTheme, selectedPieceSet (persist)
-│   ├── gameStore.ts            # Zustand: Chess instance, status, moves (persist)
-│   ├── reactionStore.ts        # Zustand: activeReactions, rate limiting
-│   └── spellGameStore.ts       # Zustand: SpellChessEngine, заклинания, VFX очередь
+│   ├── authStore.ts            # Zustand user
+│   ├── boardStore.ts           # theme + pieceSet (persist)
+│   ├── gameStore.ts            # game state (persist)
+│   ├── reactionStore.ts        # reactions + rate limit
+│   └── spellGameStore.ts       # SpellChessEngine state
 ├── hooks/
-│   ├── useAuth.ts              # Firebase auth: signIn, signUp, signOut
-│   └── useBoardWidth.ts        # Измерение ширины контейнера доски (ResizeObserver + debounce)
+│   ├── useAuth.ts              # Firebase auth (signInWithPopup, email/password)
+│   ├── useBoardWidth.ts        # ResizeObserver + debounce
+│   ├── useGameSync.ts          # Онлайн-синхронизация (762 строки: sync, castSpell, timers)
+│   ├── useGameTimer.ts         # Шахматные часы (отдельный хук)
+│   ├── useGameRequest.ts       # Undo/Draw запросы
+│   ├── useRematch.ts           # Рематч
+│   ├── useRoomJoin.ts          # Подключение к комнате
+│   └── usePgnCopy.ts           # Копирование PGN
 ├── lib/
-│   ├── soundManager.ts         # Звуки: move, capture, check, checkmate, promote
+│   ├── engine/
+│   │   ├── PoisenChess.ts      # Стандартный движок (784 строки, perft)
+│   │   ├── SpellChessEngine    # Spell Chess (886 строк, 9 заклинаний)
+│   │   ├── AtomicChessEngine.ts # Atomic Chess (117 строк)
+│   │   ├── factory.ts          # createEngine(mode, fen?) — фабрика
+│   │   ├── types.ts            # EngineAPI, Move, Piece
+│   │   └── index.ts            # barrel
+│   ├── bot/
+│   │   ├── ichiBot.ts          # Ichi AI (minimax+αβ+PST, 179 строк)
+│   │   └── ichi.worker.ts      # Web Worker для Ichi
+│   ├── soundManager.ts         # Звуки ходов
 │   ├── firebase.ts             # Firebase client
-│   └── spellChessEngine.ts     # Spell Chess движок (5 заклинаний, king capture win)
+│   └── spells/                 # PNG иконки заклинаний (публичный путь)
 └── types/
-    └── index.ts                # TypeScript типы: Color, GameStatus, BotLevel, User, GameData
+    └── index.ts                # Color, GameMode, GameData, Challenge
 ```
 
-## 🎨 Дизайн-система (CSS-переменные)
+## Дизайн-система (CSS-переменные)
 
 Все переменные определены в `src/index.css`:
 
@@ -82,6 +99,7 @@ src/
 **Шахматная доска:**
 - `--board-highlight-selected`, `--board-highlight-possible`, `--board-highlight-capture`
 - `--board-last-move-outline`, `--board-check-outline`, `--board-check-glow`
+- `touch-action: manipulation` — разрешает скролл на мобильных (не `none`)
 
 **Layout:**
 - `--game-layout-gap: 20px` — отступ между колонками
@@ -89,7 +107,7 @@ src/
 - `--game-side-column-width: 400px` — ширина боковой колонки
 - `--board-min-size: 320px` — минимальный размер доски
 
-##  Порядок загрузки
+## Порядок загрузки
 
 ```
 1. React 18 + ReactDOM
@@ -98,88 +116,113 @@ src/
 4. Zustand stores (authStore, boardStore, gameStore, reactionStore)
 5. hooks/useAuth.ts — подписка на auth state changes
 6. components/Toast.tsx — ToastProvider обёртка
-7. App.tsx — Routes: /, /game/:roomId, /bot, /settings, /offline, /local/:mode
+7. App.tsx — Routes: /, /game/:roomId, /bot, /settings, /offline, /local/:mode, /atomic
 8. pages/LobbyPage.tsx — главная страница (точка входа)
 ```
 
-##  Правила для ИИ-ассистента
+## Правила для ИИ-ассистента
 
 При написании кода для этого проекта строго соблюдай следующие правила:
 
-1. **Фокус на чистоте:** Пиши модульный, читаемый код. Разделяй логику шахмат (chess.js), интерфейс (react-chessboard) и работу с сетью (Firebase).
-2. **Шаги (Step-by-Step):** Не пытайся написать всё приложение за один ответ. Решай задачу по частям, жди подтверждения работоспособности.
-3. **Обработка ошибок:** Всегда оборачивай сетевые запросы к Firebase в `try/catch` и выводи понятные сообщения через `useToast()`.
-4. **Состояние игры:** FEN-строка — единственный источник истины о состоянии доски. PGN — для истории ходов.
-5. **Никаких заглушек:** Если пишешь функцию, пиши рабочую версию. Если нужен пакет, укажи команду установки.
-6. **Zustand stores:** Используй Zustand для стейта. `gameStore` и `boardStore` используют `persist` middleware для localStorage.
-7. **CSS-переменные:** Все стили используют CSS-переменные из `index.css`. Не хардкодь цвета и размеры.
-8. **Звуки и уведомления:** Используй `soundManager.play()` для звуков и `useToast()` для сообщений. Не используй `alert()` или `console.log()` для пользовательского вывода.
-9. **TypeScript:** Проект на TypeScript. Не используй `any` без крайней необходимости. chess.js v1 имеет строгие типы.
-10. **react-chessboard:** Библиотека требует числовой `boardWidth` проп для корректной работы. Используй хук `useBoardWidth` для измерения контейнера.
-11. **Spell Chess Engine:** `spellChessEngine.ts` — standalone движок, не использует chess.js. Король может быть взят (king capture = game over). 5 заклинаний: freeze (3×3), jump, blast (крест), shield, portal. Коoldown на оба цвета.
-12. **MagicVFX:** canvas + requestAnimationFrame для пиксельных эффектов заклинаний. Вызов через `addVFX()` в spellGameStore. 5 типов: ICE_SHATTER, BLAST, JUMP, PORTAL, CONFETTI.
+1. **Фокус на чистоте:** Пиши модульный, читаемый код. Разделяй движок (EngineAPI), интерфейс (react-chessboard + React) и сеть (Firebase).
+2. **EngineAPI:** Все игровые режимы используют `EngineAPI` интерфейс из `lib/engine/types.ts`. Фабрика `createEngine(mode, fen?)` из `lib/engine/factory.ts` возвращает нужный движок. Не используй `chess.js` напрямую.
+3. **Шаги (Step-by-Step):** Не пытайся написать всё приложение за один ответ. Решай задачу по частям, жди подтверждения работоспособности.
+4. **Обработка ошибок:** Всегда оборачивай сетевые запросы к Firebase в `try/catch` и выводи понятные сообщения через `useToast()`.
+5. **Состояние игры:** FEN-строка — единственный источник истины о состоянии доски. PGN — для истории ходов.
+6. **Никаких заглушек:** Если пишешь функцию, пиши рабочую версию. Если нужен пакет, укажи команду установки.
+7. **Zustand stores:** Используй Zustand для стейта. `gameStore` и `boardStore` используют `persist` middleware для localStorage. Не persist-ь экземпляры классов (Chess, EngineAPI) — храни FEN/PGN.
+8. **CSS-переменные:** Все стили используют CSS-переменные из `index.css`. Не хардкодь цвета и размеры.
+9. **Звуки и уведомления:** Используй `soundManager.play()` для звуков и `useToast()` для сообщений. Не используй `alert()` или `console.log()` для пользовательского вывода.
+10. **TypeScript:** Проект на TypeScript. Не используй `any` без крайней необходимости. Если CI выдаёт ошибку типа «сравнение без пересечения» — используй `as string` для обхода.
+11. **react-chessboard:** Библиотека требует числовой `boardWidth` проп для корректной работы. Используй хук `useBoardWidth` для измерения контейнера.
+12. **Spell Chess Engine:** `spellChessEngine.ts` — standalone движок, не использует chess.js. Король может быть взят (king capture = game over). 9 заклинаний с системой зарядов (без маны/кулдаунов). Free-действия (jump/shield/portal) не заканчивают ход, Terminal — заканчивают. Разные наборы для белых (berserk, divineGrace) и чёрных (shadowGrave, mirage). Заклинания открываются по ходу игры (SPELL_UNLOCK).
+13. **Spell Bar UI:** Минималистичные тайлы без фона/рамки, только иконка (70% от тайла). Long press (500ms) показывает тултип с описанием. Клик по тайлу выбирает заклинание, клик вне доски сбрасывает выбор. `SpellBar.tsx` прозрачный контейнер (gap-1), тултип встроенный (SPELL_DETAILS).
+14. **MagicVFX:** canvas + requestAnimationFrame для пиксельных эффектов заклинаний. 5 типов: ICE_SHATTER, BLAST, JUMP, PORTAL, CONFETTI.
 
 ## 🐛 Известные баги (приоритет исправления)
 
 | Приоритет | Файл | Описание |
 |-----------|------|----------|
-| 🔴 Крит | `gameStore.ts` | `persist` с Chess instance — антипаттерн для мультиплеера, стейт должен приходить с сервера |
-| 🟡 Сред | `ChessBoard.tsx:42,115` | `as any` касты для chess.js API — нужно обновить типы |
-| 🟡 Сред | `gameStore.ts:149-160` | `undoMove` отменяет 1 ход, для takeback нужно отменить 2 хода (свой + соперника) |
-| 🟢 Низ | `vite.config.ts:7` | Хардкод `base: '/gochess/'` — сломает локальный dev |
-| 🟡 Сред | `spellChessEngine.ts` | Отсутствует превращение пешки (promotion) в Spell Chess |
+| 🟡 Сред | `SpellChessEngine` | PGN возвращает пустую строку (stub) |
+| 🟡 Сред | `SpellChessEngine` | `moves()` verbose mode возвращает не-verbose формат |
 | 🟡 Сред | `MagicVFX.tsx` | Звуки заклинаний не реализованы — используют `'move'` звук |
 | 🟢 Низ | `PixelConfetti.tsx` | `canvas.scale()` при resize накапливается (без сброса transform) |
+| 🟢 Низ | `spellChessEngine.ts` | Отсутствует promotion для Spell Chess |
+| 🟢 Низ | `useGameSync.ts` | Нет инициализации SpellChessEngine при отсутствии `spell_state_json` (заряды = 0 до первого хода) |
+| 🟢 Низ | `firestore.indexes.json` | Нужен индекс для challenges (status, toId, createdAt) |
+| 🟢 Низ | `public/sw.js` | SW падает с 206 Partial Response при кэшировании аудио |
+| 🟢 Низ | `vite.config.ts:7` | Хардкод `base: '/gochess/'` — сломает локальный dev |
+| 🔴 Крит | CI (GitHub Actions) | TypeScript 5.5+ сужает `gameMode` после `===` проверок внутри объекта. **Решение:** выносить сравнения в булевы константы или использовать `as string` |
 
 ## ✅ Исправленные баги
 
 | Баг | Файлы | Описание |
 |-----|-------|----------|
 | ✅ Доска маленького размера при загрузке | `useBoardWidth.ts`, `BotPage.tsx`, `GamePage.tsx`, `index.css` | `useLayoutEffect` заменён на `useEffect`, добавлен `stableWidth` с debounce 150ms и порогом 300px, убран `key={stableWidth}` (вызывал remount при resize), убраны `!important` хаки в CSS |
-| ✅ Настройки недоступны без авторизации | `LobbyPage.tsx` | Добавлена кнопка-шестерёнка (lucide-react `<Settings />`) в хедер лобби, доступна всем пользователям |
-| ✅ Hover-превью ходов | `ChessBoard.tsx` | Добавлен `hoveredSquare` стейт + `hoveredMoveDetails` мемо с verbose флагами + `onMouseEnter/Leave` на `customSquare` — при наведении на фигуру показываются доступные ходы с корректными цветами темы (точки для ходов, красные точки для взятий) |
-| ✅ Drag-and-drop удалён | `App.tsx`, `ChessBoard.tsx` | Удалён `ChessboardDnDProvider`, `dragSquare` стейт, `handleDragBegin/End`, `onPieceDragBegin/End` пропсы, `snapToCursor`, `customPieces` с isDragging логикой. Оставлен только click-to-move + hover-превью ходов |
-| ✅ Drag-and-drop визуал улучшен | `ChessBoard.tsx`, `index.css` | CSS-only подход: `customPieces` с `isDragging` (`transform: scale(1.05)` + усиленная тень), скрыт курсор при drag через `.board-container:active { cursor: none }`. БЕЗ drag-обработчиков (`onPieceDragBegin/End`, `setState`, `ref`) — предыдущие попытки с drag-обработчиками ломали react-dnd из-за re-render во время drag |
-| ✅ Иконка настроек на всех страницах | `BotPage.tsx`, `LocalPage.tsx`, `GamePage.tsx` | Добавлена кнопка-шестерёнка (SVG gear icon) в хедер каждой страницы игры, ведёт на `/settings`. Стиль идентичен LobbyPage: `bg-white/5 hover:bg-white/10 rounded-full` |
-| ✅ Пиксельный дизайн + dropdown меню | `index.css`, `Card.tsx`, `CustomSelect.tsx`, `Modal.tsx`, `Toast.tsx`, `AuthModal.tsx`, `SettingsPage.tsx`, `LobbyPage.tsx`, `BotPage.tsx`, `LocalPage.tsx`, `GamePage.tsx`, `SettingsDropdown.tsx` | CSS-переменные радиусов упрощены (`--radius-4: 4px`, `--radius-8: 8px`, `--btn-radius: 8px`), убраны `--radius-12/16/20/24`. `pixel-3d-tile` заменён на `pixel-tile` (без 3D эффекта). Все компоненты обновлены на `rounded-[var(--radius-8)]`. Тени упрощены (лёгкие `0_4px_12px`, `0_8px_24px`). Создан `SettingsDropdown` компонент для игровых страниц (выпадающее меню с темами и фигурами, анимация `dropdown-in`). Игровые страницы используют `<SettingsDropdown />` вместо навигации на `/settings` |
-| ✅ Монохромная тема + обновление всех компонентов | `index.css`, `LoadingScreen.tsx`, `Modal.tsx`, `AuthModal.tsx`, `Card.tsx`, `SettingsDropdown.tsx`, `CustomSelect.tsx`, `Toast.tsx`, `ReactionPicker.tsx`, `UserMenu.tsx`, `Button.tsx`, `SettingsPage.tsx`, `BotPage.tsx`, `LocalPage.tsx`, `GamePage.tsx` | Все компоненты переведены на монохромную тему: чёрный фон (`var(--bg)`), зелёные акценты (`var(--accent-brand)`). Убраны все тени (`box-shadow: none`), градиенты заменены на сплошные цвета. `pixel-tile` обновлён: фон `var(--bg)`, границы зелёные. LoadingScreen: чёрный фон, зелёный заголовок, зелёные точки. Modal/AuthModal: чёрный фон, зелёные границы и лейблы. Button: упрощены стили, убраны градиенты и тени. UserMenu: чёрный фон, зелёные акценты. ReactionPicker: чёрный фон, зелёные границы. Toast/Card/SettingsDropdown/CustomSelect: чёрный фон, зелёные границы, без теней. История ходов: чёрный фон, зелёные границы. |
-| ✅ Унификация игровых режимов + Анимации | `LobbyPage.tsx`, `BotPage.tsx`, `LocalPage.tsx`, `GamePage.tsx`, `ColorPickerModal.tsx` | Внедрён единый стиль статус-бара (имена, иконки, пульсирующие индикаторы хода). Реализована кинематографичная заставка в лобби (посимвольный набор текста + «печать» логотипа). Стандартизированы модалки настроек (полноширинные кнопки, индикация выбора, специфичное поведение кнопки «Отмена»). |
-| ✅ Превращение пешки (интегрированный пикер) | `GamePage.tsx`, `BotPage.tsx`, `LocalPage.tsx`, `ChessBoard.tsx` | Вместо центральной модалки реализован вертикальный пикер прямо на доске, привязанный к клетке превращения. Использует нативные ассеты фигур и адаптируется под разворот доски. Исправлен баг блокировки хода при drag-and-drop на последнюю горизонталь. |
-| ✅ Расширенный локальный режим | `LocalPage.tsx` | Добавлены имена игроков, режимы «Авто-разворот» и «Лицом к лицу» (поворот чёрных фигур на 180° через свойство `rotate`). Интегрированы кнопки управления: Undo (отмена хода), Draw (ничья), Resign (сдача). |
-| ✅ Исправлен вылет useBoardStore | `LocalPage.tsx`, `BotPage.tsx` | Устранена ошибка `ReferenceError: useBoardStore is not defined` в модалке превращения путём корректного импорта и инициализации стора в компонентах. |
-| ✅ Не загружалась страница игры (LoadingScreen бесконечно) | `GamePage.tsx` | `authLoading` блокировал рендер даже после `loading = false`. Убрана проверка `if (authLoading) return <LoadingScreen />` — LoadingScreen управляется только стейтом `loading`. |
-| ✅ Последние партии не грузились в лобби | `LobbyPage.tsx`, `firestore.indexes.json` | После смены `orderBy('created_at')` на `orderBy('last_move_time')` запрос перестал возвращать документы без поля `last_move_time` (старые игры). Исправлено: убран `orderBy` из Firestore-запроса, сортировка клиентская по `last_move_time` с fallback на `created_at`. |
-| ✅ Бот ходит случайно, уровни не работают | `BotPage.tsx`, `src/lib/botEngine.ts`, `public/engine/` | Stockfish заменён на Ichi bot (minimax + αβ + PST, Web Worker). Levels: very-easy (depth=1, randomness=0.5), easy (depth=2, randomness=0.3), medium (depth=3, randomness=0.1), hard (depth=4, randomness=0). 0 latency first move, no WASM download. |
-| ✅ Spell Chess: коoldown на оба цвета | `spellChessEngine.ts`, `spellGameStore.ts` | Исправлено: уменьшение кулдауна применялось только для текущего игрока. Теперь кулдауны обоих цветов декрементятся каждый ход. |
-| ✅ Spell Chess: множественные экземпляры движка | `spellGameStore.ts` | Исправлено: создавалось 3 экземпляра SpellChessEngine вместо одного. Переведено на единый `defaultEngine`. |
-| ✅ Spell Chess: `customSquareStyles` без мемоизации | `SpellLocalPage.tsx` | `customSquareStyles` пересоздавался при каждом рендере. Обёрнут в `useMemo`. |
-| ✅ Spell Chess: отсутствие пропсов для наведения на клетку | `ChessBoard.tsx` | Добавлены `onSquareMouseEnter` / `onSquareMouseLeave` пропсы и `customCursor` для прицела заклинания. |
-| ✅ Онлайн-лобби | `OnlineHubPage.tsx`, `LobbyPage.tsx` | Создана страница онлайн-лобби с созданием/поиском комнат. |
-| ✅ Офлайн-лобби и режимы | `OfflineHubPage.tsx`, `LocalPage.tsx`, `SpellLocalPage.tsx` | Создано лобби «Вдвоём» с выбором Классика, Рапид, Магия. Локальная игра расширена поддержкой Rapid с шахматными часами. |
-| ✅ PWA установка | `public/manifest.json`, `public/sw.js`, `public/icons/`, `index.html` | Добавлен Service Worker для офлайн-игры, манифест с иконками 192/512px, iOS meta-теги (apple-touch-icon, viewport-fit, black-translucent). |
+| ✅ Настройки недоступны без авторизации | `LobbyPage.tsx` | Добавлена кнопка-шестерёнка в хедер лобби, доступна всем |
+| ✅ Hover-превью ходов | `ChessBoard.tsx` | При наведении на фигуру показываются доступные ходы с корректными цветами темы |
+| ✅ Drag-and-drop удалён | — | Click-to-move + hover-превью вместо drag-and-drop |
+| ✅ Иконка настроек на всех страницах | `BotPage.tsx`, `LocalPage.tsx`, `GamePage.tsx` | SVG gear icon в хедере каждой игровой страницы |
+| ✅ Пиксельный дизайн + dropdown меню | — | Упрощены радиусы, убраны 3D-эффекты и тени. Создан SettingsDropdown |
+| ✅ Монохромная тема | — | Чёрный фон, зелёные акценты, без теней и градиентов |
+| ✅ Превращение пешки (интегрированный пикер) | `GamePage.tsx` | Вертикальный пикер на доске, привязанный к клетке превращения |
+| ✅ Не загружалась страница игры | `GamePage.tsx` | `authLoading` блокировал рендер. Убрана проверка authLoading |
+| ✅ Последние партии не грузились | `LobbyPage.tsx` | Сортировка на клиенте вместо `orderBy` в Firestore |
+| ✅ Бот ходит случайно | `BotPage.tsx`, `botEngine.ts` | Stockfish заменён на Ichi (minimax+αβ+PST, Web Worker) |
+| ✅ Spell Chess: кулдауны на оба цвета | `spellChessEngine.ts` | Кулдауны обоих цветов декрементятся каждый ход |
+| ✅ Spell Chess: множественные экземпляры движка | `spellGameStore.ts` | Единый `defaultEngine` |
+| ✅ Spell Chess: customSquareStyles | `SpellLocalPage.tsx` | Обёрнуто в `useMemo` |
+| ✅ Онлайн-лобби | `OnlineHubPage.tsx` | Создание/поиск комнат |
+| ✅ Офлайн-лобби | `OfflineHubPage.tsx` | Выбор Классика/Рапид/Магия |
+| ✅ PWA установка | `public/manifest.json`, `sw.js` | Service Worker + иконки 192/512px |
+| ✅ Spell Chess: 9 заклинаний, система зарядов | `spellChessEngine.ts` | 9 spell types, charges вместо маны, разные наборы для цветов |
+| ✅ Spell Chess: механики по кодексу | `spellChessEngine.ts` | freeze → 2 хода, portal → bidirectional, divineGrace → только свои |
+| ✅ Spell Chess: онлайн-синхронизация | `useGameSync.ts` | EngineAPI адаптеры, castSpell, spell_state_json в Firestore |
+| ✅ Stale-turn guard в онлайн-синхронизации | `useGameSync.ts` | Сравнение `freshData.turn !== preMoveTurn` вместо `g.turn()` |
+| ✅ Auth: signInWithPopup работает | `useAuth.ts`, `firebase.ts` | Возврат к `signInWithPopup` (COOP-варнинг нефатален) |
+| ✅ Auth: Firestore присутствие | `firestore.rules` | Правила для `__firestore_presence__` коллекции |
+| ✅ Spell Bar: emoji-picker стиль | `SpellBar.tsx`, `SpellTile.tsx` | Квадратные тайлы, тёмный стеклянный контейнер, 70% иконки |
+| ✅ Spell Bar: сброс упрощений соперника | `SpellBar.tsx`, `GamePage.tsx` | Панель соперника выглядит как у игрока |
+| ✅ Spell Bar: сортировка по unlock | `SpellBar.tsx` | Заклинания отсортированы по `SPELL_UNLOCK` |
+| ✅ Spell Bar: размер шрифта статуса | `GamePage.tsx` | «Ваш ход» = `text-[var(--font-size-sm)]` (как имя) |
+| ✅ Spell Bar: layout порядок | `GamePage.tsx` | Статус-бар → панель соперника → доска + панель игрока |
+| ✅ Spell Bar: убран title tooltip | `GamePage.tsx` | Убран `title="Туман войны"` из статус-бара |
+| ✅ Spell Bar: минимал без фона/рамки | `SpellTile.tsx`, `SpellBar.tsx` | Только иконки + unlock номер. Long press → тултип |
+| ✅ Spell Bar: click-outside deselect | `GamePage.tsx` | `game-main-column onClick → setActiveSpell(null)` |
+| ✅ Spell Bar: 1/2 клик выбор/отмена | `GamePage.tsx` | 1-й клик выбирает, 2-й отменяет заклинание |
+| ✅ CI: narrow type в useEffect | `GamePage.tsx` | Замена `gameMode === 'atomic_chess'` на константу + `as string` |
 
 ## 🧠 Извлечённые уроки
 
 ### 1. Firestore: `orderBy` исключает документы без поля
-Если документ не имеет поля, указанного в `orderBy`, он **не возвращается** в результатах запроса (даже если соответствует `where`). **Решение:** сортировать на клиенте, использовать Firestore только для фильтрации.
+Если документ не имеет поля, указанного в `orderBy`, он **не возвращается** в результатах запроса. **Решение:** сортировать на клиенте, использовать Firestore только для фильтрации.
 
 ### 2. Firestore: составные индексы не нужны для `where` без `orderBy`
-`query(collection, where('field', '==', value))` работает сразу — используются авто-созданные одно-полевые индексы. **Решение:** избегать `orderBy` в Firestore, если порядок можно задать на клиенте.
+`query(collection, where('field', '==', value))` работает сразу — используются авто-созданные одно-полевые индексы.
 
 ### 3. Firestore: `serverTimestamp()` vs `Date.now()`
-`serverTimestamp()` — Firestore Timestamp (`.seconds`, `.nanoseconds`). `Date.now()` — число ms. При клиентской сортировке нужно обрабатывать оба типа: `typeof val === 'number' ? val : val.seconds * 1000`.
+`serverTimestamp()` — Firestore Timestamp (`.seconds`, `.nanoseconds`). `Date.now()` — число ms. При клиентской сортировке обрабатывать оба типа.
 
-### 4. GitHub Pages: Google OAuth блокируется COOP
-`signInWithPopup` на GitHub Pages падает с `Cross-Origin-Opener-Policy`. GitHub Pages не даёт настроить COOP/COEP заголовки. **Решение:** использовать `signInWithRedirect` (было отклонено пользователем) или email/password как основной метод входа.
+### 4. GitHub Pages: Google OAuth + COOP
+`signInWithPopup` на GitHub Pages вызывает COOP-варнинг (нефатально). `signInWithRedirect` не работает на GitHub Pages. **Решение:** использовать email/password или `signInWithPopup`.
 
 ### 5. GitHub Pages: SPA роутинг
-Для SPA на GitHub Pages нужно иметь `public/404.html`, который Vite копирует в `dist/` как fallback для всех маршрутов. Без него маршруты вида `/game/XFNAJT` отдают 404.
+Нужен `public/404.html` как fallback для всех маршрутов SPA.
 
 ### 6. Zustand persist + несериализуемые объекты
-Не использовать `persist` для стейтов, содержащих экземпляры классов (например, `Chess` из chess.js). persist пытается сериализовать в JSON — `Chess` методы теряются. **Решение:** хранить FEN/PGN строки в сторе, создавать `new Chess()` на лету.
+Не использовать `persist` для экземпляров классов. **Решение:** хранить FEN/PGN, создавать `new Chess()` / `createEngine()` на лету.
 
-### 7. React 18: `authLoading` блокирует рендер
-Если в компоненте есть `useEffect`, который меняет `authLoading` (глобальный стейт), и рендер проверяет `authLoading` до `user`/`loading`, возникает race condition — LoadingScreen может застрять. **Решение:** проверять `authLoading` только в эффектах, не в рендере.
+### 7. React 18: `authLoading` race condition
+Проверять `authLoading` только в эффектах, не в рендере.
+
+### 8. Mobile scroll: `touch-action: none` ломает скролл
+`.board-container` с `touch-action: none` блокирует вертикальный скролл на мобильных. **Решение:** использовать `touch-action: manipulation` (разрешает скролл, отключает double-tap zoom).
+
+### 9. CI TypeScript: narrowing в замыканиях
+TypeScript 5.5+ сужает тип переменной после `===` проверки в той же области видимости, включая замыкания (useEffect). **Решение:** выносить сравнения в булевы константы до `useEffect` или кастить `as string`.
+
+### 10. CI TypeScript: inferred return type из сложных объектов
+При возврате объекта с type guard expressions (тернарники) TypeScript может сузить тип переменной в месте возврата, что влияет на тип всей возвращаемой переменной. **Решение:** явные возвращаемые типы или касты.
 
 ## 🚀 Запуск
 

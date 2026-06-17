@@ -63,7 +63,7 @@ export const SpellTile: React.FC<SpellTileProps> = ({
       <img
         src={spellIconFile(spell)}
         alt={spell}
-        className="object-contain w-[50%] h-[50%]"
+        className="object-contain w-[70%] h-[70%]"
         style={{ imageRendering: 'pixelated' }}
       />
 

@@ -383,7 +383,7 @@ export default function LocalPage() {
                    </>
                  ) : (
                    <>
-                     <Button variant="outline" size="sm" onClick={undoMove}>Отмена</Button>
+                     <Button variant="outline" size="sm" onClick={() => undoMove()}>Отмена</Button>
                      <div className="flex gap-2">
                        <Button variant="outline" size="sm" onClick={handleDraw}>Ничья</Button>
                        <Button variant="danger" size="sm" onClick={handleResign}>Сдаться</Button>

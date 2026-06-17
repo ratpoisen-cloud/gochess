@@ -326,6 +326,11 @@ export default function GamePage() {
     return parsedSpellState.charges[playerColor === 'w' ? 'w' : 'b'] || {}
   }, [isSpellMode, parsedSpellState, playerColor])
 
+  const activeBombs = useMemo(() => {
+    if (!isSpellMode || !parsedSpellState) return []
+    return Object.keys(parsedSpellState.bombs || {})
+  }, [isSpellMode, parsedSpellState])
+
   const turnNumber = Math.floor(moveHistory.length / 2) + 1
 
   const handleBerserkConfirm = (type: string) => {
@@ -355,11 +360,14 @@ export default function GamePage() {
     if (isSpellMode && activeSpell === 'blast' && hoveredSquare) {
       const col = hoveredSquare.charCodeAt(0) - 97
       const row = parseInt(hoveredSquare[1])
-      for (let i = 0; i < 8; i++) {
-        const vert = String.fromCharCode(97 + col) + (i + 1)
-        const horz = String.fromCharCode(97 + i) + row
-        styles[vert] = { background: 'rgba(255, 100, 50, 0.2)', outline: '1px solid rgba(255, 100, 50, 0.4)' }
-        styles[horz] = { background: 'rgba(255, 100, 50, 0.2)', outline: '1px solid rgba(255, 100, 50, 0.4)' }
+      for (let dc = -1; dc <= 1; dc++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          const c = col + dc
+          const r = row + dr
+          if (c >= 0 && c < 8 && r >= 1 && r <= 8) {
+            styles[String.fromCharCode(97 + c) + r] = { background: 'rgba(255, 100, 50, 0.2)', outline: '1px solid rgba(255, 100, 50, 0.4)' }
+          }
+        }
       }
     }
 
@@ -379,8 +387,56 @@ export default function GamePage() {
       styles[berserkTarget] = { background: 'rgba(255, 0, 0, 0.25)', outline: '2px solid rgba(255, 0, 0, 0.6)' }
     }
 
+    if (parsedSpellState) {
+      const halfMoveCount = moveHistory.length
+      Object.keys(parsedSpellState.frozenSquares).forEach(sq => {
+        if (parsedSpellState.frozenSquares[sq] > halfMoveCount) {
+          styles[sq] = {
+            background: 'rgba(100, 200, 255, 0.35)',
+            boxShadow: 'inset 0 0 15px rgba(255, 255, 255, 0.5)',
+            border: '1px solid rgba(255, 255, 255, 0.2)'
+          }
+        }
+      })
+      Object.keys(parsedSpellState.shieldedSquares).forEach(sq => {
+        if (parsedSpellState.shieldedSquares[sq] > halfMoveCount) {
+          styles[sq] = {
+            ...styles[sq],
+            boxShadow: '0 0 20px rgba(255, 255, 100, 0.4), inset 0 0 10px rgba(255, 255, 100, 0.6)'
+          }
+        }
+      })
+      if (parsedSpellState.portals && parsedSpellState.portals.expiry > halfMoveCount) {
+        styles[parsedSpellState.portals.from] = {
+          ...styles[parsedSpellState.portals.from],
+          background: 'radial-gradient(circle, rgba(160, 32, 240, 0.6) 0%, transparent 70%)',
+          boxShadow: '0 0 15px rgba(160, 32, 240, 0.8)'
+        }
+        styles[parsedSpellState.portals.to] = {
+          ...styles[parsedSpellState.portals.to],
+          background: 'radial-gradient(circle, rgba(160, 32, 240, 0.6) 0%, transparent 70%)',
+          boxShadow: '0 0 15px rgba(160, 32, 240, 0.8)'
+        }
+      }
+      if (parsedSpellState.jumpSquare) {
+        styles[parsedSpellState.jumpSquare] = {
+          ...styles[parsedSpellState.jumpSquare],
+          boxShadow: '0 0 15px var(--accent-brand), inset 0 0 10px var(--accent-brand)'
+        }
+      }
+      Object.keys(parsedSpellState.impassableSquares).forEach(sq => {
+        if (parsedSpellState.impassableSquares[sq] > halfMoveCount) {
+          styles[sq] = {
+            ...styles[sq],
+            background: 'rgba(40, 40, 40, 0.6)',
+            boxShadow: 'inset 0 0 15px rgba(0, 0, 0, 0.5)',
+          }
+        }
+      })
+    }
+
     return styles
-  }, [isSpellMode, activeSpell, hoveredSquare, portalStart, mirageStart, berserkTarget])
+  }, [isSpellMode, activeSpell, hoveredSquare, portalStart, mirageStart, berserkTarget, parsedSpellState, moveHistory.length])
 
   if (authLoading && !user) return <LoadingScreen isLoading={true} />
   if (error) {
@@ -522,6 +578,7 @@ export default function GamePage() {
                   gameOverGray={gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && playerColor !== winnerColor}
                   arePiecesDraggable={!gameOver}
                   customSquareStyles={spellCustomSquareStyles}
+                  bombs={activeBombs}
                   onSquareMouseEnter={isSpellMode && activeSpell ? (sq: string) => setHoveredSquare(sq) : undefined}
                   onSquareMouseLeave={isSpellMode && activeSpell ? () => setHoveredSquare(null) : undefined}
                 />
@@ -557,25 +614,61 @@ export default function GamePage() {
               </div>
             )}
 
-            {isSpellMode && berserkTarget && stableWidth && (
-              <div className="absolute inset-0 z-[110] bg-black/20 flex items-center justify-center">
-                <div className="bg-[var(--bg)] border border-[var(--accent-brand)] rounded-[var(--radius-8)] p-4 flex gap-3">
-                  {(['q', 'r', 'b', 'n'] as const).map((piece) => (
-                    <button
-                      key={piece}
-                      onClick={() => handleBerserkConfirm(piece)}
-                      className="w-14 h-14 hover:bg-white/10 rounded-[var(--radius-4)] transition-colors p-1 border border-[var(--border)] hover:border-[var(--accent-brand)]"
-                    >
-                      <img
-                        src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)}
-                        alt={piece}
-                        className="w-full h-full object-contain"
-                      />
-                    </button>
-                  ))}
+            {isSpellMode && berserkTarget && stableWidth && (() => {
+              const col = berserkTarget.charCodeAt(0) - 97
+              const rank = parseInt(berserkTarget[1])
+              const leftPct = col * 12.5
+              const isAtTop = rank === 8
+              const piece = game.get(berserkTarget as any)
+              const currentType = piece?.type
+              const types = (['q', 'r', 'b', 'n'] as const).filter(t => t !== currentType)
+              return (
+                <div
+                  className="absolute inset-0 z-[110] cursor-default bg-black/10"
+                  onClick={() => setBerserkTarget(null)}
+                >
+                  <div
+                    className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
+                    style={{
+                      left: `${leftPct}%`,
+                      top: isAtTop ? 0 : 'auto',
+                      bottom: isAtTop ? 'auto' : 0,
+                      width: '12.5%',
+                      height: `${types.length * 12.5}%`,
+                      backgroundColor: 'rgba(18, 20, 18, 0.96)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: 'var(--radius-8)',
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {types.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => handleBerserkConfirm(t)}
+                        className="flex-1 flex items-center justify-center transition-colors group"
+                        style={{
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+                        }}
+                      >
+                        <img
+                          src={getPieceUrl(`${playerColor}${t.toUpperCase()}`)}
+                          alt={t}
+                          className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                          draggable={false}
+                        />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
 
           {isSpellMode && stableWidth > 0 && (
@@ -589,6 +682,10 @@ export default function GamePage() {
                 activeSpell={activeSpell}
                 gameOver={gameOver}
                 onSpellClick={(spell) => {
+                  if (activeSpell === spell) {
+                    setActiveSpell(null)
+                    return
+                  }
                   if (spell === 'berserk') {
                     setActiveSpell('berserk')
                     addToast('Выберите свою фигуру для берсерка', 'info')
@@ -726,20 +823,22 @@ export default function GamePage() {
           <div className="grid grid-cols-2 gap-[var(--space-12)]">
             {!gameOver ? (
               <>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  fullWidth
-                  onClick={() => {
-                    if (!gameDocId || !user || gameOver || moveHistory.length === 0) return
-                    updateDoc(doc(db, 'games', gameDocId), {
-                      undo_request: { from_id: user.uid, created_at: Date.now() },
-                    }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
-                  }}
-                  disabled={moveHistory.length === 0 || (!!(undoRequest && user && undoRequest.from_id === user.uid))}
-                >
-                  Отмена
-                </Button>
+                {!isSpellMode && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    onClick={() => {
+                      if (!gameDocId || !user || gameOver || moveHistory.length === 0) return
+                      updateDoc(doc(db, 'games', gameDocId), {
+                        undo_request: { from_id: user.uid, created_at: Date.now() },
+                      }).catch(() => addToast('Ошибка при отправке запроса', 'error'))
+                    }}
+                    disabled={moveHistory.length === 0 || (!!(undoRequest && user && undoRequest.from_id === user.uid))}
+                  >
+                    Отмена
+                  </Button>
+                )}
                 <Button
                   variant="primary"
                   size="sm"

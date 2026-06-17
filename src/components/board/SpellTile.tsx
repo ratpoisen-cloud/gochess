@@ -1,6 +1,8 @@
 import React from 'react';
 import { type SpellName } from '@/lib/spellChessEngine';
 
+const BASE = (import.meta as any).env?.BASE_URL || '/'
+
 interface SpellTileProps {
   spell: SpellName;
   charges: number;
@@ -16,12 +18,19 @@ interface SpellTileProps {
   size?: 'sm' | 'md';
 }
 
-const spellIcon = (spell: SpellName): string => {
-  const icons: Record<SpellName, string> = {
-    jump: '⤵', shield: '🛡', portal: '🌀', freeze: '❄',
-    blast: '💣', berserk: '⚡', divineGrace: '✨', shadowGrave: '👻', mirage: '🪄',
+const spellIconFile = (spell: SpellName): string => {
+  const files: Record<SpellName, string> = {
+    jump: 'jump.png',
+    shield: 'shield.png',
+    freeze: 'freezing.png',
+    portal: 'portal.png',
+    blast: 'bomb.png',
+    berserk: 'berserk.png',
+    divineGrace: 'shield.png',
+    shadowGrave: 'sleep.png',
+    mirage: 'portal.png',
   };
-  return icons[spell] || '❓';
+  return `${BASE}emojis/${files[spell] || 'shield.png'}`.replace(/\/+/g, '/')
 };
 
 export const SpellTile: React.FC<SpellTileProps> = ({
@@ -61,9 +70,12 @@ export const SpellTile: React.FC<SpellTileProps> = ({
       `}
     >
       {/* Icon */}
-      <span className={`${isSm ? 'text-lg' : 'text-2xl'} mb-1`}>
-        {spellIcon(spell)}
-      </span>
+      <img
+        src={spellIconFile(spell)}
+        alt={spell}
+        className={`${isSm ? 'w-4 h-4' : 'w-5 h-5'} object-contain mb-1`}
+        style={{ imageRendering: 'pixelated' }}
+      />
 
       {/* Charges Indicator */}
       {unlocked && (

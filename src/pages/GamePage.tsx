@@ -98,6 +98,20 @@ export default function GamePage() {
   } = sync
 
   const { addToast } = useToast()
+
+  // Trigger explosions for Atomic Chess
+  useEffect(() => {
+    if (gameMode === 'atomic_chess' && spellStateJson) {
+      try {
+        const state = JSON.parse(spellStateJson)
+        if (state.lastBlastSquare) {
+          const center = getSquareCenter(state.lastBlastSquare)
+          vfxRef.current?.trigger({ ...center, type: 'blast' })
+        }
+      } catch {}
+    }
+  }, [spellStateJson, gameMode])
+
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
 
@@ -463,7 +477,7 @@ export default function GamePage() {
   return (
     <GameLayout user={user}>
       <div className="game-layout-container">
-        <div className="game-main-column">
+        <div className="game-main-column" onClick={() => setActiveSpell(null)}>
           {timeControl && (
             <div className="mx-auto mb-4" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
               <ChessTimer
@@ -476,7 +490,7 @@ export default function GamePage() {
           )}
 
           {isSpellMode && stableWidth > 0 && (
-            <div className="mx-auto mb-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
+            <div className="mx-auto mb-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }} onClick={(e) => e.stopPropagation()}>
               <SpellBar
                 playerColor={playerColor === 'w' ? 'b' : 'w'}
                 currentCharges={parsedSpellState?.charges[playerColor === 'w' ? 'b' : 'w'] ?? defaultCharges(playerColor === 'w' ? 'b' : 'w')}
@@ -551,7 +565,7 @@ export default function GamePage() {
             </div>
           </div>
 
-          <div ref={boardContainerRef} className="board-container relative">
+          <div ref={boardContainerRef} className="board-container relative" onClick={(e) => e.stopPropagation()}>
             {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && playerColor === winnerColor && (
               <PixelConfetti boardMode lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
             )}
@@ -671,7 +685,7 @@ export default function GamePage() {
           </div>
 
           {isSpellMode && stableWidth > 0 && (
-            <div className="mx-auto mt-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
+            <div className="mx-auto mt-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }} onClick={(e) => e.stopPropagation()}>
               <SpellBar
                 playerColor={playerColor || 'w'}
                 currentCharges={activeCharges ?? defaultCharges(playerColor === 'w' ? 'w' : 'b')}

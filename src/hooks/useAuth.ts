@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { 
   onAuthStateChanged, 
-  signInWithRedirect, 
-  getRedirectResult,
+  signInWithPopup, 
   GoogleAuthProvider, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -69,13 +68,6 @@ export function useAuth() {
     }
 
     setLoading(true)
-
-    getRedirectResult(auth).then((result) => {
-      if (result) handleUserChange(result.user)
-    }).catch((err) => {
-      console.error('[Auth] Redirect result error:', err.message)
-    })
-
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       handleUserChange(firebaseUser)
       setLoading(false)
@@ -93,7 +85,7 @@ export function useAuth() {
     setError(null)
     const provider = new GoogleAuthProvider()
     try {
-      await signInWithRedirect(auth, provider)
+      await signInWithPopup(auth, provider)
     } catch (err: any) {
       setError(err.message)
       throw err

@@ -23,6 +23,7 @@ self.addEventListener('fetch', (e) => {
   if (request.mode === 'navigate') {
     e.respondWith(
       fetch(request).then(res => {
+        if (!res.ok) return res
         const clone = res.clone()
         caches.open(CACHE).then(c => c.put(request, clone))
         return res
@@ -34,6 +35,7 @@ self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(request).then(cached =>
       cached || fetch(request).then(res => {
+        if (!res.ok) return res
         const clone = res.clone()
         caches.open(STATIC_CACHE).then(c => c.put(request, clone))
         return res

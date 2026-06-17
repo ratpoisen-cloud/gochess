@@ -27,8 +27,7 @@ export function createBotEngine(level: BotLevel = 'medium') {
     if (worker) return
 
     try {
-      const url = new URL('./engine/ichi.worker.ts', import.meta.url)
-      worker = new Worker(url, { type: 'module' })
+      worker = new Worker(new URL('./bot/ichi.worker.ts', import.meta.url), { type: 'module' })
     } catch (err) {
       console.error('[BotEngine] Failed to create worker:', err)
       return

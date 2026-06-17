@@ -9,15 +9,14 @@ interface Particle {
   vy: number
   rotation: number
   rotationSpeed: number
+  isFeather?: boolean
+  swayPhase: number
+  swaySpeed: number
 }
 
 const BASE_COLORS = [
-  '#7eb87e',
-  '#e8e8d8',
-  '#ff4444',
-  '#b4b4a4',
-  '#5a8c5a',
   '#f0f0f0',
+  '#ff4444',
 ]
 
 interface PixelConfettiProps {
@@ -51,6 +50,8 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     const tilt = { x: 0, y: 0 }
     const targetTilt = { x: 0, y: 0 }
 
+    const isMobile = window.innerWidth < 768
+
     const resize = () => {
       if (canvas.parentElement) {
         const rect = canvas.parentElement.getBoundingClientRect()
@@ -71,7 +72,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     }
 
     const createParticles = () => {
-      const count = 350
+      const count = isMobile ? 150 : 350
       const newParticles: Particle[] = []
 
       const width = canvas.width
@@ -81,18 +82,23 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       const startY = isInsideBoard ? height / 2 : -20
 
       for (let i = 0; i < count; i++) {
+        const isFeather = isInsideBoard && Math.random() < 0.2
         const angle = Math.random() * Math.PI * 2
-        const force = isInsideBoard ? Math.random() * 10 + 5 : Math.random() * 4 + 2
+        const baseForce = isInsideBoard ? Math.random() * 10 + 5 : Math.random() * 4 + 2
+        const fFactor = isFeather ? 0.4 + Math.random() * 0.3 : 1
 
         newParticles.push({
           x: startX,
           y: startY,
           size: Math.floor(Math.random() * 2 + 1) * 4,
           color: COLORS[Math.floor(Math.random() * COLORS.length)],
-          vx: Math.cos(angle) * force,
-          vy: Math.sin(angle) * force - (isInsideBoard ? 3 : 0),
+          vx: Math.cos(angle) * baseForce * fFactor,
+          vy: Math.sin(angle) * baseForce * fFactor - (isInsideBoard ? 3 : 0) - (isFeather ? 2 : 0),
           rotation: Math.random() * Math.PI * 2,
           rotationSpeed: (Math.random() - 0.5) * 0.2,
+          isFeather,
+          swayPhase: Math.random() * Math.PI * 2,
+          swaySpeed: Math.random() * 0.02 + 0.01,
         })
       }
       particles = newParticles
@@ -110,9 +116,17 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       tilt.y += (targetTilt.y - tilt.y) * 0.1
 
       particles.forEach((p) => {
-        p.vy += 0.12
-        p.vx *= 0.985
-        p.vy *= 0.985
+        if (p.isFeather) {
+          p.vy += 0.008
+          p.vx *= 0.998
+          p.vy *= 0.998
+          p.vx += Math.sin(p.swayPhase) * 0.02
+          p.swayPhase += p.swaySpeed
+        } else {
+          p.vy += 0.06
+          p.vx *= 0.995
+          p.vy *= 0.995
+        }
 
         if (mousePos.x !== null && mousePos.y !== null) {
           const dx = p.x - mousePos.x
@@ -120,14 +134,16 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           const dist = Math.hypot(dx, dy)
           if (dist < 120 && dist > 1) {
             const force = 30 / dist
-            p.vx += (dx / dist) * force
-            p.vy += (dy / dist) * force
+            const mult = p.isFeather ? 2 : 1
+            p.vx += (dx / dist) * force * mult
+            p.vy += (dy / dist) * force * mult
           }
         }
 
         if (tilt.x !== 0 || tilt.y !== 0) {
-          p.vx += tilt.x * 0.015
-          p.vy += tilt.y * 0.015
+          const mult = p.isFeather ? 3 : 1
+          p.vx += tilt.x * 0.015 * mult
+          p.vy += tilt.y * 0.015 * mult
         }
 
         p.x += p.vx
@@ -158,7 +174,8 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
             p.vx *= 0.95
           }
 
-          if (Math.abs(p.vy) < 0.15 && Math.abs(p.vx) < 0.15 && p.y >= maxY - 1) {
+          const threshold = p.isFeather ? 0.03 : 0.15
+          if (Math.abs(p.vy) < threshold && Math.abs(p.vx) < threshold && p.y >= maxY - 1) {
             p.vy = 0
             p.vx = 0
             p.y = maxY

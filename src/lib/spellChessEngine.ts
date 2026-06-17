@@ -6,6 +6,18 @@ export interface Piece {
   color: Color;
 }
 
+export interface EngineMove {
+  from: string
+  to: string
+  piece: PieceType
+  captured?: PieceType
+  promotion?: PieceType
+  color: Color
+  flags: string
+  san: string
+  lan: string
+}
+
 export type SpellName = 'jump' | 'shield' | 'freeze' | 'portal' | 'blast' | 'berserk' | 'divineGrace' | 'shadowGrave' | 'mirage'
 
 export const FREE_ACTIONS: SpellName[] = ['jump', 'shield', 'portal']
@@ -49,15 +61,26 @@ export interface SpellState {
   pendingBlastMine: { square: string; color: Color } | null;
 }
 
+interface MoveRecord {
+  board: (Piece | null)[][]
+  turn: Color
+  halfMoveCount: number
+  spellState: SpellState
+  from: string
+  to: string
+  captured: Piece | null
+}
+
 export class SpellChessEngine {
-  board: (Piece | null)[][];
-  turn: Color;
+  private _pieces: (Piece | null)[][];
+  private _turn: Color;
   halfMoveCount: number;
   spellState: SpellState;
+  private moveStack: MoveRecord[] = [];
 
   constructor(fen?: string) {
-    this.board = Array(8).fill(null).map(() => Array(8).fill(null));
-    this.turn = 'w';
+    this._pieces = Array(8).fill(null).map(() => Array(8).fill(null));
+    this._turn = 'w';
     this.halfMoveCount = 0;
     this.spellState = {
       frozenSquares: {},
@@ -98,7 +121,7 @@ export class SpellChessEngine {
 
   load(fen: string) {
     const [position, turn] = fen.split(' ');
-    this.turn = turn as Color;
+    this._turn = turn as Color;
 
     const rows = position.split('/');
     for (let r = 0; r < 8; r++) {
@@ -108,7 +131,7 @@ export class SpellChessEngine {
         if (isNaN(parseInt(char))) {
           const type = char.toLowerCase() as PieceType;
           const color = char === char.toUpperCase() ? 'w' : 'b';
-          this.board[r][c] = { type, color };
+          this._pieces[r][c] = { type, color };
           c++;
         } else {
           c += parseInt(char);
@@ -119,7 +142,7 @@ export class SpellChessEngine {
 
   getPiece(square: string): Piece | null {
     const { r, c } = this.sqToIdx(square);
-    return this.board[r][c];
+    return this._pieces[r][c];
   }
 
   sqToIdx(square: string) {
@@ -145,7 +168,7 @@ export class SpellChessEngine {
   getKingSquare(color: Color): string | null {
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
-        const p = this.board[r][c];
+        const p = this._pieces[r][c];
         if (p?.type === 'k' && p.color === color) {
           return this.idxToSq(r, c);
         }
@@ -159,7 +182,7 @@ export class SpellChessEngine {
 
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
-        const p = this.board[r][c];
+        const p = this._pieces[r][c];
         if (!p || p.color !== attackerColor) continue;
 
         const dr = tr - r;
@@ -202,7 +225,7 @@ export class SpellChessEngine {
 
   getLegalMoves(square: string): string[] {
     const piece = this.getPiece(square);
-    if (!piece || piece.color !== this.turn || this.isFrozen(square)) return [];
+    if (!piece || piece.color !== this._turn || this.isFrozen(square)) return [];
     if (this.isImpassable(square)) return [];
 
     const moves: string[] = [];
@@ -212,7 +235,7 @@ export class SpellChessEngine {
       if (tr < 0 || tr >= 8 || tc < 0 || tc >= 8) return false;
       const targetSq = this.idxToSq(tr, tc);
       if (this.isImpassable(targetSq)) return false;
-      const target = this.board[tr][tc];
+      const target = this._pieces[tr][tc];
       if (!target) {
         moves.push(targetSq);
         return true;
@@ -230,11 +253,11 @@ export class SpellChessEngine {
       case 'p': {
         const dir = piece.color === 'w' ? -1 : 1;
         const startRank = piece.color === 'w' ? 6 : 1;
-        if (r + dir >= 0 && r + dir < 8 && !this.board[r + dir][c]) {
+        if (r + dir >= 0 && r + dir < 8 && !this._pieces[r + dir][c]) {
           const sq = this.idxToSq(r + dir, c);
           if (!this.isImpassable(sq)) {
             moves.push(sq);
-            if (r === startRank && !this.board[r + 2 * dir][c]) {
+            if (r === startRank && !this._pieces[r + 2 * dir][c]) {
               const sq2 = this.idxToSq(r + 2 * dir, c);
               if (!this.isImpassable(sq2)) {
                 moves.push(sq2);
@@ -245,7 +268,7 @@ export class SpellChessEngine {
         for (const dc of [-1, 1]) {
           const tr = r + dir, tc = c + dc;
           if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-            const target = this.board[tr][tc];
+            const target = this._pieces[tr][tc];
             if (target && target.color !== piece.color) {
               const targetSq = this.idxToSq(tr, tc);
               if (!(this.spellState.shieldedSquares[targetSq] > this.halfMoveCount)) {
@@ -287,7 +310,7 @@ export class SpellChessEngine {
       while (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
         const targetSq = this.idxToSq(tr, tc);
         if (this.isImpassable(targetSq)) break;
-        const target = this.board[tr][tc];
+        const target = this._pieces[tr][tc];
         if (!target) {
           moves.push(targetSq);
         } else {
@@ -315,12 +338,12 @@ export class SpellChessEngine {
     dirs.forEach(([dr, dc]) => {
       let tr = r + dr, tc = c + dc;
       while (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-        if (this.board[tr][tc]) {
+        if (this._pieces[tr][tc]) {
           const jr = tr + dr, jc = tc + dc;
           if (jr >= 0 && jr < 8 && jc >= 0 && jc < 8) {
             const targetSq = this.idxToSq(jr, jc);
             if (this.isImpassable(targetSq)) break;
-            const jt = this.board[jr][jc];
+            const jt = this._pieces[jr][jc];
             if (!jt || jt.color !== piece.color) {
               if (!(this.spellState.shieldedSquares[targetSq] > this.halfMoveCount)) {
                 moves.push(targetSq);
@@ -340,7 +363,7 @@ export class SpellChessEngine {
     const dc = c2 > c1 ? 1 : -1;
     let r = r1 + dr, c = c1 + dc;
     while (r !== r2) {
-      if (this.board[r][c]) return false;
+      if (this._pieces[r][c]) return false;
       r += dr; c += dc;
     }
     return true;
@@ -350,37 +373,37 @@ export class SpellChessEngine {
     if (r1 === r2) {
       const step = c2 > c1 ? 1 : -1;
       for (let c = c1 + step; c !== c2; c += step) {
-        if (this.board[r1][c]) return false;
+        if (this._pieces[r1][c]) return false;
       }
     } else {
       const step = r2 > r1 ? 1 : -1;
       for (let r = r1 + step; r !== r2; r += step) {
-        if (this.board[r][c1]) return false;
+        if (this._pieces[r][c1]) return false;
       }
     }
     return true;
   }
 
   private canAffordSpell(spell: SpellName): { ok: boolean; reason?: 'charges' | 'locked' | 'color' } {
-    const charge = this.spellState.charges[this.turn][spell]
+    const charge = this.spellState.charges[this._turn][spell]
     if (!charge || charge <= 0) return { ok: false, reason: 'charges' }
     const currentTurnNum = this.getTurnNumber()
     if (currentTurnNum < SPELL_UNLOCK[spell]) return { ok: false, reason: 'locked' }
-    if (spell === 'divineGrace' && this.turn !== 'w') return { ok: false, reason: 'color' }
-    if ((spell === 'shadowGrave' || spell === 'mirage') && this.turn !== 'b') return { ok: false, reason: 'color' }
+    if (spell === 'divineGrace' && this._turn !== 'w') return { ok: false, reason: 'color' }
+    if ((spell === 'shadowGrave' || spell === 'mirage') && this._turn !== 'b') return { ok: false, reason: 'color' }
     return { ok: true }
   }
 
   private deductCharge(spell: SpellName) {
-    this.spellState.charges[this.turn][spell]--
+    this.spellState.charges[this._turn][spell]--
   }
 
   completeTurn() {
-    this.turn = this.turn === 'w' ? 'b' : 'w'
+    this._turn = this._turn === 'w' ? 'b' : 'w'
     this.halfMoveCount++
 
     // Process pending blast mine — explodes at start of caster's next turn
-    if (this.spellState.pendingBlastMine && this.spellState.pendingBlastMine.color === this.turn) {
+    if (this.spellState.pendingBlastMine && this.spellState.pendingBlastMine.color === this._turn) {
       this.triggerBlastExplosion(this.spellState.pendingBlastMine.square)
       this.spellState.pendingBlastMine = null
     }
@@ -402,11 +425,21 @@ export class SpellChessEngine {
 
     const { r: fr, c: fc } = this.sqToIdx(from);
     const { r: tr, c: tc } = this.sqToIdx(to);
-    const piece = this.board[fr][fc];
+    const piece = this._pieces[fr][fc];
     if (!piece) return false;
 
-    this.board[tr][tc] = piece;
-    this.board[fr][fc] = null;
+    // Save state for undo
+    const captured = this._pieces[tr][tc]
+    this.moveStack.push({
+      board: JSON.parse(JSON.stringify(this._pieces)),
+      turn: this._turn,
+      halfMoveCount: this.halfMoveCount,
+      spellState: this.deepCloneSpellState(),
+      from, to, captured,
+    })
+
+    this._pieces[tr][tc] = piece;
+    this._pieces[fr][fc] = null;
 
     let landingSq = to;
     if (this.spellState.portals) {
@@ -414,9 +447,9 @@ export class SpellChessEngine {
         this.spellState.portals = null;
       } else if (to === this.spellState.portals.from) {
         const { r: pr, c: pc } = this.sqToIdx(this.spellState.portals.to);
-        if (!this.board[pr][pc]) {
-          this.board[pr][pc] = piece;
-          this.board[tr][tc] = null;
+        if (!this._pieces[pr][pc]) {
+          this._pieces[pr][pc] = piece;
+          this._pieces[tr][tc] = null;
           landingSq = this.spellState.portals.to;
         }
         this.spellState.portals = null;
@@ -438,11 +471,11 @@ export class SpellChessEngine {
 
     this.spellState.jumpSquare = null;
 
-    this.turn = this.turn === 'w' ? 'b' : 'w';
+    this._turn = this._turn === 'w' ? 'b' : 'w';
     this.halfMoveCount++;
 
     // Process pending blast mine — explodes at start of this player's turn
-    if (this.spellState.pendingBlastMine && this.spellState.pendingBlastMine.color === this.turn) {
+    if (this.spellState.pendingBlastMine && this.spellState.pendingBlastMine.color === this._turn) {
       this.triggerBlastExplosion(this.spellState.pendingBlastMine.square)
       this.spellState.pendingBlastMine = null
     }
@@ -466,7 +499,7 @@ export class SpellChessEngine {
     const check = this.canAffordSpell('jump')
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn || piece.type === 'n' || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
+    if (!piece || piece.color !== this._turn || piece.type === 'n' || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
     this.spellState.jumpSquare = targetSquare;
     this.deductCharge('jump')
     return true;
@@ -476,7 +509,7 @@ export class SpellChessEngine {
     const check = this.canAffordSpell('shield')
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn) return false;
+    if (!piece || piece.color !== this._turn) return false;
     this.spellState.shieldedSquares[targetSquare] = this.halfMoveCount + 4;
     this.deductCharge('shield')
     return true;
@@ -515,7 +548,7 @@ export class SpellChessEngine {
     if (!check.ok) return false
 
     // Place a mine that will explode at start of player's next turn
-    this.spellState.pendingBlastMine = { square: targetSquare, color: this.turn }
+    this.spellState.pendingBlastMine = { square: targetSquare, color: this._turn }
     this.deductCharge('blast')
     this.completeTurn()
     return true;
@@ -525,7 +558,7 @@ export class SpellChessEngine {
     const check = this.canAffordSpell('berserk')
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn || piece.type === 'k' || piece.type === pieceType || this.isFrozen(targetSquare)) return false;
+    if (!piece || piece.color !== this._turn || piece.type === 'k' || piece.type === pieceType || this.isFrozen(targetSquare)) return false;
     this.spellState.berserkTransforms[targetSquare] = { fromType: piece.type, expiry: this.halfMoveCount + 12 };
     piece.type = pieceType;
     this.deductCharge('berserk')
@@ -555,11 +588,11 @@ export class SpellChessEngine {
     const check = this.canAffordSpell('shadowGrave')
     if (!check.ok) return false
     const piece = this.getPiece(targetSquare);
-    if (!piece || piece.color !== this.turn || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
+    if (!piece || piece.color !== this._turn || piece.type === 'k' || this.isFrozen(targetSquare)) return false;
 
     // Remove own piece
     const { r: sr, c: sc } = this.sqToIdx(targetSquare);
-    this.board[sr][sc] = null;
+    this._pieces[sr][sc] = null;
 
     // Mark square as impassable
     this.spellState.impassableSquares[targetSquare] = this.halfMoveCount + 6;
@@ -571,8 +604,8 @@ export class SpellChessEngine {
         if (dr === 0 && dc === 0) continue;
         const tr = sr + dr, tc = sc + dc;
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-          const enemy = this.board[tr][tc];
-          if (enemy && enemy.color !== this.turn && enemy.type !== 'k') {
+          const enemy = this._pieces[tr][tc];
+          if (enemy && enemy.color !== this._turn && enemy.type !== 'k') {
             adjacentEnemies.push(this.idxToSq(tr, tc));
           }
         }
@@ -583,7 +616,7 @@ export class SpellChessEngine {
     if (adjacentEnemies.length > 0) {
       const target = adjacentEnemies[Math.floor(Math.random() * adjacentEnemies.length)];
       const { r: er, c: ec } = this.sqToIdx(target);
-      this.board[er][ec] = null;
+      this._pieces[er][ec] = null;
     }
 
     this.deductCharge('shadowGrave')
@@ -597,7 +630,7 @@ export class SpellChessEngine {
 
     const piece1 = this.getPiece(sq1);
     const piece2 = this.getPiece(sq2);
-    if (!piece1 || !piece2 || piece1.color !== this.turn || piece2.color !== this.turn) return false;
+    if (!piece1 || !piece2 || piece1.color !== this._turn || piece2.color !== this._turn) return false;
     if (piece1.type === 'k' || piece2.type === 'k') return false;
     if (sq1 === sq2) return false;
 
@@ -605,8 +638,8 @@ export class SpellChessEngine {
     const { r: r2, c: c2 } = this.sqToIdx(sq2);
 
     // Swap board positions
-    this.board[r1][c1] = piece2;
-    this.board[r2][c2] = piece1;
+    this._pieces[r1][c1] = piece2;
+    this._pieces[r2][c2] = piece1;
 
     // Swap shield if any
     const shield1 = this.spellState.shieldedSquares[sq1];
@@ -637,10 +670,10 @@ export class SpellChessEngine {
         const tr = r + dr, tc = c + dc;
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
           const sq = this.idxToSq(tr, tc);
-          const p = this.board[tr][tc];
+          const p = this._pieces[tr][tc];
           const isShielded = this.spellState.shieldedSquares[sq] > this.halfMoveCount;
           if (p && p.type !== 'k' && !isShielded) {
-            this.board[tr][tc] = null;
+            this._pieces[tr][tc] = null;
           }
         }
       }
@@ -652,7 +685,7 @@ export class SpellChessEngine {
     for (let r = 0; r < 8; r++) {
       let empty = 0;
       for (let c = 0; c < 8; c++) {
-        const piece = this.board[r][c];
+        const piece = this._pieces[r][c];
         if (!piece) empty++;
         else {
           if (empty > 0) { res += empty; empty = 0; }
@@ -663,7 +696,7 @@ export class SpellChessEngine {
       if (empty > 0) res += empty;
       if (r < 7) res += '/';
     }
-    res += ` ${this.turn} KQkq - 0 1`;
+    res += ` ${this._turn} KQkq - 0 1`;
     return res;
   }
 
@@ -671,12 +704,177 @@ export class SpellChessEngine {
     let whiteKing = false, blackKing = false;
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
-        const p = this.board[r][c];
+        const p = this._pieces[r][c];
         if (p?.type === 'k') { if (p.color === 'w') whiteKing = true; else blackKing = true; }
       }
     }
     if (!whiteKing) return 'black';
     if (!blackKing) return 'white';
     return null;
+  }
+
+  // --- EngineAPI compatibility methods ---
+
+  private deepCloneSpellState(): SpellState {
+    const s = this.spellState
+    return {
+      frozenSquares: { ...s.frozenSquares },
+      jumpSquare: s.jumpSquare,
+      shieldedSquares: { ...s.shieldedSquares },
+      portals: s.portals ? { ...s.portals } : null,
+      bombs: { ...s.bombs },
+      berserkTransforms: Object.fromEntries(
+        Object.entries(s.berserkTransforms).map(([k, v]) => [k, { ...v }])
+      ),
+      charges: {
+        w: { ...s.charges.w },
+        b: { ...s.charges.b },
+      },
+      impassableSquares: { ...s.impassableSquares },
+      pendingBlastMine: s.pendingBlastMine ? { ...s.pendingBlastMine } : null,
+    }
+  }
+
+  private moveToObj(from: string, to: string): EngineMove {
+    const piece = this.getPiece(to) || this.getPiece(from) || { type: 'p' as PieceType, color: this._turn }
+    const captured = this.moveStack.length > 0
+      ? this.moveStack[this.moveStack.length - 1].captured
+      : null
+    return {
+      from,
+      to,
+      piece: piece.type,
+      captured: captured?.type,
+      color: piece.color,
+      flags: '-',
+      san: `${from}→${to}`,
+      lan: `${from}${to}`,
+    }
+  }
+
+  turn(): Color { return this._turn }
+
+  board(): (Piece | null)[][] { return this._pieces }
+
+  get(square: string): Piece | null { return this.getPiece(square) }
+
+  moves(options?: { square?: string; verbose?: boolean }): string[] | EngineMove[] {
+    if (options?.square) {
+      const piece = this.getPiece(options.square)
+      if (!piece || piece.color !== this._turn) return []
+      const toSquares = this.getLegalMoves(options.square)
+      if (options?.verbose) {
+        return toSquares.map(to => this.moveToObj(options.square!, to))
+      }
+      return toSquares
+    }
+
+    const results: { from: string; to: string }[] = []
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = this._pieces[r][c]
+        if (p && p.color === this._turn) {
+          const from = this.idxToSq(r, c)
+          const toSquares = this.getLegalMoves(from)
+          toSquares.forEach(to => results.push({ from, to }))
+        }
+      }
+    }
+
+    const seen = new Set<string>()
+    const unique: { from: string; to: string }[] = []
+    results.forEach(r => {
+      const key = `${r.from}${r.to}`
+      if (!seen.has(key)) { seen.add(key); unique.push(r) }
+    })
+
+    if (options?.verbose) {
+      return unique.map(r => this.moveToObj(r.from, r.to))
+    }
+    return unique.map(r => r.to)
+  }
+
+  history(): string[]
+  history(options: { verbose?: false }): string[]
+  history(options: { verbose: true }): EngineMove[]
+  history(options?: { verbose?: boolean }): string[] | EngineMove[] {
+    if (options?.verbose) {
+      return this.moveStack.map(m => this.moveToObj(m.from, m.to))
+    }
+    return this.moveStack.map(m => `${m.from}${m.to}`)
+  }
+
+  undo(): EngineMove | null {
+    const record = this.moveStack.pop()
+    if (!record) return null
+    this._pieces = JSON.parse(JSON.stringify(record.board))
+    this._turn = record.turn
+    this.halfMoveCount = record.halfMoveCount
+    this.spellState = {
+      ...record.spellState,
+      frozenSquares: { ...record.spellState.frozenSquares },
+      shieldedSquares: { ...record.spellState.shieldedSquares },
+      bombs: { ...record.spellState.bombs },
+      berserkTransforms: { ...record.spellState.berserkTransforms },
+      charges: { w: { ...record.spellState.charges.w }, b: { ...record.spellState.charges.b } },
+      impassableSquares: { ...record.spellState.impassableSquares },
+    }
+    return this.moveToObj(record.from, record.to)
+  }
+
+  pgn(): string { return '' }
+
+  loadPgn(_pgn: string): void { /* not supported */ }
+
+  inCheck(): boolean { return false }
+
+  isCheckmate(): boolean { return false }
+
+  isStalemate(): boolean { return false }
+
+  isDraw(): boolean { return false }
+
+  isInsufficientMaterial(): boolean { return false }
+
+  isThreefoldRepetition(): boolean { return false }
+
+  isGameOverBool(): boolean {
+    return this.isGameOver() !== null
+  }
+
+  gameResult(): string {
+    const result = this.isGameOver()
+    if (result === 'white') return '1-0'
+    if (result === 'black') return '0-1'
+    if (result === 'draw') return '1/2-1/2'
+    return '*'
+  }
+
+  squareColor(sq: string): 'light' | 'dark' {
+    const f = sq.charCodeAt(0) - 97
+    const r = parseInt(sq[1]) - 1
+    return (f + r) % 2 === 0 ? 'dark' : 'light'
+  }
+
+  spellStateToJSON(): string {
+    return JSON.stringify(this.spellState)
+  }
+
+  applySpellStateJSON(json: string): void {
+    const parsed = JSON.parse(json)
+    this.spellState = {
+      ...parsed,
+      frozenSquares: { ...parsed.frozenSquares },
+      shieldedSquares: { ...parsed.shieldedSquares },
+      bombs: { ...parsed.bombs },
+      berserkTransforms: Object.fromEntries(
+        Object.entries(parsed.berserkTransforms || {}).map(([k, v]: any) => [k, { ...v }])
+      ),
+      charges: {
+        w: { ...parsed.charges?.w },
+        b: { ...parsed.charges?.b },
+      },
+      impassableSquares: { ...(parsed.impassableSquares || {}) },
+    }
   }
 }

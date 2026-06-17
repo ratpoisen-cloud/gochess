@@ -66,7 +66,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       const gameOver = engine.isGameOver()
       set({
         fen: engine.fen(),
-        turn: engine.turn,
+        turn: engine.turn(),
         spellState: copySpellState(engine.spellState),
         selectedSquare: null,
         legalMoves: [],
@@ -98,7 +98,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       if (activeSpell === 'mirage') {
         if (!mirageStart) {
           const piece = engine.getPiece(square)
-          if (piece && piece.color === engine.turn && piece.type !== 'k') {
+          if (piece && piece.color === engine.turn() && piece.type !== 'k') {
             set({ mirageStart: square })
           }
           return
@@ -108,7 +108,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       }
       if (activeSpell === 'shadowGrave') {
         const piece = engine.getPiece(square)
-        if (piece && piece.color === engine.turn && piece.type !== 'k') {
+        if (piece && piece.color === engine.turn() && piece.type !== 'k') {
           castSpell('shadowGrave', square)
         }
         return
@@ -119,7 +119,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       }
       if (activeSpell === 'berserk') {
         const piece = engine.getPiece(square)
-        if (piece && piece.color === engine.turn && piece.type !== 'k') {
+        if (piece && piece.color === engine.turn() && piece.type !== 'k') {
           set({ berserkTarget: square, activeSpell: null, selectedSquare: null, legalMoves: [] })
         }
         return
@@ -141,7 +141,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       }
     }
 
-    if (piece && piece.color === engine.turn) {
+    if (piece && piece.color === engine.turn()) {
       set({
         selectedSquare: square,
         legalMoves: engine.getLegalMoves(square),
@@ -186,7 +186,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         selectedSquare: null,
         legalMoves: [],
         halfMoveCount: engine.halfMoveCount,
-        turn: engine.turn,
+        turn: engine.turn(),
         fen: engine.fen(),
         hasCastSpellThisTurn: isFree,
         isGameOver: !!gameOver,
@@ -209,7 +209,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         selectedSquare: null,
         legalMoves: [],
         halfMoveCount: engine.halfMoveCount,
-        turn: engine.turn,
+        turn: engine.turn(),
         fen: engine.fen(),
         hasCastSpellThisTurn: false,
         isGameOver: !!gameOver,

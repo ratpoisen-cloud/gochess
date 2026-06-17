@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createEngine, type EngineAPI } from '@/lib/engine'
+import type { SpellName } from '@/lib/spellChessEngine'
 import { db } from '@/lib/firebase'
 import {
   doc,
@@ -54,6 +55,11 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     window.location.href = `/game/${gameId}`
   })
 
+  // Spell state (spell_chess mode)
+  const [spellStateJson, setSpellStateJson] = useState<string | null>(null)
+  const [hasCastSpellThisTurn, setHasCastSpellThisTurn] = useState(false)
+  const lastSpellStateJsonRef = useRef<string | null>(null)
+
   const addReaction = useReactionStore((s) => s.addReaction)
 
   // Refs
@@ -81,6 +87,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     if (data.game_state !== 'game_over') return ''
     if (data.message === 'timeout') {
       return `Время вышло! ${data.winner === 'white' ? 'Белые' : 'Чёрные'} победили`
+    }
+    if (data.message === 'king_capture') {
+      return `${data.winner === 'white' ? 'Белые' : 'Чёрные'} захватили короля!`
     }
     return data.message === 'resign'
       ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
@@ -138,17 +147,22 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         setGameOver(true)
         setResultText(parseResult(newData))
         setWinnerColor(null)
-        if (newData.game_mode !== 'fog_of_war') {
+        if (newData.game_mode !== 'fog_of_war' && newData.message !== 'king_capture') {
           soundManager.play('checkmate')
         }
 
-        const currentGame = createEngine()
+        const currentGame = newData.game_mode === 'spell_chess'
+          ? createEngine('spell', newData.fen || undefined)
+          : createEngine()
         if (newData.pgn) {
           try { currentGame.loadPgn(newData.pgn) } catch {
             if (newData.fen) currentGame.load(newData.fen)
           }
         } else if (newData.fen) {
           currentGame.load(newData.fen)
+        }
+        if (newData.game_mode === 'spell_chess' && newData.spell_state_json) {
+          ;(currentGame as any).applySpellStateJSON?.(newData.spell_state_json)
         }
 
         const whiteKingSquare = getKingSquare(currentGame, 'w')
@@ -180,6 +194,18 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
               ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : []),
             ],
           })
+        } else if (newData.message === 'king_capture') {
+          const wc = newData.winner === 'white' ? 'w' : 'b'
+          setWinnerColor(wc)
+          const kingSq = getKingSquare(currentGame, wc === 'w' ? 'b' : 'w')
+          const winnerKingSq = getKingSquare(currentGame, wc)
+          setEndGameState({
+            defeated: kingSq,
+            emojis: [
+              ...(kingSq ? [{ square: kingSq, url: `${BASE}emojis/end game/chekmate.png` }] : []),
+              ...(winnerKingSq ? [{ square: winnerKingSq, url: `${BASE}emojis/end game/win.png` }] : []),
+            ],
+          })
         } else if (newData.message === 'draw' || newData.message === 'stalemate') {
           setWinnerColor(null)
           setEndGameState({
@@ -198,8 +224,24 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       setWinnerColor(null)
     }
 
-    // Sync PGN
-    if (newData.pgn && newData.pgn !== lastPgnRef.current) {
+    // Sync PGN (spell mode syncs via spell_state_json)
+    const isSpell = newData.game_mode === 'spell_chess'
+    if (isSpell && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
+      const g = createEngine('spell', newData.fen || undefined)
+      if (newData.spell_state_json) {
+        ;(g as any).applySpellStateJSON?.(newData.spell_state_json)
+      }
+      updateGameState(g)
+      lastSpellStateJsonRef.current = newData.spell_state_json
+      setSpellStateJson(newData.spell_state_json)
+
+      if (!localMoveRef.current) {
+        soundManager.play('move')
+        useReactionStore.getState().resetMoveCounter()
+      }
+      localMoveRef.current = false
+      setHasCastSpellThisTurn(false)
+    } else if (newData.pgn && newData.pgn !== lastPgnRef.current) {
       const g = createEngine()
       try {
         g.loadPgn(newData.pgn)
@@ -220,7 +262,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       } catch {
         // PGN parse error, ignore
       }
-    } else if (!newData.pgn && lastPgnRef.current !== '') {
+    } else if (!isSpell && !newData.pgn && lastPgnRef.current !== '') {
       const g = createEngine()
       updateGameState(g)
       lastPgnRef.current = ''
@@ -284,6 +326,88 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
   const makeMove = useCallback(async (from: string, to: string, promotion?: string): Promise<boolean> => {
     if (!isMyTurn || !gameDocId || gameOver) return false
 
+    const isSpell = gameMode === 'spell_chess'
+
+    // --- Spell mode move ---
+    if (isSpell) {
+      const g = createEngine('spell', gameRef.current.fen() || undefined)
+      if (lastSpellStateJsonRef.current) {
+        ;(g as any).applySpellStateJSON?.(lastSpellStateJsonRef.current)
+      }
+
+      try {
+        const success = (g as any).move(from, to)
+        if (!success) return false
+
+        const prevFen = gameRef.current.fen()
+        const prevSsj = lastSpellStateJsonRef.current
+
+        // Optimistic local update
+        updateGameState(g)
+        const newSsj = (g as any).spellStateToJSON()
+        lastSpellStateJsonRef.current = newSsj
+        setSpellStateJson(newSsj)
+        setIsMyTurn(false)
+
+        const gameOverResult = (g as any).isGameOver()
+        const gameOverNow = gameOverResult !== null
+
+        const updateData: Record<string, any> = {
+          fen: g.fen(),
+          turn: g.turn(),
+          spell_state_json: newSsj,
+          last_move_time: Date.now(),
+        }
+
+        if (gameOverNow) {
+          updateData.game_state = 'game_over'
+          updateData.winner = gameOverResult === 'white' ? 'white' : 'black'
+          updateData.message = 'king_capture'
+        }
+
+        try {
+          localMoveRef.current = true
+          const gameRef2 = doc(db, 'games', gameDocId)
+          const txnResult = await runTransaction(db, async (transaction) => {
+            const freshDoc = await transaction.get(gameRef2)
+            const freshData = freshDoc.data()
+            if (!freshData) return 'error'
+            if (freshData.turn !== g.turn() && !gameOverNow) return 'stale'
+            transaction.update(gameRef2, updateData)
+            return 'ok'
+          })
+
+          if (txnResult === 'stale') {
+            localMoveRef.current = false
+            const rollback = createEngine('spell', prevFen || undefined)
+            if (prevSsj) { (rollback as any).applySpellStateJSON?.(prevSsj) }
+            updateGameState(rollback)
+            lastSpellStateJsonRef.current = prevSsj
+            setSpellStateJson(prevSsj)
+            setIsMyTurn(true)
+            return false
+          }
+
+          useReactionStore.getState().resetMoveCounter()
+          soundManager.play('move')
+        } catch {
+          localMoveRef.current = false
+          const rollback = createEngine('spell', prevFen || undefined)
+          if (prevSsj) { (rollback as any).applySpellStateJSON?.(prevSsj) }
+          updateGameState(rollback)
+          lastSpellStateJsonRef.current = prevSsj
+          setSpellStateJson(prevSsj)
+          setIsMyTurn(true)
+          addToast('Ошибка синхронизации хода', 'error')
+        }
+
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    // --- Standard / Fog mode move ---
     const g = createEngine()
     if (gameRef.current.pgn()) {
       g.loadPgn(gameRef.current.pgn())
@@ -417,6 +541,83 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     }
   }, [gameDocId, playerColor, gameOver, addToast])
 
+  // 5. castSpell
+  const castSpell = useCallback(async (spell: SpellName, target?: string, target2?: string): Promise<boolean> => {
+    if (!isMyTurn || !gameDocId || gameOver || hasCastSpellThisTurn) return false
+
+    const g = createEngine('spell', gameRef.current.fen() || undefined)
+    if (lastSpellStateJsonRef.current) {
+      ;(g as any).applySpellStateJSON?.(lastSpellStateJsonRef.current)
+    }
+
+    try {
+      let success = false
+      const se = g as any
+      switch (spell) {
+        case 'freeze': success = target ? se.castFreeze(target) : false; break
+        case 'jump': success = target ? se.castJump(target) : false; break
+        case 'blast': success = target ? se.castBlast(target) : false; break
+        case 'shield': success = target ? se.castShield(target) : false; break
+        case 'portal': success = (target && target2) ? se.castPortal(target, target2) : false; break
+        case 'berserk': success = (target && target2) ? se.castBerserk(target, target2) : false; break
+        case 'divineGrace': success = target ? se.castDivineGrace(target) : false; break
+        case 'shadowGrave': success = target ? se.castShadowGrave(target) : false; break
+        case 'mirage': success = (target && target2) ? se.castMirage(target, target2) : false; break
+      }
+      if (!success) return false
+
+      // Optimistic local update
+      updateGameState(g)
+      const newSsj = se.spellStateToJSON()
+      lastSpellStateJsonRef.current = newSsj
+      setSpellStateJson(newSsj)
+
+      const isTerminal = ['freeze', 'blast', 'berserk', 'divineGrace', 'shadowGrave', 'mirage'].includes(spell)
+      if (isTerminal) {
+        setHasCastSpellThisTurn(false)
+        setIsMyTurn(false)
+
+        const gameOverResult = se.isGameOver()
+        const gameOverNow = gameOverResult !== null
+
+        const updateData: Record<string, any> = {
+          fen: g.fen(),
+          turn: g.turn(),
+          spell_state_json: newSsj,
+          last_move_time: Date.now(),
+        }
+
+        if (gameOverNow) {
+          updateData.game_state = 'game_over'
+          updateData.winner = gameOverResult === 'white' ? 'white' : 'black'
+          updateData.message = 'king_capture'
+        }
+
+        await runTransaction(db, async (transaction) => {
+          const ref = doc(db, 'games', gameDocId)
+          const freshDoc = await transaction.get(ref)
+          if (!freshDoc.data()) return
+          transaction.update(ref, updateData)
+        })
+      } else {
+        setHasCastSpellThisTurn(true)
+        // Free action: sync spell state only (turn unchanged)
+        await runTransaction(db, async (transaction) => {
+          const ref = doc(db, 'games', gameDocId)
+          const freshDoc = await transaction.get(ref)
+          if (!freshDoc.data()) return
+          transaction.update(ref, { spell_state_json: newSsj })
+        })
+      }
+
+      soundManager.play('move')
+      return true
+    } catch {
+      addToast('Ошибка при применении заклинания', 'error')
+      return false
+    }
+  }, [isMyTurn, gameDocId, gameOver, hasCastSpellThisTurn, updateGameState, addToast])
+
   return {
     game,
     status,
@@ -457,5 +658,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     setWinnerColor,
     setEndGameState,
     setVisibleSquares,
+    // Spell-specific
+    spellStateJson,
+    hasCastSpellThisTurn,
+    castSpell: gameMode === 'spell_chess' ? castSpell : null,
   }
 }

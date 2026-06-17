@@ -43,6 +43,7 @@ export interface GameData {
   black_time_left?: number | null
   last_timer_update?: number | null
   timer_status?: 'active' | 'paused' | null
+  spell_state_json?: string | null
 }
 
 export interface Challenge {

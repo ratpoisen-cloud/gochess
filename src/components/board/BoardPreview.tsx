@@ -28,7 +28,7 @@ export default function BoardPreview({
   const visibleSquares = useMemo(() => {
     if (gameMode !== 'fog_of_war' || !playerColor) return null
     try {
-      const game = createEngine(fen)
+      const game = createEngine('standard', fen)
       return getVisibleSquares(game, playerColor)
     } catch {
       return null

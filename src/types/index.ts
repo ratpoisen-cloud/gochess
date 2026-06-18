@@ -4,7 +4,7 @@ export type GameStatus = 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw
 
 export type BotLevel = 'very-easy' | 'easy' | 'medium' | 'hard'
 
-export type GameMode = 'classic' | 'fog_of_war' | 'rapid' | 'spell_chess'
+export type GameMode = 'classic' | 'fog_of_war' | 'rapid' | 'spell_chess' | 'atomic_chess'
 
 export interface User {
   uid: string

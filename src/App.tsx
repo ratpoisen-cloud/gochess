@@ -11,6 +11,7 @@ const OnlineHubPage = lazy(() => import('./pages/OnlineHubPage'))
 const CompletedGamesPage = lazy(() => import('./pages/CompletedGamesPage'))
 const OfflineHubPage = lazy(() => import('./pages/OfflineHubPage'))
 const SpellLocalPage = lazy(() => import('./pages/SpellLocalPage'))
+const AtomicLocalPage = lazy(() => import('./pages/AtomicLocalPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
           <Route path="/local/classic" element={<LocalPage />} />
           <Route path="/local/rapid" element={<LocalPage />} />
           <Route path="/local/spell" element={<SpellLocalPage />} />
+          <Route path="/local/atomic" element={<AtomicLocalPage />} />
           <Route path="/spell-local" element={<SpellLocalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

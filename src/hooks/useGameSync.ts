@@ -91,6 +91,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     if (data.message === 'king_capture') {
       return `${data.winner === 'white' ? 'Белые' : 'Чёрные'} захватили короля!`
     }
+    if (data.message === 'atomic_blast') {
+      return `${data.winner === 'white' ? 'Белые' : 'Чёрные'} уничтожили короля взрывом!`
+    }
     return data.message === 'resign'
       ? `${data.winner === 'white' ? 'Чёрные' : 'Белые'} сдались`
       : data.message === 'draw' ? 'Ничья'
@@ -224,8 +227,10 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       setWinnerColor(null)
     }
 
-    // Sync PGN (spell mode syncs via spell_state_json)
+    // Sync PGN (spell and atomic mode sync via spell_state_json)
     const isSpell = newData.game_mode === 'spell_chess'
+    const isAtomic = newData.game_mode === 'atomic_chess'
+    
     if (isSpell && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
       const g = createEngine('spell', newData.fen || undefined)
       if (newData.spell_state_json) {
@@ -241,6 +246,23 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       }
       localMoveRef.current = false
       setHasCastSpellThisTurn(false)
+    } else if (isAtomic && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
+      const g = createEngine('atomic', newData.fen || undefined)
+      if (newData.spell_state_json) {
+        try {
+          const state = JSON.parse(newData.spell_state_json)
+          ;(g as any).setAtomicState?.(state)
+        } catch {}
+      }
+      updateGameState(g)
+      lastSpellStateJsonRef.current = newData.spell_state_json
+      setSpellStateJson(newData.spell_state_json)
+
+      if (!localMoveRef.current) {
+        soundManager.play('move')
+        useReactionStore.getState().resetMoveCounter()
+      }
+      localMoveRef.current = false
     } else if (newData.pgn && newData.pgn !== lastPgnRef.current) {
       const g = createEngine()
       try {
@@ -327,6 +349,78 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     if (!isMyTurn || !gameDocId || gameOver) return false
 
     const isSpell = gameMode === 'spell_chess'
+    const isAtomic = gameMode === 'atomic_chess'
+
+    // --- Atomic mode move ---
+    if (isAtomic) {
+      const g = createEngine('atomic', gameRef.current.fen() || undefined) as any
+      if (lastSpellStateJsonRef.current) {
+        try {
+          g.setAtomicState(JSON.parse(lastSpellStateJsonRef.current))
+        } catch {}
+      }
+
+      const moveResult = g.move({ from, to, promotion })
+      if (!moveResult) return false
+
+      const prevFen = gameRef.current.fen()
+      const prevSsj = lastSpellStateJsonRef.current
+
+      // Optimistic local update
+      updateGameState(g)
+      const newSsj = JSON.stringify(g.getAtomicState())
+      lastSpellStateJsonRef.current = newSsj
+      setSpellStateJson(newSsj)
+      setIsMyTurn(false)
+
+      const board = g.board()
+      let wK = false, bK = false
+      board.flat().forEach((p: any) => {
+        if (p?.type === 'k') {
+          if (p.color === 'w') wK = true
+          if (p.color === 'b') bK = true
+        }
+      })
+      const gameOverNow = !wK || !bK || g.isGameOver()
+
+      const updateData: Record<string, any> = {
+        fen: g.fen(),
+        turn: g.turn(),
+        spell_state_json: newSsj,
+        last_move_time: Date.now(),
+      }
+
+      if (gameOverNow) {
+        updateData.game_state = 'game_over'
+        updateData.winner = !bK ? 'white' : 'black'
+        updateData.message = 'atomic_blast'
+      }
+
+      try {
+        localMoveRef.current = true
+        const gameRef2 = doc(db, 'games', gameDocId)
+        await runTransaction(db, async (transaction) => {
+          const freshDoc = await transaction.get(gameRef2)
+          const freshData = freshDoc.data()
+          if (!freshData) return
+          transaction.update(gameRef2, updateData)
+        })
+        useReactionStore.getState().resetMoveCounter()
+        soundManager.play('move')
+      } catch {
+        localMoveRef.current = false
+        const rollback = createEngine('atomic', prevFen || undefined)
+        if (prevSsj) {
+           try { (rollback as any).setAtomicState(JSON.parse(prevSsj)) } catch {}
+        }
+        updateGameState(rollback)
+        lastSpellStateJsonRef.current = prevSsj
+        setSpellStateJson(prevSsj)
+        setIsMyTurn(true)
+        return false
+      }
+      return true
+    }
 
     // --- Spell mode move ---
     if (isSpell) {

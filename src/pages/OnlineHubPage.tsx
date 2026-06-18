@@ -21,7 +21,8 @@ const modeNames: Record<string, string> = {
   classic: 'Классику',
   fog_of_war: 'Туман войны',
   rapid: 'Рапид',
-  spell_chess: 'Магию'
+  spell_chess: 'Магию',
+  atomic_chess: 'Атомные шахматы'
 }
 
 export default function OnlineHubPage() {
@@ -209,7 +210,7 @@ export default function OnlineHubPage() {
           </div>
 
           {/* Mode Tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--space-20)] mb-[var(--space-48)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-[var(--space-20)] mb-[var(--space-48)]">
             <ModeTile 
               mode="classic" 
               title="Классика" 
@@ -227,6 +228,12 @@ export default function OnlineHubPage() {
               title="Магия" 
               icon="magic.png" 
               description="Заклинания и физическое взятие короля" 
+            />
+            <ModeTile 
+              mode="atomic_chess" 
+              title="Атомные" 
+              icon="bomb.png" 
+              description="Взятие вызывает взрыв 3x3 вокруг" 
             />
             <ModeTile 
               mode="fog_of_war" 

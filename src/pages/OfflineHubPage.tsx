@@ -88,7 +88,7 @@ export default function OfflineHubPage() {
           </div>
 
           {/* Mode Tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-20)] mb-[var(--space-48)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--space-20)] mb-[var(--space-48)]">
             <ModeTile 
               to="/local/classic" 
               title="Классика" 
@@ -106,6 +106,12 @@ export default function OfflineHubPage() {
               title="Магия" 
               icon="magic.png" 
               description="Битва с заклинаниями и взятием короля" 
+            />
+            <ModeTile 
+              to="/local/atomic" 
+              title="Атомные" 
+              icon="bomb.png" 
+              description="Взятие вызывает взрыв и уничтожает всё вокруг" 
             />
           </div>
           

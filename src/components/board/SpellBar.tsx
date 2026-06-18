@@ -25,10 +25,11 @@ export const SpellBar: React.FC<SpellBarProps> = ({
   hasCastSpellThisTurn: _hasCast,
   activeSpell,
   gameOver: _gameOver,
-  isOpponent,
+  isOpponent: _isOpponent,
   onSpellClick,
   onSpellHover,
 }) => {
+  void _isOpponent
   const maxChargesMap = defaultCharges(playerColor);
   const spells = Object.keys(maxChargesMap) as SpellName[];
 
@@ -78,7 +79,6 @@ export const SpellBar: React.FC<SpellBarProps> = ({
               isActive={activeSpell === spell}
               noCharges={charges <= 0}
               chargeDots={charges}
-              dotsPosition={isOpponent ? 'bottom' : 'top'}
               onClick={() => onSpellClick(spell)}
               onLongPress={handleLongPress}
               onMouseEnter={() => onSpellHover?.(spell)}

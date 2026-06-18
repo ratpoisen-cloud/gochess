@@ -506,6 +506,10 @@ export default function GamePage() {
             </div>
 
             <div className="text-center flex flex-col items-center justify-center gap-1">
+              <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">
+                № {turnNumber}
+              </span>
+
               {gameMode === 'fog_of_war' && !gameOver && (
                 <button
                   onClick={() => setIsRulesOpen(true)}

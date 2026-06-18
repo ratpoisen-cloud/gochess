@@ -75,6 +75,7 @@ export const SpellBar: React.FC<SpellBarProps> = ({
               unlockTurn={unlockTurn}
               isActive={activeSpell === spell}
               noCharges={charges <= 0}
+              charges={charges}
               onClick={() => onSpellClick(spell)}
               onLongPress={handleLongPress}
               onMouseEnter={() => onSpellHover?.(spell)}

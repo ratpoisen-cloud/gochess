@@ -9,6 +9,7 @@ interface SpellTileProps {
   unlockTurn: number;
   isActive: boolean;
   noCharges: boolean;
+  charges?: number;
   onClick: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -36,6 +37,7 @@ export const SpellTile: React.FC<SpellTileProps> = ({
   unlockTurn,
   isActive,
   noCharges,
+  charges,
   onClick,
   onLongPress,
   onMouseEnter,
@@ -81,6 +83,12 @@ export const SpellTile: React.FC<SpellTileProps> = ({
         className="object-contain w-[65%] h-[65%]"
         style={{ imageRendering: 'pixelated' }}
       />
+
+      {unlocked && !noCharges && charges !== undefined && (
+        <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold text-white bg-black/60 px-[3px] rounded-sm leading-tight">
+          {charges}
+        </span>
+      )}
 
       {!unlocked && (
         <span className="absolute text-[8px] font-bold text-white/70 bottom-[2px]">

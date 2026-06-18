@@ -491,22 +491,6 @@ export default function GamePage() {
             </div>
           )}
 
-          {isSpellMode && stableWidth > 0 && (
-            <div className="mx-auto mb-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }} onClick={(e) => e.stopPropagation()}>
-              <SpellBar
-                playerColor={playerColor === 'w' ? 'b' : 'w'}
-                currentCharges={parsedSpellState?.charges[playerColor === 'w' ? 'b' : 'w'] ?? defaultCharges(playerColor === 'w' ? 'b' : 'w')}
-                turnNumber={turnNumber}
-                isMyTurn={false}
-                hasCastSpellThisTurn={false}
-                activeSpell={null}
-                gameOver={gameOver}
-                onSpellClick={() => {}}
-                onSpellHover={setHoveredSpell}
-              />
-            </div>
-          )}
-
           <div
             className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
             style={{ width: stableWidth || '100%', maxWidth: '100%' }}
@@ -566,6 +550,22 @@ export default function GamePage() {
               </span>
             </div>
           </div>
+
+          {isSpellMode && stableWidth > 0 && (
+            <div className="mx-auto mb-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }} onClick={(e) => e.stopPropagation()}>
+              <SpellBar
+                playerColor={playerColor === 'w' ? 'b' : 'w'}
+                currentCharges={parsedSpellState?.charges[playerColor === 'w' ? 'b' : 'w'] ?? defaultCharges(playerColor === 'w' ? 'b' : 'w')}
+                turnNumber={turnNumber}
+                isMyTurn={false}
+                hasCastSpellThisTurn={false}
+                activeSpell={null}
+                gameOver={gameOver}
+                onSpellClick={() => {}}
+                onSpellHover={setHoveredSpell}
+              />
+            </div>
+          )}
 
           <div ref={boardContainerRef} className="board-container relative" onClick={(e) => e.stopPropagation()}>
             {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && playerColor === winnerColor && (

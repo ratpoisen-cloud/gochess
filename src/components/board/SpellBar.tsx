@@ -12,6 +12,7 @@ interface SpellBarProps {
   hasCastSpellThisTurn: boolean;
   activeSpell: SpellName | null;
   gameOver: boolean;
+  isOpponent?: boolean;
   onSpellClick: (spell: SpellName) => void;
   onSpellHover?: (spell: SpellName | null) => void;
 }
@@ -24,6 +25,7 @@ export const SpellBar: React.FC<SpellBarProps> = ({
   hasCastSpellThisTurn: _hasCast,
   activeSpell,
   gameOver: _gameOver,
+  isOpponent,
   onSpellClick,
   onSpellHover,
 }) => {
@@ -75,7 +77,8 @@ export const SpellBar: React.FC<SpellBarProps> = ({
               unlockTurn={unlockTurn}
               isActive={activeSpell === spell}
               noCharges={charges <= 0}
-              charges={charges}
+              chargeDots={charges}
+              dotsPosition={isOpponent ? 'bottom' : 'top'}
               onClick={() => onSpellClick(spell)}
               onLongPress={handleLongPress}
               onMouseEnter={() => onSpellHover?.(spell)}

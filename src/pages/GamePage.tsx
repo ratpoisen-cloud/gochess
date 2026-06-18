@@ -552,7 +552,7 @@ export default function GamePage() {
           </div>
 
           {isSpellMode && stableWidth > 0 && (
-            <div className="mx-auto mb-4 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-0 flex justify-center" style={{ width: stableWidth || '100%', maxWidth: '100%' }} onClick={(e) => e.stopPropagation()}>
               <SpellBar
                 playerColor={playerColor === 'w' ? 'b' : 'w'}
                 currentCharges={parsedSpellState?.charges[playerColor === 'w' ? 'b' : 'w'] ?? defaultCharges(playerColor === 'w' ? 'b' : 'w')}
@@ -561,6 +561,7 @@ export default function GamePage() {
                 hasCastSpellThisTurn={false}
                 activeSpell={null}
                 gameOver={gameOver}
+                isOpponent={true}
                 onSpellClick={() => {}}
                 onSpellHover={setHoveredSpell}
               />

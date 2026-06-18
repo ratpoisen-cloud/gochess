@@ -9,7 +9,8 @@ interface SpellTileProps {
   unlockTurn: number;
   isActive: boolean;
   noCharges: boolean;
-  charges?: number;
+  chargeDots: number;
+  dotsPosition: 'top' | 'bottom';
   onClick: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -37,7 +38,8 @@ export const SpellTile: React.FC<SpellTileProps> = ({
   unlockTurn,
   isActive,
   noCharges,
-  charges,
+  chargeDots,
+  dotsPosition,
   onClick,
   onLongPress,
   onMouseEnter,
@@ -77,6 +79,14 @@ export const SpellTile: React.FC<SpellTileProps> = ({
         cursor-pointer
       `}
     >
+      {unlocked && chargeDots > 0 && dotsPosition === 'top' && (
+        <div className="absolute top-0.5 flex items-center justify-center gap-[2px]">
+          {Array.from({ length: chargeDots }).map((_, i) => (
+            <span key={i} className="w-[4px] h-[4px] rounded-full bg-[var(--accent-brand)]" />
+          ))}
+        </div>
+      )}
+
       <img
         src={spellIconFile(spell)}
         alt={spell}
@@ -84,16 +94,18 @@ export const SpellTile: React.FC<SpellTileProps> = ({
         style={{ imageRendering: 'pixelated' }}
       />
 
-      {unlocked && !noCharges && charges !== undefined && (
-        <span className="absolute -top-0.5 -right-0.5 text-[8px] font-bold text-white bg-black/60 px-[3px] rounded-sm leading-tight">
-          {charges}
+      {!unlocked && (
+        <span className="absolute inset-0 flex items-center justify-center text-[14px] font-bold text-white/70">
+          {unlockTurn}
         </span>
       )}
 
-      {!unlocked && (
-        <span className="absolute text-[8px] font-bold text-white/70 bottom-[2px]">
-          {unlockTurn}
-        </span>
+      {unlocked && chargeDots > 0 && dotsPosition === 'bottom' && (
+        <div className="absolute bottom-0.5 flex items-center justify-center gap-[2px]">
+          {Array.from({ length: chargeDots }).map((_, i) => (
+            <span key={i} className="w-[4px] h-[4px] rounded-full bg-[var(--accent-brand)]" />
+          ))}
+        </div>
       )}
     </button>
   );

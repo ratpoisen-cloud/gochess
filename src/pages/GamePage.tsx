@@ -507,7 +507,7 @@ export default function GamePage() {
 
             <div className="text-center flex flex-col items-center justify-center gap-1">
               <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">
-                № {turnNumber}
+                Ход {turnNumber}
               </span>
 
               {gameMode === 'fog_of_war' && !gameOver && (
@@ -547,11 +547,16 @@ export default function GamePage() {
             </div>
 
             <div className="text-right">
-              <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${
-                isMyTurn && !gameOver ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
-              }`}>
-                {gameOver ? 'Игра окончена' : isMyTurn ? 'Ваш ход' : 'Ход соперника'}
-              </span>
+              {gameOver && (
+                <span className="text-[var(--font-size-sm)] font-bold text-text-secondary opacity-60 uppercase tracking-widest">
+                  Игра окончена
+                </span>
+              )}
+              {isMyTurn && !gameOver && (
+                <span className="text-[var(--font-size-sm)] font-bold text-[var(--accent-brand)] animate-pulse uppercase tracking-widest">
+                  Ваш ход
+                </span>
+              )}
             </div>
           </div>
 

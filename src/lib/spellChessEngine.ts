@@ -25,14 +25,14 @@ export const TERMINAL_ACTIONS: SpellName[] = ['freeze', 'blast', 'berserk', 'div
 
 export const SPELL_UNLOCK: Record<SpellName, number> = {
   jump: 1,
-  shield: 4,
-  freeze: 10,
-  portal: 10,
-  blast: 16,
+  shield: 7,
+  freeze: 19,
+  portal: 19,
+  blast: 31,
   berserk: 13,
-  divineGrace: 7,
-  shadowGrave: 7,
-  mirage: 7,
+  divineGrace: 25,
+  shadowGrave: 25,
+  mirage: 25,
 }
 
 export const WHITE_CHARGES: Record<SpellName, number> = {
@@ -102,7 +102,7 @@ export class SpellChessEngine {
   }
 
   getTurnNumber(): number {
-    return Math.floor(this.halfMoveCount / 2) + 1
+    return this.halfMoveCount + 1
   }
 
   reset() {
@@ -421,7 +421,17 @@ export class SpellChessEngine {
 
   move(from: string, to: string): boolean {
     const legal = this.getLegalMoves(from);
-    if (!legal.includes(to)) return false;
+    if (!legal.includes(to)) {
+      if (process.env.NODE_ENV === 'development') {
+        const piece = this.getPiece(from)
+        console.warn('[SpellChess] move rejected:', from, '→', to,
+          'legal:', legal,
+          'piece:', piece?.type, piece?.color,
+          'turn:', this.turn,
+          'halfMoveCount:', this.halfMoveCount)
+      }
+      return false;
+    }
 
     const { r: fr, c: fc } = this.sqToIdx(from);
     const { r: tr, c: tc } = this.sqToIdx(to);

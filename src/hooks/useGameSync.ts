@@ -67,6 +67,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
   const lastPgnRef = useRef('')
   const opponentJoinedRef = useRef(false)
   const localMoveRef = useRef(false)
+  const lastReactionTimestampRef = useRef(0)
 
   const getCheckSquare = (g: EngineAPI): string | null => {
     if (!g.inCheck()) return null
@@ -308,11 +309,15 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
     // Reactions
     if (newData.reactions && Array.isArray(newData.reactions)) {
-      const currentReactions = useReactionStore.getState().reactions
-      if (newData.reactions.length > currentReactions.length) {
-        const latest = newData.reactions[newData.reactions.length - 1]
-        if (latest.playerId !== user?.uid) {
-          addReaction(latest)
+      for (const r of newData.reactions) {
+        if (r.createdAt > lastReactionTimestampRef.current && r.playerId !== user?.uid) {
+          addReaction(r)
+        }
+      }
+      if (newData.reactions.length > 0) {
+        const maxTs = Math.max(...newData.reactions.map((r: any) => r.createdAt))
+        if (maxTs > lastReactionTimestampRef.current) {
+          lastReactionTimestampRef.current = maxTs
         }
       }
     }
@@ -515,7 +520,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       const newPgn = g.pgn()
       const prevPgn = lastPgnRef.current
       const wasMyTurn = isMyTurn
-      const preMoveTurn = gameRef.current.turn()
+      const oldTurn = gameRef.current.turn()
 
       // Optimistic local update
       lastPgnRef.current = newPgn
@@ -572,7 +577,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           const freshData = freshDoc.data()
           if (!freshData) return 'error'
 
-          if (freshData.turn !== preMoveTurn && !gameOverNow) {
+          if (freshData.turn !== oldTurn && !gameOverNow) {
             return 'stale'
           }
 

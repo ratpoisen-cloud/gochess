@@ -65,6 +65,15 @@ export default function SpellLocalPage() {
     }
   }, [])
 
+  // Sync engine state to store on mount (handles stale singleton after full reload)
+  useEffect(() => {
+    const engine = useSpellGameStore.getState().engine
+    const store = useSpellGameStore.getState()
+    if (store.halfMoveCount !== engine.halfMoveCount) {
+      useSpellGameStore.setState({ halfMoveCount: engine.halfMoveCount })
+    }
+  }, [])
+
   useEffect(() => {
     setPendingTarget(null)
   }, [activeSpell])
@@ -185,7 +194,7 @@ export default function SpellLocalPage() {
     selectSquare(square)
   }
 
-  const turnNumber = Math.floor(halfMoveCount / 2) + 1
+  const turnNumber = halfMoveCount + 1
   const previewTarget = pendingTarget || hoveredSquare
 
   const customSquareStyles = useMemo(() => {
@@ -559,9 +568,9 @@ export default function SpellLocalPage() {
               <div className="relative h-1.5 bg-[rgba(255,255,255,0.06)] rounded-[2px] mb-4 mx-1">
                 <div
                   className="absolute h-full bg-[var(--accent-brand)] rounded-[2px] transition-all duration-300"
-                  style={{ width: `${Math.min(100, (turnNumber / 20) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (turnNumber / 40) * 100)}%` }}
                 />
-                {[1, 4, 7, 10, 13, 16].map(t => (
+                {[1, 7, 13, 19, 25, 31].map(t => (
                   <div
                     key={t}
                     className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2"

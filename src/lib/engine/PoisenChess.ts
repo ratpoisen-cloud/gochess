@@ -8,6 +8,7 @@ interface HistoryEntry {
   castlingRights: string
   epSquare: string | null
   halfMoveClock: number
+  fullMoveNumber: number
   board: (Piece | null)[][]
   turnColor: Color
 }
@@ -15,7 +16,7 @@ interface HistoryEntry {
 const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 export class PoisenChessEngine implements EngineAPI {
-  private _board: (Piece | null)[][] = []
+  protected _board: (Piece | null)[][] = []
   private _turn: Color = 'w'
   private castlingRights: string = 'KQkq'
   private epSquare: string | null = null
@@ -37,6 +38,7 @@ export class PoisenChessEngine implements EngineAPI {
     this.resetBoard()
     this._history = []
     this.positionCount = {}
+    this._gameResult = '*'
     this.castlingRights = 'KQkq'
     this.epSquare = null
     this.halfMoveClock = 0
@@ -371,13 +373,6 @@ export class PoisenChessEngine implements EngineAPI {
     }
 
     if (captured && captured.type === 'r') {
-      if (from === 'h1' || to === 'h1') this.removeCastle('K', 'w')
-      if (from === 'a1' || to === 'a1') this.removeCastle('Q', 'w')
-      if (from === 'h8' || to === 'h8') this.removeCastle('k', 'b')
-      if (from === 'a8' || to === 'a8') this.removeCastle('q', 'b')
-    }
-
-    if (captured && captured.type === 'r') {
       if (captured.color === 'w') {
         if (to === 'h1') this.removeCastle('K', 'w')
         if (to === 'a1') this.removeCastle('Q', 'w')
@@ -517,7 +512,7 @@ export class PoisenChessEngine implements EngineAPI {
     if (options?.verbose === false) return results.map(m => m.san)
     if (options?.verbose === true) return results
     if (!options?.verbose && !targetSquare) return results.map(m => m.san)
-    return results
+    return results.map(m => m.san)
   }
 
   private sanBody(move: Move): string {
@@ -571,6 +566,7 @@ export class PoisenChessEngine implements EngineAPI {
       castlingRights: this.castlingRights,
       epSquare: this.epSquare,
       halfMoveClock: this.halfMoveClock,
+      fullMoveNumber: this.fullMoveNumber,
       board: this._board.map(row => [...row]),
       turnColor: this._turn
     }
@@ -601,6 +597,7 @@ export class PoisenChessEngine implements EngineAPI {
     this.castlingRights = entry.castlingRights
     this.epSquare = entry.epSquare
     this.halfMoveClock = entry.halfMoveClock
+    this.fullMoveNumber = entry.fullMoveNumber
 
     return entry.move
   }
@@ -633,6 +630,7 @@ export class PoisenChessEngine implements EngineAPI {
     this.halfMoveClock = 0
     this.fullMoveNumber = 1
     this._turn = 'w'
+    this._gameResult = '*'
 
     this.load(START_FEN)
 

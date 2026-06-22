@@ -44,6 +44,10 @@ export class AtomicChessEngine extends PoisenChessEngine {
         this.load(previousFen);
         return null;
       }
+      const oppKing = this.findKing(myColor === 'w' ? 'b' : 'w');
+      if (!oppKing) {
+        (this as any)._gameResult = myColor === 'w' ? '1-0' : '0-1';
+      }
 
       // Update blast state for VFX
       this.atomicState = {
@@ -92,15 +96,10 @@ export class AtomicChessEngine extends PoisenChessEngine {
     return null;
   }
 
-  // Helper to remove piece directly from PoisenChess internal state if possible, 
-  // or via load(fen) if not. PoisenChessEngine has remove(square) in some implementations.
-  // Assuming it follows EngineAPI which doesn't have remove, but PoisenChess might have it.
   private removePiece(sq: string) {
-    // We use load with modified FEN or internal method if available.
-    // PoisenChess usually exposes a way to modify state.
-    // Since I can't see all private methods, I'll use a trick: 
-    // PoisenChess is likely based on chess.js logic where .remove(sq) exists.
-    (this as any).remove?.(sq);
+    const c = sq.charCodeAt(0) - 97;
+    const r = 8 - parseInt(sq[1]);
+    this._board[r][c] = null;
   }
 
   getAtomicState(): AtomicState {

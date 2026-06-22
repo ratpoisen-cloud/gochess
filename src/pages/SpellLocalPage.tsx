@@ -575,7 +575,7 @@ export default function SpellLocalPage() {
                     key={t}
                     className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2"
                     style={{
-                      left: `${(t / 20) * 100}%`,
+                      left: `${(t / 40) * 100}%`,
                       borderColor: 'var(--accent-brand)',
                       backgroundColor: turnNumber >= t ? 'var(--accent-brand)' : 'var(--bg)',
                       zIndex: 2

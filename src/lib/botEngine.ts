@@ -17,10 +17,13 @@ export function createBotEngine(level: BotLevel = 'medium') {
   let worker: Worker | null = null
   let activeResolver: ((move: string | null) => void) | null = null
   let activeRejector: ((err: unknown) => void) | null = null
+  let nextRequestId = 1
+  let pendingRequestId = 0
 
   const clearPendingRequest = () => {
     activeResolver = null
     activeRejector = null
+    pendingRequestId = 0
   }
 
   const ensureInitialized = () => {
@@ -33,11 +36,13 @@ export function createBotEngine(level: BotLevel = 'medium') {
       return
     }
 
-    worker.onmessage = (event: MessageEvent) => {
+    worker.onmessage = (event: MessageEvent<{ id: number; result: { from: string; to: string; promotion?: string } | null }>) => {
+      const { id, result } = event.data
+      if (id !== pendingRequestId) return
+
       if (activeResolver) {
-        const data = event.data as { from: string; to: string; promotion?: string } | null
-        if (data) {
-          const lan = data.from + data.to + (data.promotion || '')
+        if (result) {
+          const lan = result.from + result.to + (result.promotion || '')
           activeResolver(lan)
         } else {
           activeResolver(null)
@@ -66,10 +71,12 @@ export function createBotEngine(level: BotLevel = 'medium') {
       }
 
       return new Promise<string | null>((resolve, reject) => {
+        const id = nextRequestId++
+        pendingRequestId = id
         activeResolver = resolve
         activeRejector = reject
 
-        worker!.postMessage({ fen, config: { depth: profile.depth, randomness: profile.randomness } })
+        worker!.postMessage({ id, fen, config: { depth: profile.depth, randomness: profile.randomness } })
       })
     },
     destroy() {

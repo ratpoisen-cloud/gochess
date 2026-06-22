@@ -51,9 +51,10 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
   // Extracted hooks
   const timer = useGameTimer(gameDocId)
   const requests = useGameRequest(gameDocId)
-  const rematch = useRematch(gameDocId, user, (gameId) => {
+  const onRematchReady = useCallback((gameId: string) => {
     window.location.href = `/game/${gameId}`
-  })
+  }, [])
+  const rematch = useRematch(gameDocId, user, onRematchReady)
 
   // Spell state (spell_chess mode)
   const [spellStateJson, setSpellStateJson] = useState<string | null>(null)
@@ -233,11 +234,13 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     const isAtomic = newData.game_mode === 'atomic_chess'
     
     if (isSpell && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
-      const g = createEngine('spell', newData.fen || undefined)
-      if (newData.spell_state_json) {
-        ;(g as any).applySpellStateJSON?.(newData.spell_state_json)
+      if (!localMoveRef.current) {
+        const g = createEngine('spell', newData.fen || undefined)
+        if (newData.spell_state_json) {
+          ;(g as any).applySpellStateJSON?.(newData.spell_state_json)
+        }
+        updateGameState(g)
       }
-      updateGameState(g)
       lastSpellStateJsonRef.current = newData.spell_state_json
       setSpellStateJson(newData.spell_state_json)
 
@@ -248,14 +251,16 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       localMoveRef.current = false
       setHasCastSpellThisTurn(false)
     } else if (isAtomic && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
-      const g = createEngine('atomic', newData.fen || undefined)
-      if (newData.spell_state_json) {
-        try {
-          const state = JSON.parse(newData.spell_state_json)
-          ;(g as any).setAtomicState?.(state)
-        } catch {}
+      if (!localMoveRef.current) {
+        const g = createEngine('atomic', newData.fen || undefined)
+        if (newData.spell_state_json) {
+          try {
+            const state = JSON.parse(newData.spell_state_json)
+            ;(g as any).setAtomicState?.(state)
+          } catch {}
+        }
+        updateGameState(g)
       }
-      updateGameState(g)
       lastSpellStateJsonRef.current = newData.spell_state_json
       setSpellStateJson(newData.spell_state_json)
 
@@ -265,35 +270,41 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       }
       localMoveRef.current = false
     } else if (newData.pgn && newData.pgn !== lastPgnRef.current) {
-      const g = createEngine()
-      try {
-        g.loadPgn(newData.pgn)
-        updateGameState(g)
-        lastPgnRef.current = g.pgn()
+      if (!localMoveRef.current) {
+        const g = createEngine()
+        try {
+          g.loadPgn(newData.pgn)
+          updateGameState(g)
+          lastPgnRef.current = g.pgn()
 
-        if (!localMoveRef.current) {
-          soundManager.play('move')
-          useReactionStore.getState().resetMoveCounter()
+          setVisibleSquares(
+            newData.game_mode === 'fog_of_war' && myColor
+              ? getVisibleSquares(g, myColor)
+              : null,
+          )
+        } catch {
+          // PGN parse error, ignore
         }
-        localMoveRef.current = false
+      } else {
+        lastPgnRef.current = newData.pgn
+      }
 
+      if (!localMoveRef.current) {
+        soundManager.play('move')
+        useReactionStore.getState().resetMoveCounter()
+      }
+      localMoveRef.current = false
+    } else if (!isSpell && !newData.pgn && lastPgnRef.current !== '') {
+      if (!localMoveRef.current) {
+        const g = createEngine()
+        updateGameState(g)
         setVisibleSquares(
           newData.game_mode === 'fog_of_war' && myColor
             ? getVisibleSquares(g, myColor)
             : null,
         )
-      } catch {
-        // PGN parse error, ignore
       }
-    } else if (!isSpell && !newData.pgn && lastPgnRef.current !== '') {
-      const g = createEngine()
-      updateGameState(g)
       lastPgnRef.current = ''
-      setVisibleSquares(
-        newData.game_mode === 'fog_of_war' && myColor
-          ? getVisibleSquares(g, myColor)
-          : null,
-      )
     }
 
     // Turn
@@ -461,8 +472,8 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
         if (gameOverNow) {
           updateData.game_state = 'game_over'
-          updateData.winner = gameOverResult === 'white' ? 'white' : 'black'
-          updateData.message = 'king_capture'
+          updateData.winner = gameOverResult === 'draw' ? null : (gameOverResult === 'white' ? 'white' : 'black')
+          updateData.message = gameOverResult === 'draw' ? 'draw' : 'king_capture'
         }
 
         try {
@@ -602,7 +613,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
         if (!gameOverNow) {
           soundManager.play(result.captured ? 'capture' : 'move')
-        } else if (gameMode !== 'fog_of_war') {
+        } else if (isCheckmate && gameMode !== 'fog_of_war') {
           soundManager.play('checkmate')
         }
       } catch {
@@ -644,7 +655,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
   // 5. castSpell
   const castSpell = useCallback(async (spell: SpellName, target?: string, target2?: string): Promise<boolean> => {
-    if (!isMyTurn || !gameDocId || gameOver || hasCastSpellThisTurn) return false
+    if (!isMyTurn || !gameDocId || gameOver) return false
+    const isFree = ['jump', 'shield', 'portal'].includes(spell)
+    if (isFree && hasCastSpellThisTurn) return false
 
     const g = createEngine('spell', gameRef.current.fen() || undefined)
     if (lastSpellStateJsonRef.current) {
@@ -690,8 +703,8 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
         if (gameOverNow) {
           updateData.game_state = 'game_over'
-          updateData.winner = gameOverResult === 'white' ? 'white' : 'black'
-          updateData.message = 'king_capture'
+          updateData.winner = gameOverResult === 'draw' ? null : (gameOverResult === 'white' ? 'white' : 'black')
+          updateData.message = gameOverResult === 'draw' ? 'draw' : 'king_capture'
         }
 
         await runTransaction(db, async (transaction) => {
@@ -703,10 +716,13 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       } else {
         setHasCastSpellThisTurn(true)
         // Free action: sync spell state only (turn unchanged)
+        const preMoveTurn = gameRef.current.turn()
         await runTransaction(db, async (transaction) => {
           const ref = doc(db, 'games', gameDocId)
           const freshDoc = await transaction.get(ref)
-          if (!freshDoc.data()) return
+          const freshData = freshDoc.data()
+          if (!freshData) return
+          if (freshData.turn !== preMoveTurn) return
           transaction.update(ref, { spell_state_json: newSsj })
         })
       }

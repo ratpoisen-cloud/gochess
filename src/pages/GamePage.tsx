@@ -310,14 +310,6 @@ export default function GamePage() {
     }
   }
 
-  useEffect(() => {
-    if (rematchGameId) {
-      addToast('Реванш создан! Переход...', 'success')
-      const timer = setTimeout(() => navigate(`/game/${rematchGameId}`), 1500)
-      return () => clearTimeout(timer)
-    }
-  }, [rematchGameId, navigate, addToast])
-
   const parsedSpellState = useMemo((): SpellState | null => {
     if (!isSpellMode || !spellStateJson) return null
     try { return JSON.parse(spellStateJson) as SpellState } catch { return null }

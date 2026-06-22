@@ -32,7 +32,7 @@ export default function GamePage() {
   const { getTheme, getPieceUrl } = useBoardStore()
   const { roomCode } = useParams<{ roomCode: string }>()
 
-  const sync = useGameSync(roomCode, user, authLoading)
+  const sync = useGameSync(roomCode, user, authLoading, navigate)
 
   // UI-only state
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null)

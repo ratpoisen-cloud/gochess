@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import LobbyPage from './pages/LobbyPage'
 import LoadingScreen from './components/LoadingScreen'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -15,6 +15,15 @@ const AtomicLocalPage = lazy(() => import('./pages/AtomicLocalPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 function App() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const saved = sessionStorage.getItem('gochess-redirect')
+    if (saved) {
+      sessionStorage.removeItem('gochess-redirect')
+      navigate(saved)
+    }
+  }, [navigate])
+
   return (
     <ErrorBoundary>
       <Suspense fallback={<LoadingScreen isLoading={true} />}>

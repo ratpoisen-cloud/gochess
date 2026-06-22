@@ -20,7 +20,7 @@ import type { GameStatus, GameData, GameMode, User } from '@/types'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
-export function useGameSync(roomCode: string | undefined, user: User | null, authLoading: boolean) {
+export function useGameSync(roomCode: string | undefined, user: User | null, authLoading: boolean, navigate?: (path: string) => void) {
   const { addToast } = useToast()
 
   // Core game state
@@ -52,8 +52,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
   const timer = useGameTimer(gameDocId)
   const requests = useGameRequest(gameDocId)
   const onRematchReady = useCallback((gameId: string) => {
-    window.location.href = `/game/${gameId}`
-  }, [])
+    if (navigate) navigate(`/game/${gameId}`)
+    else window.location.href = `/game/${gameId}`
+  }, [navigate])
   const rematch = useRematch(gameDocId, user, onRematchReady)
 
   // Spell state (spell_chess mode)

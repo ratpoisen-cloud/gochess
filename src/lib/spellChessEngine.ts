@@ -120,8 +120,13 @@ export class SpellChessEngine {
   }
 
   load(fen: string) {
-    const [position, turn] = fen.split(' ');
+    const parts = fen.split(' ');
+    const position = parts[0];
+    const turn = parts[1] || 'w';
     this._turn = turn as Color;
+
+    const fullmoveNum = parseInt(parts[5]) || 1;
+    this.halfMoveCount = (fullmoveNum - 1) * 2 + (this._turn === 'b' ? 1 : 0);
 
     const rows = position.split('/');
     for (let r = 0; r < 8; r++) {

@@ -69,6 +69,8 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
   const opponentJoinedRef = useRef(false)
   const localMoveRef = useRef(false)
   const lastReactionTimestampRef = useRef(0)
+  const isMyTurnRef = useRef(isMyTurn)
+  useEffect(() => { isMyTurnRef.current = isMyTurn }, [isMyTurn])
 
   const getCheckSquare = (g: EngineAPI): string | null => {
     if (!g.inCheck()) return null
@@ -249,7 +251,15 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         useReactionStore.getState().resetMoveCounter()
       }
       localMoveRef.current = false
-      setHasCastSpellThisTurn(false)
+    } else if (isSpell && !newData.spell_state_json && lastSpellStateJsonRef.current === null) {
+      // First mount: SSJ is null, initialize SpellChessEngine
+      if (!localMoveRef.current) {
+        const g = createEngine('spell', newData.fen || undefined)
+        updateGameState(g)
+        const defaultSsj = (g as any).spellStateToJSON()
+        lastSpellStateJsonRef.current = defaultSsj
+        setSpellStateJson(defaultSsj)
+      }
     } else if (isAtomic && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
       if (!localMoveRef.current) {
         const g = createEngine('atomic', newData.fen || undefined)
@@ -309,7 +319,11 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
     // Turn
     if (newData.turn) {
-      setIsMyTurn(newData.turn === myColor)
+      const newIsMyTurn = newData.turn === myColor
+      if (newIsMyTurn && !isMyTurnRef.current) {
+        setHasCastSpellThisTurn(false)
+      }
+      setIsMyTurn(newIsMyTurn)
     }
 
     // Requests
@@ -707,6 +721,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           updateData.message = gameOverResult === 'draw' ? 'draw' : 'king_capture'
         }
 
+        localMoveRef.current = true
         await runTransaction(db, async (transaction) => {
           const ref = doc(db, 'games', gameDocId)
           const freshDoc = await transaction.get(ref)
@@ -717,19 +732,28 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         setHasCastSpellThisTurn(true)
         // Free action: sync spell state only (turn unchanged)
         const preMoveTurn = gameRef.current.turn()
-        await runTransaction(db, async (transaction) => {
+        localMoveRef.current = true
+        const wasWritten = await runTransaction(db, async (transaction) => {
           const ref = doc(db, 'games', gameDocId)
           const freshDoc = await transaction.get(ref)
           const freshData = freshDoc.data()
-          if (!freshData) return
-          if (freshData.turn !== preMoveTurn) return
+          if (!freshData) return false
+          if (freshData.turn !== preMoveTurn) return false
           transaction.update(ref, { spell_state_json: newSsj })
+          return true
         })
+        if (!wasWritten) {
+          localMoveRef.current = false
+          // Rollback optimistic update: gameRef already has the new state,
+          // but the transaction didn't write. We keep the local state
+          // and wait for the next snapshot from the actual game state.
+        }
       }
 
       soundManager.play('move')
       return true
     } catch {
+      localMoveRef.current = false
       addToast('Ошибка при применении заклинания', 'error')
       return false
     }

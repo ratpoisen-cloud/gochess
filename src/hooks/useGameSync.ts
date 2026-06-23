@@ -284,23 +284,17 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       }
       localMoveRef.current = false
     } else if (newData.pgn && newData.pgn !== lastPgnRef.current) {
-      if (!localMoveRef.current) {
-        const g = createEngine()
-        try {
-          g.loadPgn(newData.pgn)
-          updateGameState(g)
-          lastPgnRef.current = g.pgn()
+      const g = createEngine()
+      try {
+        g.loadPgn(newData.pgn)
+        updateGameState(g)
+        lastPgnRef.current = g.pgn()
 
-          setVisibleSquares(
-            newData.game_mode === 'fog_of_war' && myColor
-              ? getVisibleSquares(g, myColor)
-              : null,
-          )
-        } catch {
-          // PGN parse error, ignore
+        if (newData.game_mode === 'fog_of_war' && myColor) {
+          setVisibleSquares(getVisibleSquares(g, myColor))
         }
-      } else {
-        lastPgnRef.current = newData.pgn
+      } catch {
+        // PGN parse error, ignore
       }
 
       if (!localMoveRef.current && !isFirstSnapshot) {

@@ -472,6 +472,26 @@ export default function GamePage() {
     if (!loading) setInitialLoadComplete(true)
   }, [loading])
 
+  const handleOpponentTimeout = useCallback(() => {
+    if (!gameDocId || gameOver) return
+    const winnerColor = playerColor === 'w' ? 'white' : 'black'
+    updateDoc(doc(db, 'games', gameDocId), {
+      game_state: 'game_over',
+      winner: winnerColor,
+      message: 'timeout',
+    }).catch(() => {})
+  }, [gameDocId, gameOver, playerColor])
+
+  const handlePlayerTimeout = useCallback(() => {
+    if (!gameDocId || gameOver) return
+    const winnerColor = playerColor === 'w' ? 'black' : 'white'
+    updateDoc(doc(db, 'games', gameDocId), {
+      game_state: 'game_over',
+      winner: winnerColor,
+      message: 'timeout',
+    }).catch(() => {})
+  }, [gameDocId, gameOver, playerColor])
+
   if (loading && !initialLoadComplete) return <LoadingScreen isLoading={true} />
 
   return (
@@ -485,6 +505,7 @@ export default function GamePage() {
                 isActive={!isMyTurn && !gameOver && timerStatus === 'active'}
                 label={opponentJoined ? opponentName : 'Соперник'}
                 increment={timeControl.increment}
+                onTimeout={handleOpponentTimeout}
               />
             </div>
           )}
@@ -729,6 +750,7 @@ export default function GamePage() {
                 isActive={isMyTurn && !gameOver && timerStatus === 'active'}
                 label="Ваше время"
                 increment={timeControl.increment}
+                onTimeout={handlePlayerTimeout}
               />
             </div>
           )}

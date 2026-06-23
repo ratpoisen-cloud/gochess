@@ -55,7 +55,7 @@ src/
 ├── hooks/
 │   ├── useAuth.ts              # Firebase auth (signInWithPopup, email/password)
 │   ├── useBoardWidth.ts        # ResizeObserver + debounce
-│   ├── useGameSync.ts          # Онлайн-синхронизация (762 строки: sync, castSpell, timers)
+│   ├── useGameSync.ts          # Онлайн-синхронизация (~838 строк: sync, castSpell, timers)
 │   ├── useGameTimer.ts         # Шахматные часы (отдельный хук)
 │   ├── useGameRequest.ts       # Undo/Draw запросы
 │   ├── useRematch.ts           # Рематч
@@ -143,12 +143,10 @@ src/
 
 | Приоритет | Файл | Описание |
 |-----------|------|----------|
-| 🟡 Сред | `SpellChessEngine` | PGN возвращает пустую строку (stub) |
 | 🟡 Сред | `SpellChessEngine` | `moves()` verbose mode возвращает не-verbose формат |
 | 🟡 Сред | `MagicVFX.tsx` | Звуки заклинаний не реализованы — используют `'move'` звук |
 | 🟢 Низ | `PixelConfetti.tsx` | `canvas.scale()` при resize накапливается (без сброса transform) |
 | 🟢 Низ | `spellChessEngine.ts` | Отсутствует promotion для Spell Chess |
-| 🟢 Низ | `useGameSync.ts` | Нет инициализации SpellChessEngine при отсутствии `spell_state_json` (заряды = 0 до первого хода) |
 | 🟢 Низ | `firestore.indexes.json` | Нужен индекс для challenges (status, toId, createdAt) |
 | 🟢 Низ | `public/sw.js` | SW падает с 206 Partial Response при кэшировании аудио |
 | 🟢 Низ | `vite.config.ts:7` | Хардкод `base: '/gochess/'` — сломает локальный dev |
@@ -191,6 +189,17 @@ src/
 | ✅ Spell Bar: click-outside deselect | `GamePage.tsx` | `game-main-column onClick → setActiveSpell(null)` |
 | ✅ Spell Bar: 1/2 клик выбор/отмена | `GamePage.tsx` | 1-й клик выбирает, 2-й отменяет заклинание |
 | ✅ CI: narrow type в useEffect | `GamePage.tsx` | Замена `gameMode === 'atomic_chess'` на константу + `as string` |
+| ✅ Звук на первом снэпшоте | `useGameSync.ts` | `initialSnapshotRef` блокирует `soundManager.play()` на 4 call sites при первом снэпшоте |
+| ✅ Mobile touch: e.preventDefault() не блокирует клики | `ChessBoard.tsx` | `e.preventDefault()` удалён из `handleTouchStart`, перемещён в long-press callback (500ms) |
+| ✅ Ширина доски при первой загрузке | `useBoardWidth.ts`, `GamePage.tsx` | `immediateWidth` (не-debounced) для первого рендера, `stableWidth` для resize |
+| ✅ Loading fluctuations ломают layout | `GamePage.tsx` | `initialLoadComplete` guard предотвращает remount при флуктуациях loading |
+| ✅ Бесконечный цикл переподписок Firestore | `useGameSync.ts` | `processSnapshotData` deps стабилизированы: `timer`/`requests`/`rematch` → `setTimerFromSnapshot`/`setRequestsFromSnapshot`/`setRematchFromSnapshot` (стабильные useCallback) |
+| ✅ Atomic/Spell PGN branch создаёт стандартный движок | `useGameSync.ts` | PGN branch теперь использует `createEngine(gameOverMode)` с правильным mode |
+| ✅ Atomic gameOver создаёт стандартный движок | `useGameSync.ts` | game_over block (line 167) теперь использует `createEngine(gameOverMode)` с правильным mode |
+| ✅ SpellChessEngine не инициализирован при отсутствии SSJ | `useGameSync.ts` | Добавлена ветка `isSpell && !newData.spell_state_json && lastSpellStateJsonRef.current === null` — создаёт движок из FEN, сохраняет default SSJ |
+| ✅ SpellChessEngine.pgn() реализован | `spellChessEngine.ts` | Возвращает SAN PGN с move numbers и `[Result "..."]` (был пустой stub `''`) |
+| ✅ Бесконечный звук в Spell/Atomic при загрузке | `useGameSync.ts` | PGN-ветка защищена `!isSpell && !isAtomic` guard; все SSJ-ветки потребляют `lastPgnRef.current = newData.pgn \|\| lastPgnRef.current` |
+| ✅ Навигация по принятому вызову (инвайты) | `useChallenges.ts` | Добавлен `onSnapshot` для `where('fromId', '==', user.uid) && where('status', '==', 'accepted')` с фильтром `expiresAt > Date.now()`; автопереход через `navigate()` | |
 
 ## 🧠 Извлечённые уроки
 
@@ -223,6 +232,12 @@ TypeScript 5.5+ сужает тип переменной после `===` про
 
 ### 10. CI TypeScript: inferred return type из сложных объектов
 При возврате объекта с type guard expressions (тернарники) TypeScript может сузить тип переменной в месте возврата, что влияет на тип всей возвращаемой переменной. **Решение:** явные возвращаемые типы или касты.
+
+### 11. Firestore: `useCallback` deps не должны содержать объекты
+При передаче объекта (возврата хука) в `useCallback` deps, каждый рендер создаёт новый объект → `useCallback` возвращает новую ссылку → `useEffect` с `onSnapshot` переподписывается → бесконечный цикл. **Решение:** передавать только стабильные методы (`setTimerFromSnapshot` вместо `timer`).
+
+### 12. createEngine(mode) для PGN/gameOver в нестандартных режимах
+PGN-ветка и game_over блок в `processSnapshotData` создавали `createEngine()` без mode, что для Atomic/Spell заменяло игровой движок стандартным. **Решение:** выводить mode из `newData.game_mode`.
 
 ## 🚀 Запуск
 

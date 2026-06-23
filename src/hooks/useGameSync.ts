@@ -56,6 +56,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     else window.location.href = `/game/${gameId}`
   }, [navigate])
   const rematch = useRematch(gameDocId, user, onRematchReady)
+  const { setTimerFromSnapshot } = timer
+  const { setRequestsFromSnapshot } = requests
+  const { setRematchFromSnapshot } = rematch
 
   // Spell state (spell_chess mode)
   const [spellStateJson, setSpellStateJson] = useState<string | null>(null)
@@ -150,7 +153,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     opponentJoinedRef.current = joined
 
     // Timer sync
-    timer.setTimerFromSnapshot(newData, myColor)
+    setTimerFromSnapshot(newData, myColor)
 
     // Game over
     if (newData.game_state === 'game_over') {
@@ -162,9 +165,10 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           soundManager.play('checkmate')
         }
 
-        const currentGame = newData.game_mode === 'spell_chess'
-          ? createEngine('spell', newData.fen || undefined)
-          : createEngine()
+        const gameOverMode = newData.game_mode === 'spell_chess' ? 'spell'
+          : newData.game_mode === 'atomic_chess' ? 'atomic'
+          : undefined
+        const currentGame = createEngine(gameOverMode, newData.fen || undefined)
         if (newData.pgn) {
           try { currentGame.loadPgn(newData.pgn) } catch {
             if (newData.fen) currentGame.load(newData.fen)
@@ -254,6 +258,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         soundManager.play('move')
         useReactionStore.getState().resetMoveCounter()
       }
+      lastPgnRef.current = newData.pgn || lastPgnRef.current
       localMoveRef.current = false
     } else if (isSpell && !newData.spell_state_json && lastSpellStateJsonRef.current === null) {
       // First mount: SSJ is null, initialize SpellChessEngine
@@ -264,6 +269,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         lastSpellStateJsonRef.current = defaultSsj
         setSpellStateJson(defaultSsj)
       }
+      lastPgnRef.current = newData.pgn || lastPgnRef.current
     } else if (isAtomic && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
       if (!localMoveRef.current) {
         const g = createEngine('atomic', newData.fen || undefined)
@@ -282,8 +288,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         soundManager.play('move')
         useReactionStore.getState().resetMoveCounter()
       }
+      lastPgnRef.current = newData.pgn || lastPgnRef.current
       localMoveRef.current = false
-    } else if (newData.pgn && newData.pgn !== lastPgnRef.current) {
+    } else if (!isSpell && !isAtomic && newData.pgn && newData.pgn !== lastPgnRef.current) {
       const g = createEngine()
       try {
         g.loadPgn(newData.pgn)
@@ -302,7 +309,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         useReactionStore.getState().resetMoveCounter()
       }
       localMoveRef.current = false
-    } else if (!isSpell && !newData.pgn && lastPgnRef.current !== '') {
+    } else if (!isSpell && !isAtomic && !newData.pgn && lastPgnRef.current !== '') {
       if (!localMoveRef.current) {
         const g = createEngine()
         updateGameState(g)
@@ -325,10 +332,10 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     }
 
     // Requests
-    requests.setRequestsFromSnapshot(newData)
+    setRequestsFromSnapshot(newData)
 
     // Rematch
-    rematch.setRematchFromSnapshot(newData, user)
+    setRematchFromSnapshot(newData, user)
 
     // Reactions
     if (newData.reactions && Array.isArray(newData.reactions)) {
@@ -346,7 +353,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     }
 
     setLoading(false)
-  }, [gameOver, user, addReaction, updateGameState, gameDocId, timer, requests, rematch])
+  }, [gameOver, user, addReaction, updateGameState, gameDocId, setTimerFromSnapshot, setRequestsFromSnapshot, setRematchFromSnapshot])
 
   // 1. Room initialisation
   useRoomJoin(roomCode, user, authLoading, setGameDocId, setError, setLoading)

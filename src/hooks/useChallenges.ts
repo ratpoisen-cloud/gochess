@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
+import { useNavigate } from 'react-router-dom'
+import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from './useAuth'
 import type { Challenge, GameMode } from '@/types'
 
 export function useChallenges() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [incomingChallenges, setIncomingChallenges] = useState<Challenge[]>([])
+  const [outgoingGameId, setOutgoingGameId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!user) {
@@ -35,6 +38,37 @@ export function useChallenges() {
 
     return () => unsubscribe()
   }, [user])
+
+  // Listen for accepted outgoing challenges
+  useEffect(() => {
+    if (!user || !db) return
+
+    const q = query(
+      collection(db, 'challenges'),
+      where('fromId', '==', user.uid),
+      where('status', '==', 'accepted'),
+      orderBy('createdAt', 'desc'),
+      limit(1)
+    )
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (!snapshot.empty) {
+        const data = snapshot.docs[0].data() as any
+        if (data.gameId && data.expiresAt > Date.now()) {
+          setOutgoingGameId(data.gameId)
+        }
+      }
+    })
+
+    return () => unsubscribe()
+  }, [user])
+
+  // Navigate when challenge accepted
+  useEffect(() => {
+    if (outgoingGameId) {
+      navigate(`/game/${outgoingGameId}`)
+    }
+  }, [outgoingGameId, navigate])
 
   const sendChallenge = async (toId: string, mode: GameMode) => {
     if (!user || !db) return

@@ -260,7 +260,9 @@ export const MagicVFX = forwardRef<MagicVFXHandle, { boardWidth: number }>(({}, 
     if (!canvas || !canvas.parentElement) return
     
     const resize = () => {
-      const rect = canvas.parentElement!.getBoundingClientRect()
+      const parent = canvas.parentElement
+      if (!parent) return
+      const rect = parent.getBoundingClientRect()
       const scale = window.devicePixelRatio || 1
       canvas.width = rect.width * scale
       canvas.height = rect.height * scale
@@ -271,7 +273,11 @@ export const MagicVFX = forwardRef<MagicVFXHandle, { boardWidth: number }>(({}, 
 
     window.addEventListener('resize', resize)
     resize()
-    return () => window.removeEventListener('resize', resize)
+    return () => {
+      window.removeEventListener('resize', resize)
+      if (requestRef.current) cancelAnimationFrame(requestRef.current)
+      particlesRef.current = []
+    }
   }, [])
 
   return (

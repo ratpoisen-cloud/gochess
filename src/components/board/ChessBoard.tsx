@@ -122,6 +122,22 @@ export default function ChessBoard({
   const isCheckmate = game?.isCheckmate ? game.isCheckmate() : false
   const isGameOver = game?.isGameOver ? game.isGameOver() : false
 
+  // Pre-compute sets/maps for fast lookup in customSquare
+  const moveSet = useMemo(() => new Set(activeMoveDetails.map((m: any) => m.to)), [activeMoveDetails])
+  const captureSet = useMemo(() => new Set(
+    activeMoveDetails.filter((m: any) => m.flags.includes('c') || m.flags.includes('e')).map((m: any) => m.to)
+  ), [activeMoveDetails])
+  const endGameEmojiMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const e of endGameEmojis) map.set(e.square, e.url)
+    return map
+  }, [endGameEmojis])
+  const reactionEmojiMap = useMemo(() => {
+    const map = new Map<string, { emojiUrl: string; id: string }>()
+    for (const r of reactionEmojis) map.set(r.square, { emojiUrl: r.emojiUrl, id: r.id })
+    return map
+  }, [reactionEmojis])
+
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
@@ -148,6 +164,112 @@ export default function ChessBoard({
     })
     return pieces
   }, [getPieceUrl, selectedPieceSet])
+
+  const customSquare = useCallback(({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
+    const isSquareVisible = !visibleSquares || visibleSquares.includes(square)
+
+    const fileIdx = square.charCodeAt(0) - 97
+    const rankIdx = 8 - parseInt(square[1], 10)
+    const x = boardOrientation === 'black' ? 7 - fileIdx : fileIdx
+    const y = boardOrientation === 'black' ? 7 - rankIdx : rankIdx
+    const bgX = (x / 11) * 100
+    const bgY = (y / 11) * 100
+
+    const isActiveMove = moveSet.has(square) && isSquareVisible
+    const isActiveCapture = captureSet.has(square) && isSquareVisible
+    const isSelected = selectedSquare === square && isSquareVisible
+    const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square) && isSquareVisible
+    const isCheck = checkSquare === square && isSquareVisible
+
+    const endGameUrl = endGameEmojiMap.get(square)
+    const reactionEmoji = reactionEmojiMap.get(square)
+
+    return (
+      <div
+        style={{ ...style, position: 'relative' }}
+        data-square={square}
+        className={`
+          ${isSelected ? 'highlight-selected' : ''}
+          ${isLastMove ? 'highlight-last-move' : ''}
+          ${isCheck ? 'highlight-check' : ''}
+        `}
+        onMouseEnter={() => {
+          if (isGameOver) return
+          const piece = game?.get ? game.get(square as any) : null
+          if (piece) setHoveredSquare(square)
+          onSquareMouseEnter?.(square)
+        }}
+        onMouseLeave={() => {
+          setHoveredSquare(null)
+          onSquareMouseLeave?.()
+        }}
+        onContextMenu={(e) => handleContextMenu(square, e)}
+        onTouchStart={(e) => handleTouchStart(square, e)}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+      >
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            transform: (defeatedKingSquare === square || (isCheckmate && isCheck)) ? 'rotate(90deg)' : 'none',
+            transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease-in-out',
+            transformOrigin: 'center center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1,
+            opacity: isSquareVisible ? 1 : 0
+          }}
+        >
+          {children}
+        </div>
+
+        <div
+          className="absolute inset-0 z-10 pointer-events-none transition-opacity duration-700 ease-in-out"
+          style={{
+            backgroundColor: '#1a1c2c',
+            backgroundImage: `url(${BASE}engine/fog.svg)`,
+            backgroundSize: '1200%',
+            backgroundRepeat: 'repeat',
+            backgroundPosition: `${bgX}% ${bgY}%`,
+            backgroundBlendMode: 'overlay',
+            filter: 'grayscale(1) contrast(1.1) brightness(0.9)',
+            imageRendering: 'pixelated',
+            opacity: isSquareVisible ? 0 : 1,
+            display: visibleSquares ? 'block' : 'none'
+          }}
+        />
+
+        {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
+        {isActiveCapture && <div className="highlight-capture" />}
+
+        {bombs.includes(square) && isSquareVisible && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+            <div className="animate-pulse flex items-center justify-center" style={{ width: '45%', height: '45%', filter: 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.75))' }}>
+              <img src={`${BASE}emojis/spells/bomb.png`} alt="bomb" className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} />
+            </div>
+          </div>
+        )}
+
+        {endGameUrl && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]">
+            <div className="animate-bounce-subtle flex items-center justify-center" style={{ width: '60%', height: '60%', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}>
+              <img src={endGameUrl} alt="endgame-status" className="w-full h-full object-contain" />
+            </div>
+          </div>
+        )}
+
+        {reactionEmoji && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+            <div className="animate-bounce flex items-center justify-center" style={{ width: '45%', height: '45%' }}>
+              <img src={reactionEmoji.emojiUrl} alt="reaction" className="w-full h-full object-contain" />
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }, [moveSet, captureSet, endGameEmojiMap, reactionEmojiMap, visibleSquares, boardOrientation, selectedSquare, lastMove, checkSquare, isGameOver, game, onSquareMouseEnter, onSquareMouseLeave, handleContextMenu, handleTouchStart, handleTouchEnd, handleTouchMove, defeatedKingSquare, isCheckmate, bombs])
 
   return (
     <div
@@ -189,158 +311,7 @@ export default function ChessBoard({
         animationDuration={animationDuration}
         customNotationStyle={{ fontSize: boardWidth ? Math.round(boardWidth / 64) : 12 }}
         customSquareStyles={customSquareStyles}
-        customSquare={({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
-          const isSquareVisible = !visibleSquares || visibleSquares.includes(square)
-          
-          // Calculate monolithic background position
-          const fileIdx = square.charCodeAt(0) - 97; // a=0, b=1...
-          const rankIdx = 8 - parseInt(square[1], 10); // 8=0, 7=1...
-          const x = boardOrientation === 'black' ? 7 - fileIdx : fileIdx;
-          const y = boardOrientation === 'black' ? 7 - rankIdx : rankIdx;
-          
-          // With backgroundSize: 1200%, the image is 12x the size of a square.
-          // The formula to align background-position percentage: (index / (total_units - 1)) * 100
-          const bgX = (x / 11) * 100;
-          const bgY = (y / 11) * 100;
-
-          const activeMove = activeMoveDetails.find((m: any) => m.to === square)
-          // ONLY highlight if square is visible
-          const isActiveMove = !!activeMove && isSquareVisible
-          const isActiveCapture = activeMove && (activeMove.flags.includes('c') || activeMove.flags.includes('e')) && isSquareVisible
-          const isSelected = selectedSquare === square && isSquareVisible
-          const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square) && isSquareVisible
-          const isCheck = checkSquare === square && isSquareVisible
-
-          return (
-            <div
-              style={{ ...style, position: 'relative' }}
-              data-square={square}
-              className={`
-                ${isSelected ? 'highlight-selected' : ''}
-                ${isLastMove ? 'highlight-last-move' : ''}
-                ${isCheck ? 'highlight-check' : ''}
-              `}
-              onMouseEnter={() => {
-                if (isGameOver) return
-                const piece = game?.get ? game.get(square as any) : null
-                if (piece) setHoveredSquare(square)
-                onSquareMouseEnter?.(square)
-              }}
-              onMouseLeave={() => {
-                setHoveredSquare(null)
-                onSquareMouseLeave?.()
-              }}
-              onContextMenu={(e) => handleContextMenu(square, e)}
-              onTouchStart={(e) => handleTouchStart(square, e)}
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchMove}
-            >
-              <div 
-                style={{ 
-                  width: '100%', 
-                  height: '100%', 
-                  transform: (defeatedKingSquare === square || (isCheckmate && isCheck)) ? 'rotate(90deg)' : 'none',
-                  transition: 'transform 0.8s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.8s ease-in-out',
-                  transformOrigin: 'center center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 1,
-                  opacity: isSquareVisible ? 1 : 0
-                }}
-              >
-                {children}
-              </div>
-              
-              {/* Fog of War Overlay - Standardized 'Ocean-style' Monolithic Fog */}
-              <div 
-                className="absolute inset-0 z-10 pointer-events-none transition-opacity duration-700 ease-in-out"
-                style={{ 
-                  backgroundColor: '#1a1c2c', // Fixed deep Ocean-style blue-gray
-                  backgroundImage: `url(${BASE}engine/fog.svg)`,
-                  backgroundSize: '1200%',
-                  backgroundRepeat: 'repeat',
-                  backgroundPosition: `${bgX}% ${bgY}%`,
-                  backgroundBlendMode: 'overlay',
-                  filter: 'grayscale(1) contrast(1.1) brightness(0.9)',
-                  imageRendering: 'pixelated',
-                  opacity: isSquareVisible ? 0 : 1,
-                  display: visibleSquares ? 'block' : 'none'
-                }}
-              />
-
-              {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
-              {isActiveCapture && <div className="highlight-capture" />}
-              
-              {/* Bomb overlay */}
-              {bombs.includes(square) && isSquareVisible && (
-                <div
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
-                >
-                  <div 
-                    className="animate-pulse flex items-center justify-center"
-                    style={{
-                      width: '45%',
-                      height: '45%',
-                      filter: 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.75))'
-                    }}
-                  >
-                    <img 
-                      src={`${BASE}emojis/spells/bomb.png`} 
-                      alt="bomb" 
-                      className="w-full h-full object-contain"
-                      style={{ imageRendering: 'pixelated' }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* End Game Emojis */}
-              {endGameEmojis.filter(e => e.square === square).map((e, i) => (
-                <div
-                  key={`endgame-${i}`}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]"
-                >
-                  <div 
-                    className="animate-bounce-subtle flex items-center justify-center"
-                    style={{
-                      width: '60%',
-                      height: '60%',
-                      filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'
-                    }}
-                  >
-                    <img 
-                      src={e.url} 
-                      alt="endgame-status" 
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
-              ))}
-
-              {reactionEmojis.filter((r) => r.square === square).slice(-1).map((r) => (
-                <div
-                  key={r.id}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-50"
-                >
-                  <div 
-                    className="animate-bounce flex items-center justify-center"
-                    style={{
-                      width: '45%',
-                      height: '45%',
-                    }}
-                  >
-                    <img 
-                      src={r.emojiUrl} 
-                      alt="reaction" 
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )
-        }}
+        customSquare={customSquare}
       />
     </div>
   )

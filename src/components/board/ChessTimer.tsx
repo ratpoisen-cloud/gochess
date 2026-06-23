@@ -18,6 +18,8 @@ export default function ChessTimer({
   const [localTime, setLocalTime] = useState(timeLeft)
   const lastTickRef = useRef(Date.now())
   const hasTimedOut = useRef(false)
+  const onTimeoutRef = useRef(onTimeout)
+  onTimeoutRef.current = onTimeout
 
   // Sync with prop when it changes
   useEffect(() => {
@@ -28,25 +30,24 @@ export default function ChessTimer({
 
   // Tick local time if active
   useEffect(() => {
-    if (!isActive || localTime <= 0) return
+    if (!isActive) return
 
     const interval = setInterval(() => {
       const now = Date.now()
       const delta = now - lastTickRef.current
       lastTickRef.current = now
-      setLocalTime(prev => Math.max(0, prev - delta))
+      setLocalTime(prev => {
+        const next = Math.max(0, prev - delta)
+        if (next === 0 && !hasTimedOut.current) {
+          hasTimedOut.current = true
+          onTimeoutRef.current?.()
+        }
+        return next
+      })
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isActive, localTime])
-
-  // Fire onTimeout when timer hits zero
-  useEffect(() => {
-    if (localTime === 0 && isActive && !hasTimedOut.current) {
-      hasTimedOut.current = true
-      onTimeout?.()
-    }
-  }, [localTime, isActive, onTimeout])
+  }, [isActive])
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000)

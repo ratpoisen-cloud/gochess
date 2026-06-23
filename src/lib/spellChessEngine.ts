@@ -843,7 +843,27 @@ export class SpellChessEngine {
     return this.moveToObj(record.from, record.to)
   }
 
-  pgn(): string { return '' }
+  pgn(): string {
+    const pieceChar: Record<PieceType, string> = { p: '', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K' }
+    let sanMoves: string[] = []
+    const result = this.gameResult()
+    for (const rec of this.moveStack) {
+      const { r: fr, c: fc } = this.sqToIdx(rec.from)
+      const piece = rec.board[fr][fc]
+      const prefix = piece && piece.type !== 'p' ? pieceChar[piece.type] : ''
+      const capture = rec.captured ? 'x' : ''
+      const fromFile = (!prefix && rec.captured) ? rec.from[0] : ''
+      sanMoves.push(`${prefix}${fromFile}${capture}${rec.to}`)
+    }
+    let pgn = ''
+    for (let i = 0; i < sanMoves.length; i++) {
+      if (i % 2 === 0) pgn += `${Math.floor(i / 2) + 1}.${sanMoves[i]}`
+      else pgn += ` ${sanMoves[i]}`
+      if (i % 2 === 1 || i === sanMoves.length - 1) pgn += ' '
+    }
+    if (result !== '*') pgn = pgn.trim()
+    return pgn
+  }
 
   loadPgn(_pgn: string): void { /* not supported */ }
 

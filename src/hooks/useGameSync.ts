@@ -397,6 +397,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       const moveResult = g.move({ from, to, promotion })
       if (!moveResult) return false
 
+      const preMoveTurn = gameRef.current.turn()
       const prevFen = gameRef.current.fen()
       const prevSsj = lastSpellStateJsonRef.current
 
@@ -421,6 +422,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         fen: g.fen(),
         turn: g.turn(),
         spell_state_json: newSsj,
+        pgn: g.pgn(),
         last_move_time: Date.now(),
       }
 
@@ -433,12 +435,28 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       try {
         localMoveRef.current = true
         const gameRef2 = doc(db, 'games', gameDocId)
-        await runTransaction(db, async (transaction) => {
+        const txnResult = await runTransaction(db, async (transaction) => {
           const freshDoc = await transaction.get(gameRef2)
           const freshData = freshDoc.data()
-          if (!freshData) return
+          if (!freshData) return 'error'
+          if (freshData.turn !== preMoveTurn && !gameOverNow) return 'stale'
           transaction.update(gameRef2, updateData)
+          return 'ok'
         })
+
+        if (txnResult === 'stale') {
+          localMoveRef.current = false
+          const rollback = createEngine('atomic', prevFen || undefined)
+          if (prevSsj) {
+            try { (rollback as any).setAtomicState(JSON.parse(prevSsj)) } catch {}
+          }
+          updateGameState(rollback)
+          lastSpellStateJsonRef.current = prevSsj
+          setSpellStateJson(prevSsj)
+          setIsMyTurn(true)
+          return false
+        }
+
         useReactionStore.getState().resetMoveCounter()
         soundManager.play('move')
       } catch {
@@ -485,6 +503,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           fen: g.fen(),
           turn: g.turn(),
           spell_state_json: newSsj,
+          pgn: g.pgn(),
           last_move_time: Date.now(),
         }
 
@@ -708,6 +727,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       if (isTerminal) {
         setHasCastSpellThisTurn(false)
         setIsMyTurn(false)
+        const preMoveTurn = gameRef.current.turn()
 
         const gameOverResult = se.isGameOver()
         const gameOverNow = gameOverResult !== null
@@ -716,6 +736,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           fen: g.fen(),
           turn: g.turn(),
           spell_state_json: newSsj,
+          pgn: g.pgn(),
           last_move_time: Date.now(),
         }
 
@@ -729,9 +750,12 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         await runTransaction(db, async (transaction) => {
           const ref = doc(db, 'games', gameDocId)
           const freshDoc = await transaction.get(ref)
-          if (!freshDoc.data()) return
+          const freshData = freshDoc.data()
+          if (!freshData) return
+          if (freshData.turn !== preMoveTurn) return 'stale'
           transaction.update(ref, updateData)
         })
+        localMoveRef.current = false
       } else {
         setHasCastSpellThisTurn(true)
         // Free action: sync spell state only (turn unchanged)
@@ -751,6 +775,8 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           // Rollback optimistic update: gameRef already has the new state,
           // but the transaction didn't write. We keep the local state
           // and wait for the next snapshot from the actual game state.
+        } else {
+          localMoveRef.current = false
         }
       }
 
@@ -794,7 +820,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     makeMove,
     handleResign,
     handleRematch: () => rematch.handleRematch(playerColor),
-    handleAcceptUndo: () => requests.handleAcceptUndo(lastPgnRef.current),
+    handleAcceptUndo: () => requests.handleAcceptUndo(lastPgnRef.current, gameMode, spellStateJson),
     handleRejectUndo: requests.handleRejectUndo,
     handleAcceptDraw: requests.handleAcceptDraw,
     updateGameState,

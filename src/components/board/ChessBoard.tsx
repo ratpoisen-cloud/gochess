@@ -70,10 +70,10 @@ export default function ChessBoard({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   const handleTouchStart = useCallback((square: string, e: React.TouchEvent) => {
-    e.preventDefault()
     const touch = e.touches[0]
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
     longPressTimer.current = setTimeout(() => {
+      e.preventDefault()
       if (onReactionSquare) {
         onReactionSquare(square, touch.clientX, touch.clientY)
       }

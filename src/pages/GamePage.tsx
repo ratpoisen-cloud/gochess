@@ -115,7 +115,7 @@ export default function GamePage() {
   }, [spellStateJson, isAtomicGame])
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
-  const { stableWidth } = useBoardWidth(boardContainerRef, !loading)
+  const { stableWidth, immediateWidth } = useBoardWidth(boardContainerRef, !loading)
 
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = game.get(from as any)
@@ -466,7 +466,13 @@ export default function GamePage() {
     )
   }
 
-  if (loading) return <LoadingScreen isLoading={true} />
+  // Stabilize loading: once loaded, never unmount layout
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
+  useEffect(() => {
+    if (!loading) setInitialLoadComplete(true)
+  }, [loading])
+
+  if (loading && !initialLoadComplete) return <LoadingScreen isLoading={true} />
 
   return (
     <GameLayout user={user}>
@@ -570,13 +576,13 @@ export default function GamePage() {
           )}
 
           <div ref={boardContainerRef} className="board-container relative" onClick={(e) => e.stopPropagation()}>
-            {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && stableWidth > 0 && playerColor === winnerColor && (
+            {gameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности') && immediateWidth > 0 && playerColor === winnerColor && (
               <PixelConfetti boardMode lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
             )}
-            {isSpellMode && stableWidth > 0 && (
-              <MagicVFX ref={vfxRef} boardWidth={stableWidth} />
+            {isSpellMode && immediateWidth > 0 && (
+              <MagicVFX ref={vfxRef} boardWidth={immediateWidth} />
             )}
-            {stableWidth > 0 ? (
+            {immediateWidth > 0 ? (
               <>
                 <ChessBoard
                   game={game}
@@ -587,7 +593,7 @@ export default function GamePage() {
                   onDrop={onDrop}
                   onSquareClick={onSquareClick}
                   onReactionSquare={handleReactionSquare}
-                  boardWidth={stableWidth}
+                  boardWidth={immediateWidth}
                   boardOrientation={playerColor === 'b' ? 'black' : 'white'}
                   defeatedKingSquare={endGameState?.defeated}
                   endGameEmojis={endGameState?.emojis}

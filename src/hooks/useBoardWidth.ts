@@ -44,5 +44,6 @@ export function useBoardWidth(ref: RefObject<HTMLElement | null>, active: boolea
     }
   }, [ref, active])
 
-  return { boardWidth, stableWidth }
+  const immediateWidth = boardWidth || stableWidth
+  return { boardWidth, stableWidth, immediateWidth }
 }

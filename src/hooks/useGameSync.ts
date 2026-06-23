@@ -72,6 +72,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
   const lastReactionTimestampRef = useRef(0)
   const isMyTurnRef = useRef(isMyTurn)
   useEffect(() => { isMyTurnRef.current = isMyTurn }, [isMyTurn])
+  const initialSnapshotRef = useRef(true)
 
   const getCheckSquare = (g: EngineAPI): string | null => {
     if (!g.inCheck()) return null
@@ -125,6 +126,8 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
   const processSnapshotData = useCallback((newData: GameData) => {
     if (!newData) return
+    const isFirstSnapshot = initialSnapshotRef.current
+    initialSnapshotRef.current = false
 
     let myColor: 'w' | 'b' | null = null
     let opponent = ''
@@ -155,7 +158,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         setGameOver(true)
         setResultText(parseResult(newData))
         setWinnerColor(null)
-        if (newData.game_mode !== 'fog_of_war' && newData.message !== 'king_capture') {
+        if (!isFirstSnapshot && newData.game_mode !== 'fog_of_war' && newData.message !== 'king_capture') {
           soundManager.play('checkmate')
         }
 
@@ -247,7 +250,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       lastSpellStateJsonRef.current = newData.spell_state_json
       setSpellStateJson(newData.spell_state_json)
 
-      if (!localMoveRef.current) {
+      if (!localMoveRef.current && !isFirstSnapshot) {
         soundManager.play('move')
         useReactionStore.getState().resetMoveCounter()
       }
@@ -275,7 +278,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       lastSpellStateJsonRef.current = newData.spell_state_json
       setSpellStateJson(newData.spell_state_json)
 
-      if (!localMoveRef.current) {
+      if (!localMoveRef.current && !isFirstSnapshot) {
         soundManager.play('move')
         useReactionStore.getState().resetMoveCounter()
       }
@@ -300,7 +303,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         lastPgnRef.current = newData.pgn
       }
 
-      if (!localMoveRef.current) {
+      if (!localMoveRef.current && !isFirstSnapshot) {
         soundManager.play('move')
         useReactionStore.getState().resetMoveCounter()
       }

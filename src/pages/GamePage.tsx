@@ -446,26 +446,6 @@ export default function GamePage() {
     return styles
   }, [isSpellMode, activeSpell, hoveredSquare, portalStart, mirageStart, berserkTarget, parsedSpellState, moveHistory.length])
 
-  if (authLoading && !user) return <LoadingScreen isLoading={true} />
-  if (error) {
-    return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-bg p-6 text-center">
-        <h2 className="text-xl font-bold text-text mb-4">{error}</h2>
-        <Button onClick={() => navigate("/")}>Вернуться в лобби</Button>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-bg p-6 text-center">
-        <h2 className="text-xl font-bold text-text mb-4">Требуется вход</h2>
-        <Button onClick={() => setIsAuthModalOpen(true)}>Войти</Button>
-        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
-      </div>
-    )
-  }
-
   // Stabilize loading: once loaded, never unmount layout
   const [initialLoadComplete, setInitialLoadComplete] = useState(false)
   useEffect(() => {
@@ -491,6 +471,26 @@ export default function GamePage() {
       message: 'timeout',
     }).catch(() => {})
   }, [gameDocId, gameOver, playerColor])
+
+  if (authLoading && !user) return <LoadingScreen isLoading={true} />
+  if (error) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-bg p-6 text-center">
+        <h2 className="text-xl font-bold text-text mb-4">{error}</h2>
+        <Button onClick={() => navigate("/")}>Вернуться в лобби</Button>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-bg p-6 text-center">
+        <h2 className="text-xl font-bold text-text mb-4">Требуется вход</h2>
+        <Button onClick={() => setIsAuthModalOpen(true)}>Войти</Button>
+        <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      </div>
+    )
+  }
 
   if (loading && !initialLoadComplete) return <LoadingScreen isLoading={true} />
 

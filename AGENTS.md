@@ -199,7 +199,9 @@ src/
 | ✅ SpellChessEngine не инициализирован при отсутствии SSJ | `useGameSync.ts` | Добавлена ветка `isSpell && !newData.spell_state_json && lastSpellStateJsonRef.current === null` — создаёт движок из FEN, сохраняет default SSJ |
 | ✅ SpellChessEngine.pgn() реализован | `spellChessEngine.ts` | Возвращает SAN PGN с move numbers и `[Result "..."]` (был пустой stub `''`) |
 | ✅ Бесконечный звук в Spell/Atomic при загрузке | `useGameSync.ts` | PGN-ветка защищена `!isSpell && !isAtomic` guard; все SSJ-ветки потребляют `lastPgnRef.current = newData.pgn \|\| lastPgnRef.current` |
-| ✅ Навигация по принятому вызову (инвайты) | `useChallenges.ts` | Добавлен `onSnapshot` для `where('fromId', '==', user.uid) && where('status', '==', 'accepted')` с фильтром `expiresAt > Date.now()`; автопереход через `navigate()` | |
+| ✅ Навигация по принятому вызову (инвайты) | `useChallenges.ts` | Добавлен `onSnapshot` для `where('fromId', '==', user.uid) && where('status', '==', 'accepted')` с фильтром `expiresAt > Date.now()`; автопереход через `navigate()` |
+| ✅ SW 206 Partial Response крашит кэш | `public/sw.js` | Добавлен `\|\| res.status === 206` в guards на строках 26 и 38 — Cache API не поддерживает 206 |
+| ✅ React #310 (conditional hooks) | `GamePage.tsx` | 4 хука (`initialLoadComplete`, `handleOpponentTimeout`, `handlePlayerTimeout`) перенесены перед ранними return'ами (строки 449/459) — ошибка "fewer hooks than previous render" при флуктуации auth состояния | |
 
 ## 🧠 Извлечённые уроки
 

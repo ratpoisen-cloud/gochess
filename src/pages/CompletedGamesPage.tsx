@@ -7,6 +7,7 @@ import UserMenu from '@/components/UserMenu'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import Footer from '@/components/Footer'
 import BoardPreview from '@/components/board/BoardPreview'
+import { gameRoute } from '@/lib/gameRoutes'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -95,7 +96,7 @@ export default function CompletedGamesPage() {
               {completedGames.map((g) => (
                 <div 
                   key={g.id} 
-                  onClick={() => navigate(`/game/${g.id}`)}
+                  onClick={() => { const route = gameRoute(g); if (route) navigate(route) }}
                   className="p-[var(--space-12)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 flex gap-[var(--space-16)] items-center cursor-pointer active:scale-[0.98] hover:border-[var(--accent-brand)]"
                 >
                   <div className="shrink-0">

@@ -6,6 +6,7 @@ import { useChallenges } from '@/hooks/useChallenges'
 import { useToast } from '@/components/Toast'
 import { db } from '@/lib/firebase'
 import { isRematchChallenge } from '@/lib/challenges'
+import { gameRoute } from '@/lib/gameRoutes'
 import { formatTimeControl } from '@/lib/gameDoc'
 import type { Challenge } from '@/types'
 import { collection, query, where, limit, getDocs } from 'firebase/firestore'
@@ -164,11 +165,8 @@ export default function LobbyPage() {
   }, [user])
 
   const handleGameClick = (game: any) => {
-    if (game.game_type === 'online') {
-      navigate(`/game/${game.id}`)
-    } else if (game.game_type === 'bot' && game.id) {
-      navigate(`/bot?game=${game.id}`)
-    }
+    const route = gameRoute(game)
+    if (route) navigate(route)
   }
 
   useEffect(() => {

@@ -1,0 +1,44 @@
+import { lazy, Suspense } from 'react'
+import { Routes, Route } from 'react-router-dom'
+import LobbyPage from './pages/LobbyPage'
+import LoadingScreen from './components/LoadingScreen'
+import ErrorBoundary from './components/ErrorBoundary'
+
+const GamePage = lazy(() => import('./pages/GamePage'))
+const BotPage = lazy(() => import('./pages/BotPage'))
+const LocalPage = lazy(() => import('./pages/LocalPage'))
+const OnlineHubPage = lazy(() => import('./pages/OnlineHubPage'))
+const CompletedGamesPage = lazy(() => import('./pages/CompletedGamesPage'))
+const OfflineHubPage = lazy(() => import('./pages/OfflineHubPage'))
+const SpellLocalPage = lazy(() => import('./pages/SpellLocalPage'))
+const AtomicLocalPage = lazy(() => import('./pages/AtomicLocalPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+
+function App() {
+  // The post-404 route restore lives in main.tsx: it must run before the first
+  // render, because it rewrites the history entry. A redirect handled here
+  // would always be too late (and the key is already consumed by then).
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<LoadingScreen isLoading={true} />}>
+        <Routes>
+          <Route path="/" element={<LobbyPage />} />
+          <Route path="/game/:roomCode" element={<GamePage />} />
+          <Route path="/online" element={<OnlineHubPage />} />
+          <Route path="/offline" element={<OfflineHubPage />} />
+          <Route path="/completed" element={<CompletedGamesPage />} />
+          <Route path="/bot" element={<BotPage />} />
+          <Route path="/local" element={<LocalPage />} />
+          <Route path="/local/classic" element={<LocalPage />} />
+          <Route path="/local/rapid" element={<LocalPage />} />
+          <Route path="/local/spell" element={<SpellLocalPage />} />
+          <Route path="/local/atomic" element={<AtomicLocalPage />} />
+          <Route path="/spell-local" element={<SpellLocalPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </Suspense>
+    </ErrorBoundary>
+  )
+}
+
+export default App

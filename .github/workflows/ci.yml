@@ -1,0 +1,70 @@
+name: CI
+
+# Verification only — it never builds or deploys.
+# Deployment stays in .github/workflows/deploy.yml ("Deploy to GitHub Pages"),
+# which already supplies the real Firebase secrets and the dynamic
+# VITE_BASE. This workflow just gates every push and pull request.
+
+on:
+  push:
+    branches: [main, PoisenChess]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # perft is intentionally excluded: it needs minutes, not seconds.
+      # Run it deliberately with: npm run test:perft
+      - name: Fast tests
+        run: npm run test:fast
+
+      - name: Build
+        run: npm run build
+        env:
+          # Same base the deploy workflow uses, so a hardcoded deployment path
+          # in the output fails here instead of in production.
+          VITE_BASE: /${{ github.event.repository.name }}/
+          # The SDK only reads these at import time, so the build needs the keys
+          # to exist but not to be valid. Real secrets stay in the deploy
+          # workflow and never appear here.
+          VITE_FIREBASE_API_KEY: ci-dummy
+          VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-dummy
+          VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000'
+          VITE_FIREBASE_APP_ID: '1:000000000000:web:ci'
+
+      - name: Verify build-time substitution in public/ files
+        run: |
+          set -euo pipefail
+          base="/${{ github.event.repository.name }}/"
+          grep -q "'${base}'" dist/404.html || { echo "404.html: base not substituted"; exit 1; }
+          if grep -q '__GOCHESS_BASE__' dist/404.html; then
+            echo "404.html: placeholder left behind"; exit 1
+          fi
+          if grep -q '__GOCHESS_VERSION__' dist/sw.js; then
+            echo "sw.js: cache version not substituted"; exit 1
+          fi
+          grep -q 'SCOPE_PATH' dist/sw.js || { echo "sw.js: scope guard missing"; exit 1; }
+          echo "build output OK"

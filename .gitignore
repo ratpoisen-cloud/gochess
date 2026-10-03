@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+*.local
+
+# Environment — real Firebase credentials must never be committed
+.env
+.env.local
+.env.*.local
+
+# Credentials — local token files must never be committed.
+# `token*` covers token, token.rtf, token.txt and any other extension, so a
+# credential renamed by mistake still cannot reach a public repository.
+token
+token.*
+*.token
+.firebase/
+# Firebase service-account keys and anything that looks like one
+*firebase-adminsdk*.json
+service-account*.json
+serviceAccount*.json
+*-firebase-adminsdk-fbsvc-*.json
+gcloud-service-key*.json
+
+# Python / tooling artefacts
+*.pyc
+__pycache__/
+agents/__pycache__/
+agents/tools/__pycache__/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Screenshots
+screenshots/
+
+# Agent tooling
+opencode.json
+.opencode/
+gemini_chats_export/
+
+# Stray asset folders kept out of the repo
+эмоджи/
+Эмоджи/
+Poisen Agent Studio.app/
+
+# Vite cache
+.vite/

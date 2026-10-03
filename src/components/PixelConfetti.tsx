@@ -12,7 +12,19 @@ interface Particle {
   isFeather?: boolean
   swayPhase: number
   swaySpeed: number
+  age: number
 }
+
+// Через LIFE_MS частицы начинают гаснуть, FADE_MS — длительность затухания.
+// HARD_LIMIT_MS — жёсткий предел: анимация обязана закончиться и очистить
+// доску, даже если какие-то частицы «застряли» у стенок.
+const LIFE_MS = 3500
+const FADE_MS = 800
+const HARD_LIMIT_MS = 8000
+// Порог, ниже которого скорость считается нулём: без него частицы у
+// боковых стенок (vx *= -0.5) никогда не становятся ровно 0, условие
+// остановки не срабатывало и requestAnimationFrame крутился бесконечно.
+const STOP_EPS = 0.05
 
 const BASE_COLORS = [
   '#f0f0f0',
@@ -46,6 +58,8 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
     let particles: Particle[] = []
     let gyroPermissionRequested = false
     let currentScale = 1
+    let elapsed = 0
+    let lastFrameAt = performance.now()
 
     const mousePos = { x: null as number | null, y: null as number | null }
     const tilt = { x: 0, y: 0 }
@@ -100,23 +114,39 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           isFeather,
           swayPhase: Math.random() * Math.PI * 2,
           swaySpeed: Math.random() * 0.02 + 0.01,
+          age: 0,
         })
       }
       particles = newParticles
     }
 
-    const update = () => {
+    const update = (now?: number) => {
       if (!canvas) return
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
+      const frameAt = now ?? performance.now()
+      const deltaMs = Math.min(frameAt - lastFrameAt, 100)
+      lastFrameAt = frameAt
+
       ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+      elapsed += deltaMs
 
       // Smooth tilt values
       tilt.x += (targetTilt.x - tilt.x) * 0.1
       tilt.y += (targetTilt.y - tilt.y) * 0.1
 
+      // Общее затухание: после LIFE_MS альфа падает до 0, затем кадр
+      // стирается и RAF останавливается — на доске не остаётся остатков.
+      let alpha = 1
+      if (elapsed > LIFE_MS) {
+        alpha = Math.max(0, 1 - (elapsed - LIFE_MS) / FADE_MS)
+      }
+      ctx.globalAlpha = alpha
+
       particles.forEach((p) => {
+        p.age += deltaMs
         if (p.isFeather) {
           p.vy += 0.008
           p.vx *= 0.998
@@ -183,6 +213,13 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           }
         }
 
+        // Частицы у любых стенок (не только у нижней) тоже «замерзают»
+        // при малой скорости — иначе RAF никогда не останавливался.
+        if (Math.abs(p.vx) < STOP_EPS && Math.abs(p.vy) < STOP_EPS) {
+          p.vx = 0
+          p.vy = 0
+        }
+
         ctx.save()
         ctx.translate(p.x, p.y)
         ctx.rotate(p.rotation)
@@ -191,19 +228,18 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
         ctx.restore()
       })
 
-      if (isInsideBoard) {
-        if (!particles.some(p => p.vy !== 0 || p.vx !== 0)) {
-          cancelAnimationFrame(animationFrameId)
-          return
-        }
-      } else {
-        const h = canvas.height / currentScale
-        const w = canvas.width / currentScale
-        particles = particles.filter(p => p.y < h + 20 && p.y > -100 && p.x > -100 && p.x < w + 100)
-        if (particles.length === 0) {
-          cancelAnimationFrame(animationFrameId)
-          return
-        }
+      ctx.globalAlpha = 1
+
+      // Частицы умерли по возрасту — больше рисовать нечего.
+      particles = particles.filter(p => p.age < LIFE_MS + FADE_MS)
+
+      // Замершие частицы дорисовываются до конца fade-out, потом кадр
+      // стирается — на доске не остаётся «осевших» остатков.
+      const done = alpha <= 0 || elapsed > HARD_LIMIT_MS || particles.length === 0
+      if (done) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        cancelAnimationFrame(animationFrameId)
+        return
       }
 
       animationFrameId = requestAnimationFrame(update)
@@ -255,7 +291,8 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
     resize()
     createParticles()
-    update()
+    lastFrameAt = performance.now()
+    animationFrameId = requestAnimationFrame(update)
 
     return () => {
       window.removeEventListener('resize', resize)

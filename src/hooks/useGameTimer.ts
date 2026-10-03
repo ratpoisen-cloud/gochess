@@ -1,7 +1,67 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, runTransaction } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import type { GameData } from '@/types'
+
+type TimeoutFlagParams = {
+  gameDocId: string
+  /** Side whose clock is running (the side to move). */
+  turn: 'w' | 'b'
+  myColor: 'w' | 'b'
+  lastTimerUpdate: number
+  turnTimeLeft: number
+}
+
+/**
+ * Write the timeout result, guarded so concurrent clients and stale reads
+ * cannot clobber a game that has just changed or ended.
+ *
+ * - `turn === myColor` never writes: the player whose flag fell must not
+ *   flag themselves off a skewed local clock (their opponent's client does
+ *   it; a move attempt by the loser also does it in useGameSync).
+ * - `elapsed` is clamped at 0: a device with a fast clock must not gift
+ *   itself extra seconds by writing `last_timer_update` in the future.
+ * - single in-flight write per client (flaggingRef) so a 1 s interval
+ *   cannot spam transactions while the first one is still running.
+ */
+function submitTimeoutFlag(
+  flaggingRef: { current: boolean },
+  params: TimeoutFlagParams,
+): void {
+  if (!db || flaggingRef.current) return
+  const { gameDocId, turn, myColor, lastTimerUpdate, turnTimeLeft } = params
+  if (turn === myColor) return
+
+  const elapsed = Math.max(0, Date.now() - lastTimerUpdate)
+  if (turnTimeLeft - elapsed > -1000) return
+
+  flaggingRef.current = true
+  try {
+    Promise.resolve(
+      runTransaction(db, async (transaction) => {
+        const ref = doc(db, 'games', gameDocId)
+        const snap = await transaction.get(ref)
+        const data = snap.data()
+        if (!data) return
+        if (data.game_state === 'game_over') return
+        // The document moved on since we computed the timeout — re-evaluate
+        // from the fresh snapshot instead of flagging a stale position.
+        if (data.turn !== turn || data.last_timer_update !== lastTimerUpdate) return
+        transaction.update(ref, {
+          game_state: 'game_over',
+          winner: myColor === 'w' ? 'white' : 'black',
+          message: 'timeout',
+        })
+      })
+    )
+      .catch(() => { /* snapshot will deliver the final state */ })
+      .finally(() => {
+        flaggingRef.current = false
+      })
+  } catch {
+    flaggingRef.current = false
+  }
+}
 
 export function useGameTimer(gameDocId: string | null) {
   const [whiteTimeLeft, setWhiteTimeLeft] = useState<number | null>(null)
@@ -9,6 +69,13 @@ export function useGameTimer(gameDocId: string | null) {
   const [lastTimerUpdate, setLastTimerUpdate] = useState<number | null>(null)
   const [timerStatus, setTimerStatus] = useState<'active' | 'paused' | null>(null)
   const [timeControl, setTimeControl] = useState<GameData['time_control']>(null)
+
+  // Latest document facts for the interval; state alone cannot describe
+  // "whose clock is running" and "is the game already over".
+  const myColorRef = useRef<'w' | 'b' | null>(null)
+  const turnRef = useRef<'w' | 'b' | null>(null)
+  const gameOverRef = useRef(false)
+  const flaggingRef = useRef(false)
 
   const setTimerFromSnapshot = useCallback((newData: GameData, myColor: 'w' | 'b' | null) => {
     if (!newData.time_control) return
@@ -19,25 +86,21 @@ export function useGameTimer(gameDocId: string | null) {
     setLastTimerUpdate(newData.last_timer_update ?? null)
     setTimerStatus(newData.timer_status ?? null)
 
+    myColorRef.current = myColor ?? myColorRef.current
+    turnRef.current = newData.turn
+    gameOverRef.current = newData.game_state === 'game_over'
+
     if (newData.game_state !== 'game_over' && newData.timer_status === 'active' && newData.last_timer_update && gameDocId) {
-      const now = Date.now()
-      const elapsed = now - newData.last_timer_update
       const turn = newData.turn
       const timeLeft = turn === 'w' ? newData.white_time_left : newData.black_time_left
-
-      if (timeLeft !== null && timeLeft !== undefined && (timeLeft - elapsed) <= -1000) {
-        if (turn !== myColor) {
-          runTransaction(db, async (transaction) => {
-            const ref = doc(db, 'games', gameDocId)
-            const snap = await transaction.get(ref)
-            if (snap.data()?.game_state === 'game_over') return
-            transaction.update(ref, {
-              game_state: 'game_over',
-              winner: myColor === 'w' ? 'white' : 'black',
-              message: 'timeout',
-            })
-          })
-        }
+      if (timeLeft !== null && timeLeft !== undefined) {
+        submitTimeoutFlag(flaggingRef, {
+          gameDocId,
+          turn,
+          myColor: myColorRef.current as 'w' | 'b',
+          lastTimerUpdate: newData.last_timer_update,
+          turnTimeLeft: timeLeft,
+        })
       }
     }
   }, [gameDocId])
@@ -49,7 +112,7 @@ export function useGameTimer(gameDocId: string | null) {
     }
 
     const now = Date.now()
-    const elapsed = now - lastTimerUpdate
+    const elapsed = Math.max(0, now - lastTimerUpdate)
     const playerTimeKey = playerColor === 'w' ? 'white_time_left' : 'black_time_left'
     const currentTimeLeft = playerColor === 'w' ? whiteTimeLeft : blackTimeLeft
 
@@ -69,9 +132,47 @@ export function useGameTimer(gameDocId: string | null) {
     if (!timeControl || !lastTimerUpdate || !playerColor) return false
     const currentTimeLeft = playerColor === 'w' ? whiteTimeLeft : blackTimeLeft
     if (currentTimeLeft === null) return false
-    const elapsed = Date.now() - lastTimerUpdate
+    const elapsed = Math.max(0, Date.now() - lastTimerUpdate)
     return currentTimeLeft - elapsed <= 0
   }, [timeControl, lastTimerUpdate, whiteTimeLeft, blackTimeLeft])
+
+  /**
+   * Re-evaluate the clocks locally once a second and whenever the tab
+   * becomes visible again. The flag used to be checked only when a
+   * Firestore snapshot arrived — but a player who closed the tab never
+   * touches the document, so no snapshot ever arrived and the game hung
+   * forever. `visibilitychange` covers browsers that throttle background
+   * intervals down to once a minute.
+   */
+  const flagIfTimeout = useCallback(() => {
+    if (!gameDocId || gameOverRef.current) return
+    if (timerStatus !== 'active' || !lastTimerUpdate) return
+    const myColor = myColorRef.current
+    const turn = turnRef.current
+    if (!myColor || !turn) return
+    const turnTimeLeft = turn === 'w' ? whiteTimeLeft : blackTimeLeft
+    if (turnTimeLeft === null || turnTimeLeft === undefined) return
+    submitTimeoutFlag(flaggingRef, {
+      gameDocId,
+      turn,
+      myColor,
+      lastTimerUpdate,
+      turnTimeLeft,
+    })
+  }, [gameDocId, timerStatus, lastTimerUpdate, whiteTimeLeft, blackTimeLeft])
+
+  useEffect(() => {
+    if (!gameDocId) return
+    const id = setInterval(flagIfTimeout, 1000)
+    const onVisibility = () => {
+      if (!document.hidden) flagIfTimeout()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [gameDocId, flagIfTimeout])
 
   /**
    * Clear all clock state. setTimerFromSnapshot returns early when a document has
@@ -86,6 +187,9 @@ export function useGameTimer(gameDocId: string | null) {
     setLastTimerUpdate(null)
     setTimerStatus(null)
     setTimeControl(null)
+    gameOverRef.current = false
+    turnRef.current = null
+    flaggingRef.current = false
   }, [])
 
   return {

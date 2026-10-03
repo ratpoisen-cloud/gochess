@@ -618,6 +618,29 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     }
 
     // --- Standard / Fog mode move ---
+    // The flag already fell before this move: it must not be written at
+    // all — only the timeout result. (Previously the move landed together
+    // with game_over, leaving a position the loser never had time for.)
+    if (timer.isTimeout(playerColor)) {
+      const expectedTurn = gameRef.current.turn()
+      try {
+        await runTransaction(db, async (transaction) => {
+          const ref = doc(db, 'games', gameDocId)
+          const snap = await transaction.get(ref)
+          const data = snap.data()
+          if (!data || data.game_state === 'game_over') return
+          if (data.turn !== expectedTurn) return
+          transaction.update(ref, {
+            game_state: 'game_over',
+            winner: playerColor === 'w' ? 'black' : 'white',
+            message: 'timeout',
+          })
+        })
+      } catch { /* снапшот приведёт партию к финальному состоянию */ }
+      addToast('Время вышло', 'error')
+      return false
+    }
+
     const g = createEngine()
     const currentPgn = gameRef.current.pgn()
     if (currentPgn) {

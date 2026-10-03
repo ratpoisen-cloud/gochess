@@ -192,5 +192,86 @@ describe('useGameTimer', () => {
       act(() => { result.current.setTimerFromSnapshot({} as GameData, 'w') })
       expect(result.current.timeControl).toBeNull()
     })
+
+    it('flags an expired clock delivered by a snapshot', () => {
+      const { result } = renderHook(() => useGameTimer('game-1'))
+      const data = {
+        time_control: { base: 60000, increment: 0 },
+        white_time_left: -5000,
+        black_time_left: 60000,
+        last_timer_update: Date.now() - 10000,
+        timer_status: 'active',
+        game_state: 'playing',
+        turn: 'w',
+      } as unknown as GameData
+      act(() => { result.current.setTimerFromSnapshot(data, 'b') })
+      expect(mockRunTransaction).toHaveBeenCalledTimes(1)
+    })
+
+    it('never flags the player whose own clock ran out (turn === myColor)', () => {
+      const { result } = renderHook(() => useGameTimer('game-1'))
+      const data = {
+        time_control: { base: 60000, increment: 0 },
+        white_time_left: -5000,
+        black_time_left: 60000,
+        last_timer_update: Date.now() - 10000,
+        timer_status: 'active',
+        game_state: 'playing',
+        turn: 'w',
+      } as unknown as GameData
+      act(() => { result.current.setTimerFromSnapshot(data, 'w') })
+      expect(mockRunTransaction).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('local interval (silent document)', () => {
+    it('flags from the 1s interval when no snapshot ever arrives', () => {
+      vi.useFakeTimers()
+      try {
+        const { result } = renderHook(() => useGameTimer('game-1'))
+        act(() => {
+          result.current.setTimerFromSnapshot({
+            time_control: { base: 60000, increment: 0 },
+            white_time_left: 3000,
+            black_time_left: 60000,
+            last_timer_update: Date.now(),
+            timer_status: 'active',
+            game_state: 'playing',
+            turn: 'w',
+          } as unknown as GameData, 'b')
+        })
+        // Clock not expired yet: snapshot path must stay quiet.
+        expect(mockRunTransaction).not.toHaveBeenCalled()
+
+        // The document never changes; after 4s the local interval notices
+        // the opponent's flag has fallen.
+        act(() => { vi.advanceTimersByTime(4500) })
+        expect(mockRunTransaction).toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('keeps the interval quiet for untimed / paused games', () => {
+      vi.useFakeTimers()
+      try {
+        const { result } = renderHook(() => useGameTimer('game-1'))
+        act(() => {
+          result.current.setTimerFromSnapshot({
+            time_control: { base: 60000, increment: 0 },
+            white_time_left: 3000,
+            black_time_left: 60000,
+            last_timer_update: Date.now() - 60000,
+            timer_status: 'paused',
+            game_state: 'playing',
+            turn: 'w',
+          } as unknown as GameData, 'b')
+        })
+        act(() => { vi.advanceTimersByTime(5000) })
+        expect(mockRunTransaction).not.toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 })

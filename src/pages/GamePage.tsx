@@ -112,6 +112,28 @@ export default function GamePage() {
 
   const isAtomicGame = (gameMode as string) === 'atomic_chess'
 
+  // Single exit for every targeting mode: spell choice, portal/mirage starts,
+  // berserk overlay, pending target and plain piece selection. Clicking
+  // outside the board (e.g. the clocks — inside game-main-column but outside
+  // the stopPropagation board container) used to reset only activeSpell and
+  // left portalStart/mirageStart armed, so the next board click cast instantly.
+  const clearSpellSelection = useCallback(() => {
+    setActiveSpell(null)
+    setPortalStart(null)
+    setMirageStart(null)
+    setPendingTarget(null)
+    setBerserkTarget(null)
+    setSelectedSquare(null)
+    setLegalMoves([])
+    setPendingPromotion(null)
+  }, [])
+
+  // A selection is only meaningful on your own turn while the game runs —
+  // otherwise a stale pendingTarget fired with a single click next turn.
+  useEffect(() => {
+    if (gameOver || !isMyTurn) clearSpellSelection()
+  }, [gameOver, isMyTurn, clearSpellSelection])
+
   // Trigger explosions for Atomic Chess
   useEffect(() => {
     if (isAtomicGame && spellStateJson) {
@@ -201,8 +223,7 @@ export default function GamePage() {
         if (activeSpell === 'portal') {
           if (!portalStart) { setPortalStart(square); return }
           handleCastSpell('portal', portalStart, square)
-          setActiveSpell(null)
-          setPortalStart(null)
+          clearSpellSelection()
           return
         }
         if (activeSpell === 'mirage') {
@@ -212,38 +233,36 @@ export default function GamePage() {
             return
           }
           handleCastSpell('mirage', mirageStart, square)
-          setActiveSpell(null)
-          setMirageStart(null)
+          clearSpellSelection()
           return
         }
         if (activeSpell === 'shadowGrave') {
           handleCastSpell('shadowGrave', square)
-          setActiveSpell(null)
+          clearSpellSelection()
           return
         }
         if (activeSpell === 'divineGrace') {
           handleCastSpell('divineGrace', square)
-          setActiveSpell(null)
+          clearSpellSelection()
           return
         }
         if (activeSpell === 'berserk') {
           const piece = game.get(square as any)
           if (piece && piece.color === playerColor && piece.type !== 'k') {
+            clearSpellSelection()
             setBerserkTarget(square)
-            setActiveSpell(null)
           }
           return
         }
         if (activeSpell === 'blast') {
           handleCastSpell('blast', square)
-          setActiveSpell(null)
+          clearSpellSelection()
           return
         }
       }
       if (pendingTarget === square) {
         handleCastSpell(activeSpell, square)
-        setActiveSpell(null)
-        setPendingTarget(null)
+        clearSpellSelection()
       } else {
         setPendingTarget(square)
       }
@@ -279,7 +298,7 @@ export default function GamePage() {
       setSelectedSquare(square)
       setLegalMoves(moves.map((m) => m.to))
     }
-  }, [gameOver, isMyTurn, selectedSquare, legalMoves, playerColor, makeMove, game, activeSpell, castSpell, portalStart, mirageStart, pendingTarget])
+  }, [gameOver, isMyTurn, selectedSquare, legalMoves, playerColor, makeMove, game, activeSpell, castSpell, portalStart, mirageStart, pendingTarget, clearSpellSelection])
 
   const handleReactionSquare = (square: string, clientX: number, clientY: number) => {
     setReactionSquare(square)
@@ -520,7 +539,7 @@ export default function GamePage() {
   return (
     <GameLayout user={user}>
       <div className="game-layout-container">
-        <div className="game-main-column" onClick={() => setActiveSpell(null)}>
+        <div className="game-main-column" onClick={clearSpellSelection}>
           {timeControl && (
             <div className="mx-auto mb-4" style={{ width: stableWidth || '100%', maxWidth: '100%' }}>
               <ChessTimer
@@ -750,13 +769,15 @@ export default function GamePage() {
                 gameOver={gameOver}
                 onSpellClick={(spell) => {
                   if (activeSpell === spell) {
-                    setActiveSpell(null)
+                    clearSpellSelection()
                     return
                   }
                   if (spell === 'berserk') {
+                    clearSpellSelection()
                     setActiveSpell('berserk')
                     addToast('Выберите свою фигуру для берсерка', 'info')
                   } else {
+                    clearSpellSelection()
                     setActiveSpell(spell)
                     addToast(`Выберите цель для магии`, 'info')
                   }

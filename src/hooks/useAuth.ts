@@ -1,29 +1,20 @@
 import { useEffect, useState, useCallback } from 'react'
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   updateProfile as firebaseUpdateProfile,
-  type User as FirebaseUser
+  type User as FirebaseUser,
 } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuthStore } from '@/stores/authStore'
-import type { User } from '@/types'
-
-const normalizeUser = (firebaseUser: FirebaseUser | null): User | null => {
-  if (!firebaseUser) return null
-  
-  return {
-    uid: firebaseUser.uid,
-    displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Игрок',
-    email: firebaseUser.email || '',
-    photoURL: firebaseUser.photoURL,
-    customAvatarURL: null // Storage migration skipped as per user request
-  }
-}
+import {
+  ensureAuthSubscription,
+  normalizeUser,
+  applyAuthDomState,
+} from '@/lib/authSubscription'
 
 const mapAuthError = (err: any) => {
   if (!err) return new Error('Ошибка авторизации')
@@ -45,40 +36,19 @@ const mapAuthError = (err: any) => {
 }
 
 export function useAuth() {
-  const { user, setUser, isLoading, setLoading } = useAuthStore()
+  const user = useAuthStore((s) => s.user)
+  const isLoading = useAuthStore((s) => s.isLoading)
   const [error, setError] = useState<string | null>(null)
 
   const handleUserChange = useCallback((firebaseUser: FirebaseUser | null) => {
     const normalized = normalizeUser(firebaseUser)
-    setUser(normalized)
-    
-    if (normalized) {
-      document.body.classList.add('auth-state')
-      document.body.classList.remove('guest-state')
-    } else {
-      document.body.classList.remove('auth-state')
-      document.body.classList.add('guest-state')
-    }
-  }, [setUser])
+    useAuthStore.getState().setUser(normalized)
+    applyAuthDomState(normalized)
+  }, [])
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false)
-      return
-    }
-
-    setLoading(true)
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      handleUserChange(firebaseUser)
-      setLoading(false)
-    }, (err) => {
-      console.error('[Auth] State change error:', err)
-      setError('Ошибка подключения к серверу')
-      setLoading(false)
-    })
-
-    return () => unsubscribe()
-  }, [handleUserChange, setLoading])
+    ensureAuthSubscription()
+  }, [])
 
   const signInWithGoogle = async () => {
     if (!auth) return

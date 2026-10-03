@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -7,15 +7,34 @@ import { acceptIncomingChallenge, CHALLENGE_TTL_MS, type AcceptResult } from '@/
 import type { Challenge, GameMode } from '@/types'
 import type { TimeControl } from '@/lib/gameDoc'
 
+const JOINED_GAME_KEY = 'gochess:joined-game'
+
 export function useChallenges() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [incomingChallenges, setIncomingChallenges] = useState<Challenge[]>([])
+  const [pendingChallenges, setPendingChallenges] = useState<Challenge[]>([])
+  const [now, setNow] = useState(() => Date.now())
   const [outgoingGameId, setOutgoingGameId] = useState<string | null>(null)
+
+  // Expiry has to be re-checked continuously, not only when a snapshot
+  // arrives: otherwise a challenge that expires while the modal is open
+  // stays on screen forever and the accept button keeps working.
+  // (A server-side expiresAt range filter is not possible here: Firestore
+  // forbids a range field that is not the first orderBy.)
+  useEffect(() => {
+    if (pendingChallenges.length === 0) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [pendingChallenges.length])
+
+  const incomingChallenges = useMemo(
+    () => pendingChallenges.filter((c) => c.expiresAt > now),
+    [pendingChallenges, now],
+  )
 
   useEffect(() => {
     if (!user) {
-      setIncomingChallenges([])
+      setPendingChallenges([])
       return
     }
     if (!db) return
@@ -32,10 +51,7 @@ export function useChallenges() {
         id: doc.id,
         ...doc.data()
       })) as Challenge[]
-      
-      // Filter out expired challenges locally just in case
-      const now = Date.now()
-      setIncomingChallenges(challenges.filter(c => c.expiresAt > now))
+      setPendingChallenges(challenges)
     })
 
     return () => unsubscribe()
@@ -57,6 +73,9 @@ export function useChallenges() {
       if (!snapshot.empty) {
         const data = snapshot.docs[0].data() as any
         if (data.gameId && data.expiresAt > Date.now()) {
+          // Already joined this game in this tab (left the lobby and came
+          // back within the TTL) — do not drag the player back in.
+          if (sessionStorage.getItem(JOINED_GAME_KEY) === data.gameId) return
           setOutgoingGameId(data.gameId)
         }
       }
@@ -68,7 +87,9 @@ export function useChallenges() {
   // Navigate when challenge accepted
   useEffect(() => {
     if (outgoingGameId) {
+      sessionStorage.setItem(JOINED_GAME_KEY, outgoingGameId)
       navigate(`/game/${outgoingGameId}`)
+      setOutgoingGameId(null)
     }
   }, [outgoingGameId, navigate])
 
@@ -111,6 +132,7 @@ export function useChallenges() {
 
   return {
     incomingChallenges,
+    now,
     sendChallenge,
     acceptChallenge,
     declineChallenge

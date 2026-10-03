@@ -65,12 +65,15 @@ export default function LobbyPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   usePresence()
-  const { incomingChallenges, acceptChallenge, declineChallenge } = useChallenges()
+  const { incomingChallenges, acceptChallenge, declineChallenge, now } = useChallenges()
   const { addToast } = useToast()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
 
+  const [acceptBusy, setAcceptBusy] = useState(false)
+
   const handleAcceptChallenge = async (challenge: Challenge) => {
-    if (!db || !user) return
+    if (!db || !user || acceptBusy) return
+    setAcceptBusy(true)
     try {
       const result = await acceptChallenge(challenge)
       if (!result.gameId) {
@@ -80,6 +83,8 @@ export default function LobbyPage() {
       navigate(`/game/${result.gameId}`)
     } catch (err) {
       addToast('Ошибка при принятии вызова', 'error')
+    } finally {
+      setAcceptBusy(false)
     }
   }
   const [initialLoading, setInitialLoading] = useState(true)
@@ -406,8 +411,11 @@ export default function LobbyPage() {
                   {formatTimeControl(incomingChallenges[0].timeControl)} мин
                 </div>
              )}
+             <div className="text-[9px] text-text-secondary opacity-70 mb-4">
+               Истекает через {Math.max(0, Math.ceil((incomingChallenges[0].expiresAt - now) / 1000))} с
+             </div>
              <div className="grid grid-cols-2 gap-4">
-                <Button variant="primary" onClick={() => handleAcceptChallenge(incomingChallenges[0])}>Принять</Button>
+                <Button variant="primary" disabled={acceptBusy} onClick={() => handleAcceptChallenge(incomingChallenges[0])}>Принять</Button>
                 <Button variant="outline" onClick={() => declineChallenge(incomingChallenges[0].id)} className="bg-transparent opacity-60">Отклонить</Button>
              </div>
           </div>

@@ -23,6 +23,12 @@ interface GameState {
   lastMove: { from: string; to: string } | null
   checkSquare: string | null
   botGameDocId: string | null
+  /**
+   * Fingerprint of the last successfully written end-game document
+   * (`gameType|docId|fen|status`). Guards against `saveGame` re-creating or
+   * re-writing the same finished game on every page mount after a reload.
+   */
+  savedEndGameState: string | null
 
   initGame: () => void
   makeMove: (from: string, to: string, promotion?: string) => boolean
@@ -67,6 +73,29 @@ const getCheckSquare = (game: EngineAPI): string | null => {
   return null
 }
 
+const buildSaveKey = (gameType: string, docId: string | null, fen: string, status: string): string =>
+  `${gameType}|${docId ?? ''}|${fen}|${status}`
+
+/**
+ * Rebuild an engine for a persisted position. History sources (PGN, then a
+ * SAN list) are tried first and accepted only when the replayed position
+ * matches the stored FEN — a FEN-only engine has no history, so PGN copies,
+ * undo and the move list would all break after a reload.
+ */
+const rebuildEngine = (fen: string, historySources: (string | null | undefined)[]): EngineAPI => {
+  for (const src of historySources) {
+    if (!src || !src.trim()) continue
+    const engine = createEngine()
+    try {
+      engine.loadPgn(src)
+      if (engine.fen() === fen) return engine
+    } catch {
+      // corrupted source — try the next one
+    }
+  }
+  return createEngine(undefined, fen)
+}
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -83,6 +112,7 @@ export const useGameStore = create<GameState>()(
       lastMove: null,
       checkSquare: null,
       botGameDocId: null,
+      savedEndGameState: null,
 
       initGame: () => {
         set({
@@ -97,6 +127,7 @@ export const useGameStore = create<GameState>()(
           lastMove: null,
           checkSquare: null,
           botGameDocId: null,
+          savedEndGameState: null,
         })
       },
 
@@ -229,7 +260,6 @@ export const useGameStore = create<GameState>()(
             last_move_time: serverTimestamp(),
           })
           set({ botGameDocId: gameRef.id })
-          console.log('[Store] Bot game doc created:', gameRef.id)
           return gameRef.id
         } catch (err) {
           console.error('[Store] Error creating bot game doc:', err)
@@ -264,14 +294,17 @@ export const useGameStore = create<GameState>()(
           const data = snap.data()
           if (data.game_type !== 'bot') return null
 
-          const chess = createEngine()
-          if (data.pgn) {
-            try { chess.loadPgn(data.pgn) } catch {
-              if (data.fen) chess.load(data.fen)
-            }
-          } else if (data.fen) {
-            chess.load(data.fen)
-          }
+          // `pgn` is always at least the header block (truthy even with zero
+          // moves), so a header-only PGN must not shadow the real FEN — the
+          // replay is validated against the stored position inside the helper.
+          const fen: string = typeof data.fen === 'string' && data.fen ? data.fen : START_FEN
+          const sans: string | null = Array.isArray(data.move_history_verbose)
+            ? data.move_history_verbose
+                .map((m: { san?: string }) => m?.san)
+                .filter((s: string | undefined): s is string => Boolean(s))
+                .join(' ') || null
+            : null
+          const chess = rebuildEngine(fen, [data.pgn, sans])
 
           const playerColor = data.white_player_id === user.uid ? 'w' as Color : 'b' as Color
 
@@ -306,6 +339,13 @@ export const useGameStore = create<GameState>()(
         const user = useAuthStore.getState().user
         if (!user || !db) return
 
+        // The end-game effect runs on mount too, so a reload of a finished
+        // game used to write again (and for local games created a duplicate
+        // document every visit). Same position + same outcome = already saved.
+        const endFen = game.fen()
+        const saveKey = buildSaveKey(gameType, botGameDocId, endFen, status)
+        if (get().savedEndGameState === saveKey) return
+
         const winner = status === 'checkmate'
           ? (game.turn() === 'w' ? 'black' : 'white')
           : status === 'stalemate' || status === 'draw' ? 'draw' : null
@@ -315,6 +355,7 @@ export const useGameStore = create<GameState>()(
           : status === 'draw' ? 'draw' : null
 
         const moves = game.history({ verbose: true }) as Move[]
+        let botGameDocIdRef: string | null = null
 
         try {
           if (botGameDocId) {
@@ -337,7 +378,6 @@ export const useGameStore = create<GameState>()(
                 fen_after: m.after,
               }))
             })
-            console.log('[Store] Bot game finalized:', botGameDocId)
           } else {
             const gameRef = await addDoc(collection(db, 'games'), {
               white_player_id: user.uid,
@@ -364,10 +404,15 @@ export const useGameStore = create<GameState>()(
                 fen_after: m.after,
               }))
             })
-            console.log('[Store] Game saved to Firestore:', gameRef.id)
+            botGameDocIdRef = gameRef.id
           }
-        } catch (err) {
-          console.error('[Store] Error saving game:', err)
+          set({
+            savedEndGameState: buildSaveKey(gameType, botGameDocIdRef ?? botGameDocId, endFen, status),
+            ...(botGameDocIdRef ? { botGameDocId: botGameDocIdRef } : {}),
+          })
+        } catch {
+          // Saving is best-effort: the position stays in localStorage and the
+          // fingerprint is only written on success, so a retry remains possible.
         }
       },
     }),
@@ -379,12 +424,20 @@ export const useGameStore = create<GameState>()(
           if (!str) return null
           try {
             const data = JSON.parse(str)
-            const fen = data.state?.fen || START_FEN
-            const chess = createEngine(fen)
+            const state = data.state || {}
+            const fen: string = typeof state.fen === 'string' && state.fen ? state.fen : START_FEN
+            const sans: string | null =
+              Array.isArray(state.moveHistory) && state.moveHistory.length > 0
+                ? state.moveHistory.join(' ')
+                : null
+            const chess = rebuildEngine(fen, [state.pgn, sans])
+            // `pgn` is written by partialize purely as a rebuild source —
+            // it is not part of the store state.
+            const { pgn: _persistedPgn, ...rest } = state
             return {
               ...data,
               state: {
-                ...data.state,
+                ...rest,
                 game: chess,
               },
             }
@@ -398,10 +451,13 @@ export const useGameStore = create<GameState>()(
         },
         removeItem: (name) => localStorage.removeItem(name),
       },
-      // @ts-expect-error - partialize excludes 'game'
+      // @ts-expect-error - 'game' is replaced by its serializable PGN snapshot
       partialize: (state) => {
         const { game, ...rest } = state
-        return rest
+        // The engine instance cannot be persisted; its history can. getItem
+        // rebuilds the engine from this PGN (falling back to FEN), so a
+        // reload no longer loses the move list of a bot/local game.
+        return { ...rest, pgn: game.pgn() }
       },
     }
   )

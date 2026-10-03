@@ -19,6 +19,13 @@ interface GameState {
   moveHistory: string[]
   isMyTurn: boolean
   playerColor: Color | null
+  /**
+   * Какая партия сейчас живёт в сторе. Нужно, чтобы страница локальной
+   * классики могла возобновить свою партию после перезагрузки и при этом
+   * не стирала чужую (бот/спелл) — и наоборот.
+   */
+  activeMode: 'bot' | 'local-classic' | 'local-rapid' | null
+  setActiveMode: (mode: GameState['activeMode']) => void
   isGameOver: boolean
   lastMove: { from: string; to: string } | null
   checkSquare: string | null
@@ -108,6 +115,7 @@ export const useGameStore = create<GameState>()(
       moveHistory: [],
       isMyTurn: true,
       playerColor: null,
+      activeMode: null,
       isGameOver: false,
       lastMove: null,
       checkSquare: null,
@@ -128,6 +136,7 @@ export const useGameStore = create<GameState>()(
           checkSquare: null,
           botGameDocId: null,
           savedEndGameState: null,
+          activeMode: null,
         })
       },
 
@@ -237,17 +246,24 @@ export const useGameStore = create<GameState>()(
 
       setStatus: (status) => set({ status }),
       setPlayerColor: (color) => set({ playerColor: color }),
+      setActiveMode: (mode) => set({ activeMode: mode }),
 
       createBotGameDoc: async (level) => {
-        const { game } = get()
+        const { game, playerColor } = get()
         const user = useAuthStore.getState().user
         if (!user || !db) return null
 
+        // Seat the player where they actually play: without this the archive
+        // always answered "you are white" and roles inverted on reload.
+        const asBlack = playerColor === 'b'
+        const seat = asBlack
+          ? { white_player_id: 'bot', black_player_id: user.uid, white_name: 'Ичи', black_name: user.displayName || 'Игрок' }
+          : { white_player_id: user.uid, black_player_id: 'bot', white_name: user.displayName || 'Игрок', black_name: 'Ичи' }
+
+        set({ activeMode: 'bot' })
         try {
           const gameRef = await addDoc(collection(db, 'games'), {
-            white_player_id: user.uid,
-            white_name: user.displayName || 'Игрок',
-            black_name: 'Ичи',
+            ...seat,
             game_type: 'bot',
             bot_level: level,
             pgn: game.pgn(),
@@ -306,7 +322,9 @@ export const useGameStore = create<GameState>()(
             : null
           const chess = rebuildEngine(fen, [data.pgn, sans])
 
-          const playerColor = data.white_player_id === user.uid ? 'w' as Color : 'b' as Color
+          // Old docs only wrote white_player_id=uid; seat-based lookup keeps
+          // them "white" and correctly restores black games from new docs.
+          const playerColor = data.black_player_id === user.uid ? 'b' as Color : 'w' as Color
 
           set({
             game: chess,
@@ -325,6 +343,7 @@ export const useGameStore = create<GameState>()(
             checkSquare: getCheckSquare(chess),
             botGameDocId: docId,
             playerColor,
+            activeMode: 'bot',
           })
 
           return { level: data.bot_level || 'medium', playerColor }
@@ -379,10 +398,14 @@ export const useGameStore = create<GameState>()(
               }))
             })
           } else {
+            const botSeat = gameType === 'bot'
+              ? (get().playerColor === 'b'
+                  ? { white_player_id: 'bot', black_player_id: user.uid, white_name: 'Ичи', black_name: user.displayName || 'Игрок' }
+                  : { white_player_id: user.uid, black_player_id: 'bot', white_name: user.displayName || 'Игрок', black_name: 'Ичи' })
+              : { white_player_id: user.uid, white_name: user.displayName }
             const gameRef = await addDoc(collection(db, 'games'), {
-              white_player_id: user.uid,
-              white_name: user.displayName,
-              black_name: gameType === 'bot' ? 'Ичи' : 'Чёрные',
+              ...botSeat,
+              ...(gameType === 'bot' ? {} : { black_name: 'Чёрные' }),
               game_type: gameType,
               bot_level: botLevel || null,
               pgn: game.pgn(),

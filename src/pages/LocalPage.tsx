@@ -29,7 +29,7 @@ export default function LocalPage() {
   const { 
     game, status, currentTurn, selectedSquare, legalMoves, lastMove, 
     checkSquare, moveHistory, isGameOver, makeMove, selectSquare, 
-    resetGame, saveGame, undoMove 
+    resetGame, saveGame, undoMove, setActiveMode 
   } = useGameStore()
   
   const isRapid = location.pathname.includes('/rapid')
@@ -57,11 +57,22 @@ export default function LocalPage() {
   const isVictory = isActuallyGameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности')
 
   useEffect(() => {
-    if (!initialized) {
+    if (initialized) return
+    const st = useGameStore.getState()
+    // Возобновляем только свою незавершённую классику. У рапида часы не
+    // персистятся (старт с полной базы подарил бы время), а чужой стор
+    // (бот/спелл) не трогаем — его сбросит своя страница.
+    const canResume = !isRapid
+      && st.activeMode === 'local-classic'
+      && !st.isGameOver
+      && st.moveHistory.length > 0
+    if (canResume) {
+      setIsSetupModalOpen(false)
+    } else {
       resetGame()
-      setInitialized(true)
     }
-  }, [])
+    setInitialized(true)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle Timeout
   const handleTimeout = useCallback((loser: Color) => {
@@ -96,6 +107,10 @@ export default function LocalPage() {
 
   const savedRef = useRef(false)
   useEffect(() => {
+    // До initialized этот эффект видит isGameOver из рендера ДО mount-сброса:
+    // без guard'а saveGame() писал бы в архив уже опустошённый стор —
+    // «фантомную» партию без ходов.
+    if (!initialized) return
     if (isActuallyGameOver && !savedRef.current) {
       savedRef.current = true
       saveGame('local')
@@ -134,7 +149,7 @@ export default function LocalPage() {
       savedRef.current = false
       setEndGameState(null)
     }
-  }, [isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame, game])
+  }, [initialized, isActuallyGameOver, isGameOver, manualGameOver, status, currentTurn, whiteName, blackName, saveGame, game])
 
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     if (isActuallyGameOver) return false
@@ -190,6 +205,7 @@ export default function LocalPage() {
 
   const handleRematch = () => {
     resetGame()
+    setActiveMode(isRapid ? 'local-rapid' : 'local-classic')
     if (isRapid) {
       setWhiteTime(timeControl.base * 60000)
       setBlackTime(timeControl.base * 60000)
@@ -202,6 +218,7 @@ export default function LocalPage() {
 
   const handleStartGame = () => {
     resetGame()
+    setActiveMode(isRapid ? 'local-rapid' : 'local-classic')
     if (isRapid) {
       setWhiteTime(timeControl.base * 60000)
       setBlackTime(timeControl.base * 60000)

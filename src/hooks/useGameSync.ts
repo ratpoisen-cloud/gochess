@@ -412,6 +412,12 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     setPlayerColor(null)
     setGameMode('classic')
     setOpponentName('')
+    // Drop the old document immediately: the listener effect keys off
+    // gameDocId, so without this it re-subscribed to the FINISHED game after
+    // the reset (gameOver changed → processSnapshotData identity changed) and
+    // its rematch_game_id re-opened the "Реванш готов" dialog inside the new
+    // room. useRoomJoin will set the new id asynchronously.
+    setGameDocId(null)
     // Classic is untimed, and setTimerFromSnapshot early-returns on a document
     // without time_control — so without an explicit reset a rapid room's clock
     // would keep rendering in the next classic room.

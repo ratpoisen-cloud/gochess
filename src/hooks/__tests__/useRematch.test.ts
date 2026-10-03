@@ -122,6 +122,38 @@ describe('useRematch — mirror bookkeeping', () => {
     expect(result.current.isRematchProposed).toBe(false)
   })
 
+  it('snapshots without rematch fields close the dialog (no stale modal after navigation)', () => {
+    const { result } = makeHook()
+
+    // Finished game: rematch exists → "Реванш готов" opens.
+    act(() => {
+      result.current.setRematchFromSnapshot(
+        { rematch_game_id: 'g-2', rematch_proposed_by: null } as never,
+        opponent,
+      )
+    })
+    expect(result.current.rematchGameId).toBe('g-2')
+
+    // New room after navigation: no rematch fields → dialog must close.
+    act(() => {
+      result.current.setRematchFromSnapshot({} as never, opponent)
+    })
+    expect(result.current.rematchGameId).toBeNull()
+    expect(result.current.isRematchProposed).toBe(false)
+  })
+
+  it('snapshot with a proposal from the opponent opens only the offer dialog', () => {
+    const { result } = makeHook()
+    act(() => {
+      result.current.setRematchFromSnapshot(
+        { rematch_game_id: null, rematch_proposed_by: 'uid-w' } as never,
+        opponent,
+      )
+    })
+    expect(result.current.isRematchProposed).toBe(true)
+    expect(result.current.rematchGameId).toBeNull()
+  })
+
   it('goToRematch does nothing while no rematch exists', () => {
     const onReady = vi.fn()
     const { result } = makeHook(onReady)

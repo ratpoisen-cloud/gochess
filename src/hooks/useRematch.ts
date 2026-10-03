@@ -14,12 +14,25 @@ export function useRematch(
   const [isRematchProposed, setIsRematchProposed] = useState(false)
   const [rematchGameId, setRematchGameId] = useState<string | null>(null)
 
+  /**
+   * Mirror the document's rematch fields into dialog state — both ways.
+   *
+   * The old version only ever SET state, so after navigating into a rematch
+   * the stale "Реванш готов" dialog survived: the room-switch reset cleared
+   * it, but a snapshot of the finished game re-set it, and the NEW game's
+   * snapshots (no rematch fields) could never close it again — the dialog
+   * hung until a page reload.
+   */
   const setRematchFromSnapshot = useCallback((newData: GameData, currentUser: any) => {
     if (newData.rematch_game_id) {
       setRematchGameId(newData.rematch_game_id)
-    } else if (newData.rematch_proposed_by && newData.rematch_proposed_by !== currentUser?.uid) {
-      setIsRematchProposed(true)
+      setIsRematchProposed(false)
+      return
     }
+    setRematchGameId(null)
+    setIsRematchProposed(
+      Boolean(newData.rematch_proposed_by && newData.rematch_proposed_by !== currentUser?.uid),
+    )
   }, [])
 
   /**

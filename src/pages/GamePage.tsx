@@ -183,7 +183,12 @@ export default function GamePage() {
     }
   }
 
-  const handleCastSpell = (spell: SpellName, target?: string, target2?: string) => {
+  const handleCastSpell = async (spell: SpellName, target?: string, target2?: string): Promise<boolean> => {
+    const ok = castSpell ? await castSpell(spell, target, target2) : false
+    if (!ok) {
+      addToast('Заклинание невозможно применить', 'error')
+      return false
+    }
     if (target) {
       const center = getSquareCenter(target)
       switch (spell) {
@@ -211,10 +216,10 @@ export default function GamePage() {
           break
       }
     }
-    castSpell?.(spell, target, target2)
+    return true
   }
 
-  const onSquareClick = useCallback((square: string) => {
+  const onSquareClick = useCallback(async (square: string) => {
     if (gameOver || !isMyTurn) return
 
     if (activeSpell && castSpell) {
@@ -222,8 +227,7 @@ export default function GamePage() {
       if (noConfirmSpells.includes(activeSpell)) {
         if (activeSpell === 'portal') {
           if (!portalStart) { setPortalStart(square); return }
-          handleCastSpell('portal', portalStart, square)
-          clearSpellSelection()
+          if (await handleCastSpell('portal', portalStart, square)) clearSpellSelection()
           return
         }
         if (activeSpell === 'mirage') {
@@ -232,18 +236,15 @@ export default function GamePage() {
             if (piece && piece.color === playerColor && piece.type !== 'k') { setMirageStart(square) }
             return
           }
-          handleCastSpell('mirage', mirageStart, square)
-          clearSpellSelection()
+          if (await handleCastSpell('mirage', mirageStart, square)) clearSpellSelection()
           return
         }
         if (activeSpell === 'shadowGrave') {
-          handleCastSpell('shadowGrave', square)
-          clearSpellSelection()
+          if (await handleCastSpell('shadowGrave', square)) clearSpellSelection()
           return
         }
         if (activeSpell === 'divineGrace') {
-          handleCastSpell('divineGrace', square)
-          clearSpellSelection()
+          if (await handleCastSpell('divineGrace', square)) clearSpellSelection()
           return
         }
         if (activeSpell === 'berserk') {
@@ -254,15 +255,9 @@ export default function GamePage() {
           }
           return
         }
-        if (activeSpell === 'blast') {
-          handleCastSpell('blast', square)
-          clearSpellSelection()
-          return
-        }
       }
       if (pendingTarget === square) {
-        handleCastSpell(activeSpell, square)
-        clearSpellSelection()
+        if (await handleCastSpell(activeSpell, square)) clearSpellSelection()
       } else {
         setPendingTarget(square)
       }
@@ -383,10 +378,9 @@ export default function GamePage() {
     ? spellPlyCount + 1
     : Math.floor(moveHistory.length / 2) + 1
 
-  const handleBerserkConfirm = (type: string) => {
+  const handleBerserkConfirm = async (type: string) => {
     if (!berserkTarget || !castSpell) return
-    handleCastSpell('berserk', berserkTarget, type)
-    setBerserkTarget(null)
+    if (await handleCastSpell('berserk', berserkTarget, type)) setBerserkTarget(null)
   }
 
   const spellCustomSquareStyles = useMemo(() => {

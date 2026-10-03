@@ -13,18 +13,22 @@ interface Particle {
   swayPhase: number
   swaySpeed: number
   age: number
+  life: number
 }
 
-// Через LIFE_MS частицы начинают гаснуть, FADE_MS — длительность затухания.
-// HARD_LIMIT_MS — жёсткий предел: анимация обязана закончиться и очистить
-// доску, даже если какие-то частицы «застряли» у стенок.
-const LIFE_MS = 3500
-const FADE_MS = 800
+// Случайная жизнь каждой частицы: она гаснет поштучно, а не кучкой.
+// FADE_MS — сколько гаснет последняя частица; HARD_LIMIT_MS — жёсткий
+// предел, после которого canvas очищается в любом случае.
+const LIFE_MIN_MS = 1200
+const LIFE_MAX_MS = 2500
+const FADE_MS = 400
 const HARD_LIMIT_MS = 8000
-// Порог, ниже которого скорость считается нулём: без него частицы у
-// боковых стенок (vx *= -0.5) никогда не становятся ровно 0, условие
-// остановки не срабатывало и requestAnimationFrame крутился бесконечно.
-const STOP_EPS = 0.05
+// Скорость не должна взлетать от репульсии/отскоков — иначе конфетти
+// «чертят» следы и сминаются в неразбериху.
+const MAX_SPEED = 18
+// Дно: честный затухающий отскок без «подарка» скорости (старый
+// vy = -(0.3+rand*0.2) разгонял лежащие частицы — они вечно дрожали).
+const BOUNCE_DAMP = 0.35
 
 const BASE_COLORS = [
   '#f0f0f0',
@@ -115,6 +119,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           swayPhase: Math.random() * Math.PI * 2,
           swaySpeed: Math.random() * 0.02 + 0.01,
           age: 0,
+          life: LIFE_MIN_MS + Math.random() * (LIFE_MAX_MS - LIFE_MIN_MS),
         })
       }
       particles = newParticles
@@ -129,21 +134,18 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       const deltaMs = Math.min(frameAt - lastFrameAt, 100)
       lastFrameAt = frameAt
 
+      // Очистка строго в identity-трансформе: любой рассинхрон scale/rotate
+      // иначе оставляет нетронутые полосы — «следы от движения».
+      ctx.save()
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.restore()
 
       elapsed += deltaMs
 
       // Smooth tilt values
       tilt.x += (targetTilt.x - tilt.x) * 0.1
       tilt.y += (targetTilt.y - tilt.y) * 0.1
-
-      // Общее затухание: после LIFE_MS альфа падает до 0, затем кадр
-      // стирается и RAF останавливается — на доске не остаётся остатков.
-      let alpha = 1
-      if (elapsed > LIFE_MS) {
-        alpha = Math.max(0, 1 - (elapsed - LIFE_MS) / FADE_MS)
-      }
-      ctx.globalAlpha = alpha
 
       particles.forEach((p) => {
         p.age += deltaMs
@@ -159,7 +161,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           p.vy *= 0.995
         }
 
-        if (mousePos.x !== null && mousePos.y !== null) {
+        if (!isInsideBoard && mousePos.x !== null && mousePos.y !== null) {
           const dx = p.x - mousePos.x
           const dy = p.y - mousePos.y
           const dist = Math.hypot(dx, dy)
@@ -177,48 +179,35 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           p.vy += tilt.y * 0.015 * mult
         }
 
+        // Clamp: репульсия и отскоки не должны разгонять частицы
+        // до скоростей, оставляющих визуальные «размазы».
+        const speed = Math.hypot(p.vx, p.vy)
+        if (speed > MAX_SPEED) {
+          p.vx = (p.vx / speed) * MAX_SPEED
+          p.vy = (p.vy / speed) * MAX_SPEED
+        }
+
         p.x += p.vx
         p.y += p.vy
 
         p.rotation += p.rotationSpeed
 
         if (isInsideBoard) {
-          const padding = p.size
-          const maxX = canvas.width / currentScale - padding
-          const maxY = canvas.height / currentScale - padding
-
-          if (p.x < padding) {
-            p.x = padding
-            p.vx *= -0.5
-          }
-          if (p.x > maxX) {
-            p.x = maxX
-            p.vx *= -0.5
-          }
-          if (p.y < padding) {
-            p.y = padding
-            p.vy *= -0.5
-          }
+          // Только дно: частицы, долетевшие до краёв, просто уходят за
+          // край и обрезаются overflow-hidden контейнером. Старые боковые
+          // стенки направляли их вдоль кромки — там и копились ленты.
+          const maxY = canvas.height / currentScale
           if (p.y > maxY) {
             p.y = maxY
-            p.vy *= -(0.3 + Math.random() * 0.2)
+            p.vy = -Math.abs(p.vy) * BOUNCE_DAMP
             p.vx *= 0.95
           }
-
-          const threshold = p.isFeather ? 0.03 : 0.15
-          if (Math.abs(p.vy) < threshold && Math.abs(p.vx) < threshold && p.y >= maxY - 1) {
-            p.vy = 0
-            p.vx = 0
-            p.y = maxY
-          }
         }
 
-        // Частицы у любых стенок (не только у нижней) тоже «замерзают»
-        // при малой скорости — иначе RAF никогда не останавливался.
-        if (Math.abs(p.vx) < STOP_EPS && Math.abs(p.vy) < STOP_EPS) {
-          p.vx = 0
-          p.vy = 0
-        }
+        // Гаснет поштучно: у каждой частицы свой срок, общий fade не нужен.
+        const fadeIn = Math.min(1, p.age / 150)
+        const fadeOut = Math.max(0, 1 - Math.max(0, p.age - (p.life - FADE_MS)) / FADE_MS)
+        ctx.globalAlpha = fadeIn * fadeOut
 
         ctx.save()
         ctx.translate(p.x, p.y)
@@ -230,14 +219,14 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
       ctx.globalAlpha = 1
 
-      // Частицы умерли по возрасту — больше рисовать нечего.
-      particles = particles.filter(p => p.age < LIFE_MS + FADE_MS)
+      particles = particles.filter(p => p.age < p.life)
 
-      // Замершие частицы дорисовываются до конца fade-out, потом кадр
-      // стирается — на доске не остаётся «осевших» остатков.
-      const done = alpha <= 0 || elapsed > HARD_LIMIT_MS || particles.length === 0
+      const done = elapsed > HARD_LIMIT_MS || particles.length === 0
       if (done) {
+        ctx.save()
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
         ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.restore()
         cancelAnimationFrame(animationFrameId)
         return
       }

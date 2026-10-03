@@ -49,39 +49,45 @@ export function useRoomJoin(
           return
         }
 
-        if (!data.white_player_id && data.black_player_id !== user.uid) {
-          await runTransaction(db, async (transaction) => {
-            const freshDoc = await transaction.get(gameDoc.ref)
-            const freshData = freshDoc.data() as GameData | undefined
-            if (!freshData) return
-            if (!freshData.white_player_id && freshData.black_player_id !== user.uid) {
-              transaction.update(gameDoc.ref, {
-                white_player_id: user.uid,
-                white_name: user.displayName || 'Игрок',
-              })
-            }
-          })
-        } else if (!data.black_player_id && data.white_player_id !== user.uid) {
-          await runTransaction(db, async (transaction) => {
-            const freshDoc = await transaction.get(gameDoc.ref)
-            const freshData = freshDoc.data() as GameData | undefined
-            if (!freshData) return
-            if (!freshData.black_player_id && freshData.white_player_id !== user.uid) {
-              transaction.update(gameDoc.ref, {
-                black_player_id: user.uid,
-                black_name: user.displayName || 'Игрок',
-              })
-            }
-          })
-        } else if (data.white_player_id !== user.uid && data.black_player_id !== user.uid) {
-          if (!cancelled) {
-            onError('Комната уже заполнена')
-            onLoading(false)
-          }
+        // Already seated (reload / rematch) — no transaction needed.
+        if (data.white_player_id === user.uid || data.black_player_id === user.uid) {
+          if (cancelled) return
+          onJoined(gameDoc.id)
           return
         }
 
+        // Seat claim must re-read inside the transaction: two players opening the
+        // same link both see a free seat in the pre-transaction snapshot, and a
+        // silent no-op used to let the loser into the game without a chair.
+        const result = await runTransaction(db, async (transaction): Promise<
+          'claimed' | 'mine' | 'taken' | 'missing'
+        > => {
+          const freshDoc = await transaction.get(gameDoc.ref)
+          const freshData = freshDoc.data() as GameData | undefined
+          if (!freshData) return 'missing'
+          if (freshData.white_player_id === user.uid || freshData.black_player_id === user.uid) return 'mine'
+
+          const seat = !freshData.white_player_id ? 'white' : !freshData.black_player_id ? 'black' : null
+          if (!seat) return 'taken'
+
+          transaction.update(gameDoc.ref, {
+            [`${seat}_player_id`]: user.uid,
+            [`${seat}_name`]: user.displayName || 'Игрок',
+          })
+          return 'claimed'
+        })
+
         if (cancelled) return
+        if (result === 'taken') {
+          onError('Комната уже заполнена')
+          onLoading(false)
+          return
+        }
+        if (result === 'missing') {
+          onError('Комната не найдена')
+          onLoading(false)
+          return
+        }
         onJoined(gameDoc.id)
       } catch {
         if (!cancelled) {

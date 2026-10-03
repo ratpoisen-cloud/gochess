@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "test:fast": "vitest run src/hooks/__tests__ src/stores/__tests__ src/lib/__tests__ src/components/board/__tests__",
     "test:perft": "vitest run src/lib/engine/__tests__/perft.test.ts",
-    "verify": "npm run typecheck && npm run test:fast"
+    "verify": "npm run typecheck && npm run test:fast",
+    "firebase": "GOOGLE_APPLICATION_CREDENTIALS=./gochess-alternative-42fd5-firebase-adminsdk-fbsvc-03183a5c62.json firebase"
   },
   "dependencies": {
     "firebase": "^12.14.0",

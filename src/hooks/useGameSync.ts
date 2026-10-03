@@ -716,6 +716,11 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           const freshData = freshDoc.data()
           if (!freshData) return 'error'
 
+          // Партия уже завершена (сдача/ничья/флаг пишут game_state, НЕ меняя
+          // turn) — ход после конца не записываем, результат не перезаписываем.
+          if (freshData.game_state === 'game_over') {
+            return 'over'
+          }
           if (freshData.turn !== oldTurn && !gameOverNow) {
             return 'stale'
           }
@@ -724,7 +729,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           return 'ok'
         })
 
-        if (txnResult === 'stale') {
+        if (txnResult === 'stale' || txnResult === 'over') {
           localMoveRef.current = false
           const rollback = createEngine()
           if (prevPgn) rollback.loadPgn(prevPgn)
@@ -733,6 +738,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
           setIsMyTurn(wasMyTurn)
           if (gameMode === 'fog_of_war' && playerColor) {
             setVisibleSquares(getVisibleSquares(rollback, playerColor))
+          }
+          if (txnResult === 'over') {
+            addToast('Партия уже завершена', 'warning')
           }
           return false
         }
@@ -942,6 +950,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     lastTimerUpdate: timer.lastTimerUpdate,
     timerStatus: timer.timerStatus,
     timeControl: timer.timeControl,
+    flagTimeoutNow: timer.flagTimeoutNow,
     undoRequest: requests.undoRequest,
     drawRequest: requests.drawRequest,
     rematchGameId: rematch.rematchGameId,

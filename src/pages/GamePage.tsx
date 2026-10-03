@@ -91,6 +91,7 @@ export default function GamePage() {
     blackTimeLeft,
     timerStatus,
     timeControl,
+    flagTimeoutNow,
     undoRequest,
     drawRequest,
     rematchGameId,
@@ -488,25 +489,18 @@ export default function GamePage() {
     if (!loading) setInitialLoadComplete(true)
   }, [loading])
 
+  // Оба флага идут через guarded-транзакцию useGameTimer (game_state/turn/
+  // last_timer_update проверяются): старый голый updateDoc мог перезаписать
+  // пришедший с задержкой мат или сдачу.
   const handleOpponentTimeout = useCallback(() => {
     if (!gameDocId || gameOver) return
-    const winnerColor = playerColor === 'w' ? 'white' : 'black'
-    updateDoc(doc(db, 'games', gameDocId), {
-      game_state: 'game_over',
-      winner: winnerColor,
-      message: 'timeout',
-    }).catch(() => {})
-  }, [gameDocId, gameOver, playerColor])
+    flagTimeoutNow()
+  }, [gameDocId, gameOver, flagTimeoutNow])
 
   const handlePlayerTimeout = useCallback(() => {
     if (!gameDocId || gameOver) return
-    const winnerColor = playerColor === 'w' ? 'black' : 'white'
-    updateDoc(doc(db, 'games', gameDocId), {
-      game_state: 'game_over',
-      winner: winnerColor,
-      message: 'timeout',
-    }).catch(() => {})
-  }, [gameDocId, gameOver, playerColor])
+    flagTimeoutNow()
+  }, [gameDocId, gameOver, flagTimeoutNow])
 
   if (authLoading && !user) return <LoadingScreen isLoading={true} />
   if (error) {

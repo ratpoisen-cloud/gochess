@@ -26,11 +26,13 @@ type TimeoutFlagParams = {
  */
 function submitTimeoutFlag(
   flaggingRef: { current: boolean },
-  params: TimeoutFlagParams,
+  params: TimeoutFlagParams & { allowSelf?: boolean },
 ): void {
   if (!db || flaggingRef.current) return
-  const { gameDocId, turn, myColor, lastTimerUpdate, turnTimeLeft } = params
-  if (turn === myColor) return
+  const { gameDocId, turn, myColor, lastTimerUpdate, turnTimeLeft, allowSelf } = params
+  // The interval never flags the player themselves (a fast local clock
+  // would auto-loss them mid-game); the explicit zero-clock callback may.
+  if (turn === myColor && !allowSelf) return
 
   const elapsed = Math.max(0, Date.now() - lastTimerUpdate)
   if (turnTimeLeft - elapsed > -1000) return
@@ -161,6 +163,30 @@ export function useGameTimer(gameDocId: string | null) {
     })
   }, [gameDocId, timerStatus, lastTimerUpdate, whiteTimeLeft, blackTimeLeft])
 
+  /**
+   * Same guarded write as the interval, but callable the moment a clock
+   * visually reaches 0:00 — including by the player who ran out (their
+   * own loss; only they lose from a skewed clock). Replaces the old bare
+   * updateDoc in GamePage that could overwrite a fresh checkmate/resign.
+   */
+  const flagTimeoutNow = useCallback(() => {
+    if (!gameDocId || gameOverRef.current) return
+    if (timerStatus !== 'active' || !lastTimerUpdate) return
+    const myColor = myColorRef.current
+    const turn = turnRef.current
+    if (!myColor || !turn) return
+    const turnTimeLeft = turn === 'w' ? whiteTimeLeft : blackTimeLeft
+    if (turnTimeLeft === null || turnTimeLeft === undefined) return
+    submitTimeoutFlag(flaggingRef, {
+      gameDocId,
+      turn,
+      myColor,
+      lastTimerUpdate,
+      turnTimeLeft,
+      allowSelf: true,
+    })
+  }, [gameDocId, timerStatus, lastTimerUpdate, whiteTimeLeft, blackTimeLeft])
+
   useEffect(() => {
     if (!gameDocId) return
     const id = setInterval(flagIfTimeout, 1000)
@@ -201,6 +227,7 @@ export function useGameTimer(gameDocId: string | null) {
     setTimerFromSnapshot,
     buildTimerUpdate,
     isTimeout,
+    flagTimeoutNow,
     resetTimer,
     setWhiteTimeLeft,
     setBlackTimeLeft,

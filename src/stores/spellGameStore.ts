@@ -60,7 +60,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
 
   makeMove: (from, to) => {
     const { engine } = get()
-    const success = engine.move(from, to)
+    const success = engine.move({ from, to })
     if (success) {
       soundManager.play('move')
       const gameOver = engine.isGameOver()
@@ -80,7 +80,7 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
         hasCastSpellThisTurn: false,
       })
     }
-    return success
+    return success !== null
   },
 
   selectSquare: (square) => {

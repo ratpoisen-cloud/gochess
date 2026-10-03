@@ -36,20 +36,20 @@ describe('SpellChessEngine — ply counter survives FEN round-trip', () => {
     const e = new SpellChessEngine()
     expect(e.getTurnNumber()).toBe(1)
 
-    e.move('e2', 'e4')
+    e.move({ from: 'e2', to: 'e4' })
     expect(e.halfMoveCount).toBe(1)
     expect(e.getTurnNumber()).toBe(2)
 
-    e.move('e7', 'e5')
+    e.move({ from: 'e7', to: 'e5' })
     expect(e.halfMoveCount).toBe(2)
     expect(e.getTurnNumber()).toBe(3)
   })
 
   it('emits a real fullmove number in FEN and derives it back on load', () => {
     const e = new SpellChessEngine()
-    e.move('e2', 'e4')
-    e.move('e7', 'e5')
-    e.move('g1', 'f3')
+    e.move({ from: 'e2', to: 'e4' })
+    e.move({ from: 'e7', to: 'e5' })
+    e.move({ from: 'g1', to: 'f3' })
     // halfMoveCount 3 -> fullmove = floor(3/2)+1 = 2
     expect(e.fen().split(' ')[5]).toBe('2')
 
@@ -60,8 +60,8 @@ describe('SpellChessEngine — ply counter survives FEN round-trip', () => {
 
   it('keeps the ply counter through spell_state_json (the online path)', () => {
     const e = new SpellChessEngine()
-    e.move('e2', 'e4')
-    e.move('e7', 'e5')
+    e.move({ from: 'e2', to: 'e4' })
+    e.move({ from: 'e7', to: 'e5' })
 
     const ssj = e.spellStateToJSON()
     const fen = e.fen()
@@ -127,8 +127,8 @@ describe('SpellChessEngine — ply counter survives FEN round-trip', () => {
     for (let i = 0; i < 40; i++) {
       const m = pickLegalMove(live)
       expect(m, `no legal move at ply ${i}`).not.toBeNull()
-      const ok = live.move(m!.from, m!.to)
-      expect(ok, `move rejected at ply ${i}: ${m!.from}->${m!.to}`).toBe(true)
+      const ok = live.move({ from: m!.from, to: m!.to })
+      expect(ok, `move rejected at ply ${i}: ${m!.from}->${m!.to}`).not.toBeNull()
 
       // The online path: fresh engine, FEN, then persisted spell state
       const fen = live.fen()
@@ -161,8 +161,8 @@ describe('SpellChessEngine — ply counter survives FEN round-trip', () => {
 
   it('undo restores the previous ply count', () => {
     const e = new SpellChessEngine()
-    e.move('e2', 'e4')
-    e.move('e7', 'e5')
+    e.move({ from: 'e2', to: 'e4' })
+    e.move({ from: 'e7', to: 'e5' })
     expect(e.halfMoveCount).toBe(2)
     e.undo()
     expect(e.halfMoveCount).toBe(1)

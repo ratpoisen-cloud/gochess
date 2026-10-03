@@ -544,7 +544,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
       }
 
       try {
-        const success = (g as any).move(from, to)
+        const success = g.move({ from, to, promotion })
         if (!success) return false
 
         const prevFen = gameRef.current.fen()

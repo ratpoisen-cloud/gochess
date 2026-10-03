@@ -438,7 +438,9 @@ export class SpellChessEngine {
     })
   }
 
-  move(from: string, to: string): boolean {
+  // EngineAPI contract: object argument, Move | null result.
+  move(m: { from: string; to: string; promotion?: string }): EngineMove | null {
+    const { from, to } = m;
     const legal = this.getLegalMoves(from);
     if (!legal.includes(to)) {
       if (process.env.NODE_ENV === 'development') {
@@ -449,13 +451,13 @@ export class SpellChessEngine {
           'turn:', this.turn,
           'halfMoveCount:', this.halfMoveCount)
       }
-      return false;
+      return null;
     }
 
     const { r: fr, c: fc } = this.sqToIdx(from);
     const { r: tr, c: tc } = this.sqToIdx(to);
     const piece = this._pieces[fr][fc];
-    if (!piece) return false;
+    if (!piece) return null;
 
     // Save state for undo
     const captured = this._pieces[tr][tc]
@@ -469,6 +471,17 @@ export class SpellChessEngine {
 
     this._pieces[tr][tc] = piece;
     this._pieces[fr][fc] = null;
+
+    // Pawn promotion on the last rank. `piece` is the same object reference
+    // the portal branch moves around, so mutating it covers both landings.
+    // Without this a pawn reaching the 8th rank stayed a pawn with zero legal
+    // moves forever (its forward walk steps off the board).
+    let promotedType: PieceType | null = null;
+    if (piece.type === 'p' && (to[1] === '8' || to[1] === '1')) {
+      const requested = m.promotion;
+      promotedType = requested === 'r' || requested === 'b' || requested === 'n' ? requested : 'q';
+      piece.type = promotedType;
+    }
 
     let landingSq = to;
     if (this.spellState.portals) {
@@ -522,7 +535,9 @@ export class SpellChessEngine {
       }
     })
 
-    return true;
+    const moveObj = this.moveToObj(from, to);
+    if (promotedType) moveObj.promotion = promotedType;
+    return moveObj;
   }
 
   // --- FREE ACTIONS (can still move after) ---

@@ -52,6 +52,7 @@ export default function LocalPage() {
   const [whiteTime, setWhiteTime] = useState(600000)
   const [blackTime, setBlackTime] = useState(600000)
   const lastTurnRef = useRef(currentTurn)
+  const lastHistoryLenRef = useRef(0)
 
   const isActuallyGameOver = isGameOver || manualGameOver
   const isVictory = isActuallyGameOver && !resultText.includes('Ничья') && !resultText.includes('договоренности')
@@ -82,20 +83,62 @@ export default function LocalPage() {
     setManualGameOver(true)
   }, [isActuallyGameOver, blackName, whiteName])
 
+  // Rapid: родитель — единственный источник истины для часов. Раньше
+  // списание жило внутри ChessTimer, а родитель знал только «база + n·inc» —
+  // при каждом изменении пропа таймер сбрасывался на полную базу (при inc=0
+  // проп не менялся вовсе и новый партии доставался чужой остаток).
+  useEffect(() => {
+    if (!isRapid || isSetupModalOpen || isActuallyGameOver) return
+    let last = Date.now()
+    const id = setInterval(() => {
+      const now = Date.now()
+      const delta = now - last
+      last = now
+      if (currentTurn === 'w') {
+        setWhiteTime(prev => Math.max(0, prev - delta))
+      } else {
+        setBlackTime(prev => Math.max(0, prev - delta))
+      }
+    }, 250)
+    return () => clearInterval(id)
+  }, [isRapid, isSetupModalOpen, isActuallyGameOver, currentTurn])
+
+  // Флаг: активные часы дошли до нуля — конец партии (handleTimeout
+  // идемпотентен через isActuallyGameOver).
+  useEffect(() => {
+    if (!isRapid || isSetupModalOpen || isActuallyGameOver) return
+    if (currentTurn === 'w' && whiteTime <= 0) handleTimeout('w')
+    else if (currentTurn === 'b' && blackTime <= 0) handleTimeout('b')
+  }, [isRapid, isSetupModalOpen, isActuallyGameOver, currentTurn, whiteTime, blackTime, handleTimeout])
+
   // Turn Change (Increment Logic)
   useEffect(() => {
     if (isRapid && !isSetupModalOpen && !isActuallyGameOver) {
       if (lastTurnRef.current !== currentTurn) {
-        const playerWhoJustMoved = lastTurnRef.current
-        if (playerWhoJustMoved === 'w') {
-          setWhiteTime(prev => prev + (timeControl.increment * 1000))
+        const incMs = timeControl.increment * 1000
+        const isUndo = moveHistory.length < lastHistoryLenRef.current
+        if (isUndo) {
+          // Отмена хода: инкемент возвращается тому, чей ход отменили
+          // (currentTurn снова его). Раньше эффект путал отмену с ходом
+          // и начислял +inc не тому игроку.
+          if (currentTurn === 'w') {
+            setWhiteTime(prev => Math.max(0, prev - incMs))
+          } else {
+            setBlackTime(prev => Math.max(0, prev - incMs))
+          }
         } else {
-          setBlackTime(prev => prev + (timeControl.increment * 1000))
+          const playerWhoJustMoved = lastTurnRef.current
+          if (playerWhoJustMoved === 'w') {
+            setWhiteTime(prev => prev + incMs)
+          } else {
+            setBlackTime(prev => prev + incMs)
+          }
         }
         lastTurnRef.current = currentTurn
+        lastHistoryLenRef.current = moveHistory.length
       }
     }
-  }, [currentTurn, isRapid, isSetupModalOpen, isActuallyGameOver, timeControl.increment])
+  }, [currentTurn, isRapid, isSetupModalOpen, isActuallyGameOver, timeControl.increment, moveHistory.length])
 
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = game.get(from as any)
@@ -206,6 +249,8 @@ export default function LocalPage() {
   const handleRematch = () => {
     resetGame()
     setActiveMode(isRapid ? 'local-rapid' : 'local-classic')
+    lastTurnRef.current = 'w'
+    lastHistoryLenRef.current = 0
     if (isRapid) {
       setWhiteTime(timeControl.base * 60000)
       setBlackTime(timeControl.base * 60000)
@@ -219,10 +264,11 @@ export default function LocalPage() {
   const handleStartGame = () => {
     resetGame()
     setActiveMode(isRapid ? 'local-rapid' : 'local-classic')
+    lastTurnRef.current = 'w'
+    lastHistoryLenRef.current = 0
     if (isRapid) {
       setWhiteTime(timeControl.base * 60000)
       setBlackTime(timeControl.base * 60000)
-      lastTurnRef.current = 'w'
     }
     setManualGameOver(false)
     setResultText('')
@@ -326,6 +372,7 @@ export default function LocalPage() {
                     isActive={currentTurn === 'b' && !isActuallyGameOver} 
                     label={blackName} 
                     increment={timeControl.increment}
+                    controlled
                     onTimeout={() => handleTimeout('b')}
                   />
                 </div>
@@ -358,6 +405,7 @@ export default function LocalPage() {
                     isActive={currentTurn === 'w' && !isActuallyGameOver} 
                     label={whiteName} 
                     increment={timeControl.increment} 
+                    controlled
                     onTimeout={() => handleTimeout('w')}
                   />
                 </div>

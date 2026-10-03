@@ -6,6 +6,13 @@ interface ChessTimerProps {
   label: string            // player name or "You"
   increment?: number       // in seconds
   onTimeout?: () => void   // callback when timer hits zero
+  /**
+   * Controlled mode: no internal ticker — the parent owns the clock
+   * (local rapid: increments, resets and undo all live there). The
+   * default (false) keeps the online model: value from a Firestore
+   * snapshot, smoothed locally between updates.
+   */
+  controlled?: boolean
 }
 
 export default function ChessTimer({ 
@@ -13,7 +20,8 @@ export default function ChessTimer({
   isActive, 
   label, 
   increment = 0,
-  onTimeout
+  onTimeout,
+  controlled = false,
 }: ChessTimerProps) {
   const [localTime, setLocalTime] = useState(timeLeft)
   const lastTickRef = useRef(Date.now())
@@ -23,14 +31,25 @@ export default function ChessTimer({
 
   // Sync with prop when it changes
   useEffect(() => {
+    if (controlled) return
     setLocalTime(timeLeft)
     lastTickRef.current = Date.now()
     if (timeLeft > 0) hasTimedOut.current = false
-  }, [timeLeft])
+  }, [timeLeft, controlled])
+
+  // Controlled: parent decrements the prop; just watch it for zero.
+  useEffect(() => {
+    if (!controlled) return
+    if (timeLeft <= 0 && isActive && !hasTimedOut.current) {
+      hasTimedOut.current = true
+      onTimeoutRef.current?.()
+    }
+    if (timeLeft > 0) hasTimedOut.current = false
+  }, [controlled, timeLeft, isActive])
 
   // Tick local time if active
   useEffect(() => {
-    if (!isActive) return
+    if (controlled || !isActive) return
 
     // Re-base the ticker when the clock starts running. The effect above only
     // fires when `timeLeft` changes, and the opponent's move writes only their
@@ -55,7 +74,7 @@ export default function ChessTimer({
     }, 100)
 
     return () => clearInterval(interval)
-  }, [isActive])
+  }, [isActive, controlled])
 
   const formatTime = (ms: number) => {
     const totalSeconds = Math.ceil(ms / 1000)
@@ -64,8 +83,9 @@ export default function ChessTimer({
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
-  const isWarning = localTime < 60000
-  const isCritical = localTime < 10000
+  const displayTime = controlled ? timeLeft : localTime
+  const isWarning = displayTime < 60000
+  const isCritical = displayTime < 10000
 
   return (
     <div className={`flex items-center justify-between w-full px-[var(--space-12)] py-[var(--space-8)] rounded-[var(--radius-8)] border transition-all duration-300 ${
@@ -91,7 +111,7 @@ export default function ChessTimer({
         isWarning ? 'text-[var(--warning)]' : 
         isActive ? 'text-[var(--accent-brand)]' : 'text-text'
       }`} style={{ fontFamily: 'var(--font-family-ui)' }}>
-        {formatTime(localTime)}
+        {formatTime(displayTime)}
       </div>
     </div>
   )

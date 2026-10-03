@@ -23,9 +23,6 @@ const LIFE_MIN_MS = 1200
 const LIFE_MAX_MS = 2500
 const FADE_MS = 400
 const HARD_LIMIT_MS = 8000
-// Скорость не должна взлетать от репульсии/отскоков — иначе конфетти
-// «чертят» следы и сминаются в неразбериху.
-const MAX_SPEED = 18
 // Дно: честный затухающий отскок без «подарка» скорости (старый
 // vy = -(0.3+rand*0.2) разгонял лежащие частицы — они вечно дрожали).
 const BOUNCE_DAMP = 0.35
@@ -60,14 +57,9 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
     let animationFrameId: number
     let particles: Particle[] = []
-    let gyroPermissionRequested = false
     let currentScale = 1
     let elapsed = 0
     let lastFrameAt = performance.now()
-
-    const mousePos = { x: null as number | null, y: null as number | null }
-    const tilt = { x: 0, y: 0 }
-    const targetTilt = { x: 0, y: 0 }
 
     const isMobile = window.innerWidth < 768
 
@@ -143,10 +135,6 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
       elapsed += deltaMs
 
-      // Smooth tilt values
-      tilt.x += (targetTilt.x - tilt.x) * 0.1
-      tilt.y += (targetTilt.y - tilt.y) * 0.1
-
       particles.forEach((p) => {
         p.age += deltaMs
         if (p.isFeather) {
@@ -159,32 +147,6 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
           p.vy += 0.06
           p.vx *= 0.995
           p.vy *= 0.995
-        }
-
-        if (!isInsideBoard && mousePos.x !== null && mousePos.y !== null) {
-          const dx = p.x - mousePos.x
-          const dy = p.y - mousePos.y
-          const dist = Math.hypot(dx, dy)
-          if (dist < 120 && dist > 1) {
-            const force = 30 / dist
-            const mult = p.isFeather ? 2 : 1
-            p.vx += (dx / dist) * force * mult
-            p.vy += (dy / dist) * force * mult
-          }
-        }
-
-        if (tilt.x !== 0 || tilt.y !== 0) {
-          const mult = p.isFeather ? 3 : 1
-          p.vx += tilt.x * 0.015 * mult
-          p.vy += tilt.y * 0.015 * mult
-        }
-
-        // Clamp: репульсия и отскоки не должны разгонять частицы
-        // до скоростей, оставляющих визуальные «размазы».
-        const speed = Math.hypot(p.vx, p.vy)
-        if (speed > MAX_SPEED) {
-          p.vx = (p.vx / speed) * MAX_SPEED
-          p.vy = (p.vy / speed) * MAX_SPEED
         }
 
         p.x += p.vx
@@ -234,49 +196,7 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
       animationFrameId = requestAnimationFrame(update)
     }
 
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = canvas.getBoundingClientRect()
-      mousePos.x = e.clientX - rect.left
-      mousePos.y = e.clientY - rect.top
-    }
-
-    const handleTouchMove = (e: TouchEvent) => {
-      const touch = e.touches[0]
-      const rect = canvas.getBoundingClientRect()
-      mousePos.x = touch.clientX - rect.left
-      mousePos.y = touch.clientY - rect.top
-    }
-
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      const beta = e.beta ?? 45
-      const gamma = e.gamma ?? 0
-      
-      targetTilt.x = gamma / 90
-      // Normalize beta around 45 degrees (comfortable handheld angle)
-      targetTilt.y = Math.max(-1, Math.min(1, (beta - 45) / 45))
-    }
-
-    const requestGyroPermission = async () => {
-      if (gyroPermissionRequested) return
-      gyroPermissionRequested = true
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof (DeviceOrientationEvent as any).requestPermission === 'function') {
-        try {
-          const permission = await (DeviceOrientationEvent as any).requestPermission()
-          if (permission === 'granted') {
-            window.addEventListener('deviceorientation', handleOrientation)
-          }
-        } catch (e) {
-          console.warn('[Confetti] Gyro permission error:', e)
-        }
-      } else if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', handleOrientation)
-      }
-    }
-
     window.addEventListener('resize', resize)
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('touchmove', handleTouchMove, { passive: true })
-    requestGyroPermission()
 
     resize()
     createParticles()
@@ -285,11 +205,6 @@ export default function PixelConfetti({ boardMode, lightSquareColor, darkSquareC
 
     return () => {
       window.removeEventListener('resize', resize)
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('touchmove', handleTouchMove)
-      if (window.DeviceOrientationEvent) {
-        window.removeEventListener('deviceorientation', handleOrientation)
-      }
       cancelAnimationFrame(animationFrameId)
     }
   }, [boardMode, lightSquareColor, darkSquareColor])

@@ -12,6 +12,7 @@ import GameLayout from '@/components/GameLayout'
 import { usePgnCopy } from '@/hooks/usePgnCopy'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
 import { useBoardStore } from '@/stores/boardStore'
+import { soundManager } from '@/lib/soundManager'
 import { getKingSquare } from '@/stores/gameStore'
 import PromotionPicker from '@/components/PromotionPicker'
 
@@ -60,6 +61,9 @@ export default function AtomicLocalPage() {
     if (state.lastBlastSquare) {
       const center = getSquareCenter(state.lastBlastSquare)
       vfxRef.current?.trigger({ ...center, type: 'blast' })
+      soundManager.play('blast')
+    } else {
+      soundManager.play(move.captured ? 'capture' : 'move')
     }
 
     setFen(engine.fen())
@@ -87,7 +91,7 @@ export default function AtomicLocalPage() {
     }
 
     return true
-  }, [engine])
+  }, [engine, stableWidth])
 
   const checkPromotion = (from: string, to: string): boolean => {
     const piece = engine.get(from)

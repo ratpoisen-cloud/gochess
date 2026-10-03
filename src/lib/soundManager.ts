@@ -7,6 +7,7 @@ type SoundEvent =
   | 'gameStart' 
   | 'gameEnd' 
   | 'select' 
+  | 'blast'
   | 'modal';
 
 const BASE = import.meta.env.BASE_URL || '/';
@@ -43,6 +44,7 @@ class SoundManager {
     this.loadSound('check', ['check-1.mp3', 'check-2.mp3', 'check-3.mp3']);
     this.loadSound('checkmate', ['checkmate-1.mp3']);
     this.loadSound('promote', ['promotion-1.mp3', 'promotion-2.mp3']);
+    this.loadSound('blast', ['hegrenade-1.wav']);
   }
 
   private loadSound(event: SoundEvent, files: string[]) {

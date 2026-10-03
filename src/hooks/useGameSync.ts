@@ -292,22 +292,37 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         setSpellStateJson(defaultSsj)
       }
       lastPgnRef.current = newData.pgn || lastPgnRef.current
-    } else if (isAtomic && newData.spell_state_json && newData.spell_state_json !== lastSpellStateJsonRef.current) {
-      if (!localMoveRef.current) {
+    } else if (isAtomic) {
+      // Quiet atomic moves produce an identical spell_state_json
+      // ({"lastBlastSquare":null,...}), so comparing only the SSJ left the
+      // opponent's board frozen until the next capture. Key the sync off the
+      // FEN (always written by makeMove) with the SSJ as a fallback, and
+      // always consume localMoveRef so a pending optimistic move cannot
+      // swallow the opponent's next snapshot.
+      const ssj = newData.spell_state_json
+      const fenChanged = !!newData.fen && newData.fen !== gameRef.current.fen()
+      const ssjChanged = !!ssj && ssj !== lastSpellStateJsonRef.current
+      const positionChanged = fenChanged || ssjChanged
+
+      if (positionChanged && !localMoveRef.current) {
         const g = createEngine('atomic', newData.fen || undefined)
-        if (newData.spell_state_json) {
+        if (ssj) {
           try {
-            const state = JSON.parse(newData.spell_state_json)
+            const state = JSON.parse(ssj)
             ;(g as any).setAtomicState?.(state)
           } catch {}
         }
         updateGameState(g)
       }
-      lastSpellStateJsonRef.current = newData.spell_state_json
-      setSpellStateJson(newData.spell_state_json)
+      if (ssj) {
+        lastSpellStateJsonRef.current = ssj
+        setSpellStateJson(ssj)
+      }
 
-      if (!localMoveRef.current && !isFirstSnapshot) {
-        soundManager.play('move')
+      if (positionChanged && !localMoveRef.current && !isFirstSnapshot) {
+        let hasBlast = false
+        try { hasBlast = !!JSON.parse(ssj || '{}').lastBlastSquare } catch {}
+        soundManager.play(hasBlast ? 'blast' : 'move')
         useReactionStore.getState().resetMoveCounter()
       }
       lastPgnRef.current = newData.pgn || lastPgnRef.current
@@ -526,7 +541,9 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
         }
 
         useReactionStore.getState().resetMoveCounter()
-        soundManager.play('move')
+        let localBlast = false
+        try { localBlast = !!JSON.parse(newSsj || '{}').lastBlastSquare } catch {}
+        soundManager.play(localBlast ? 'blast' : 'move')
       } catch {
         localMoveRef.current = false
         const rollback = createEngine('atomic', prevFen || undefined)

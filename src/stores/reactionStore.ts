@@ -15,6 +15,7 @@ interface ReactionState {
   reactions: Reaction[]
   reactionsWhite: number
   reactionsBlack: number
+  canAddReaction: (r: Reaction, color?: Color) => AddReactionResult
   addReaction: (r: Reaction, color?: Color) => AddReactionResult
   removeReaction: (id: string) => void
   setReactions: (reactions: Reaction[]) => void
@@ -29,16 +30,24 @@ export const useReactionStore = create<ReactionState>((set, get) => ({
   reactionsWhite: 0,
   reactionsBlack: 0,
 
-  addReaction: (r, color) => {
+  // Pure validation, no state change: lets callers run side effects (e.g. a
+  // Firestore write) first and only then commit locally.
+  canAddReaction: (r, color) => {
     const { reactions, reactionsWhite, reactionsBlack } = get()
 
-    const existingOnSquare = reactions.some(e => e.square === r.square)
-    if (existingOnSquare) return 'square_occupied'
+    if (reactions.some(e => e.square === r.square)) return 'square_occupied'
 
     if (color) {
       const playerCount = color === 'w' ? reactionsWhite : reactionsBlack
       if (playerCount >= MAX_REACTIONS_PER_MOVE) return 'limit_reached'
     }
+
+    return 'ok'
+  },
+
+  addReaction: (r, color) => {
+    const check = get().canAddReaction(r, color)
+    if (check !== 'ok') return check
 
     set((s) => ({
       reactions: [...s.reactions, r],

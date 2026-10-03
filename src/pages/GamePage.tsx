@@ -298,14 +298,15 @@ export default function GamePage() {
       createdAt: Date.now(),
     }
 
-    const result = useReactionStore.getState().addReaction(reaction, playerColor)
-    if (result === 'limit_reached') {
+    // Validate first, then write remotely, then commit locally: a failed
+    // transaction used to leave the reaction in the local store forever,
+    // silently diverging from Firestore.
+    const check = useReactionStore.getState().canAddReaction(reaction, playerColor)
+    if (check === 'limit_reached') {
       addToast('Не более 5 реакций за ход', 'warning')
       return
     }
-    if (result !== 'ok') return
-    setShowReactionPicker(false)
-    setReactionSquare(null)
+    if (check !== 'ok') return
 
     try {
       await runTransaction(db, async (transaction) => {
@@ -318,7 +319,12 @@ export default function GamePage() {
       })
     } catch {
       addToast('Ошибка отправки реакции', 'error')
+      return
     }
+
+    useReactionStore.getState().addReaction(reaction, playerColor)
+    setShowReactionPicker(false)
+    setReactionSquare(null)
   }
 
   const parsedSpellState = useMemo((): SpellState | null => {

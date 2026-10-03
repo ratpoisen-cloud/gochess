@@ -928,7 +928,7 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
     handleRematch: () => rematch.handleRematch(playerColor),
     handleDeclineRematch: rematch.handleDeclineRematch,
     goToRematch: rematch.goToRematch,
-    handleAcceptUndo: () => requests.handleAcceptUndo(lastPgnRef.current, gameMode, spellStateJson),
+    handleAcceptUndo: () => requests.handleAcceptUndo(gameMode),
     handleRejectUndo: requests.handleRejectUndo,
     handleAcceptDraw: requests.handleAcceptDraw,
     updateGameState,

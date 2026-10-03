@@ -1,9 +1,12 @@
 import { useState, useCallback } from 'react'
-import { doc, updateDoc, getDoc, runTransaction } from 'firebase/firestore'
+import { doc, updateDoc, runTransaction } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { createEngine } from '@/lib/engine'
 import { useToast } from '@/components/Toast'
 import type { GameData } from '@/types'
+
+type UndoOutcome = 'ok' | 'noop' | 'missing' | 'finished' | 'stale' | 'unsupported'
+type DrawOutcome = 'ok' | 'missing' | 'finished' | 'stale'
 
 export function useGameRequest(gameDocId: string | null) {
   const { addToast } = useToast()
@@ -15,51 +18,68 @@ export function useGameRequest(gameDocId: string | null) {
     setDrawRequest(newData.draw_request)
   }, [])
 
-  const handleAcceptUndo = useCallback(async (pgn: string, mode?: string, ssj?: string | null) => {
+  // The position is rebuilt from the document read INSIDE the transaction:
+  // using the caller's local PGN mirror would blindly overwrite any move that
+  // landed between read and write. Guards re-check game_state and the request
+  // identity so a rejected/expired request cannot roll back a finished game.
+  const handleAcceptUndo = useCallback(async (mode?: string) => {
     if (!gameDocId || !undoRequest) return
     try {
-      const snap = await getDoc(doc(db, 'games', gameDocId))
-      const data = snap.data()
-      const requestorColor = undoRequest.from_id === data?.white_player_id ? 'w' : 'b'
+      const outcome = await runTransaction(db, async (transaction): Promise<UndoOutcome> => {
+        const gameRef = doc(db, 'games', gameDocId)
+        const freshDoc = await transaction.get(gameRef)
+        const fresh = freshDoc.data()
+        if (!fresh) return 'missing'
+        if (fresh.game_state === 'game_over') return 'finished'
 
-      const engineMode = mode === 'spell_chess' ? 'spell' : mode === 'atomic_chess' ? 'atomic' : undefined
-      const g = createEngine(engineMode)
-      if (mode === 'spell_chess' && ssj) {
-        try { (g as any).applySpellStateJSON?.(ssj) } catch {}
-      }
-      try {
-        g.loadPgn(pgn)
-      } catch {
-        if (data?.fen) g.load(data.fen)
-      }
+        const req = fresh.undo_request
+        if (!req || req.from_id !== undoRequest.from_id || req.created_at !== undoRequest.created_at) {
+          return 'stale'
+        }
 
-      if (requestorColor === g.turn()) {
-        g.undo()
-        g.undo()
-      } else {
-        g.undo()
-      }
+        // Spell Chess stores no move list in the document (FEN + spell state
+        // only), so there is nothing to replay — accepting would reset the game.
+        if (mode === 'spell_chess') return 'unsupported'
 
-      const updateFields: Record<string, any> = {
-        fen: g.fen(),
-        turn: g.turn(),
-        last_move_time: Date.now(),
-        undo_request: null,
-      }
+        const engineMode = mode === 'atomic_chess' ? 'atomic' : undefined
+        const g = createEngine(engineMode)
+        const freshPgn: string = fresh.pgn || ''
+        try {
+          g.loadPgn(freshPgn)
+        } catch {
+          transaction.update(gameRef, { undo_request: null })
+          return 'noop'
+        }
+        if (g.history().length === 0) {
+          transaction.update(gameRef, { undo_request: null })
+          return 'noop'
+        }
 
-      updateFields.pgn = g.pgn()
-      if ((g as any).spellStateToJSON) {
-        updateFields.spell_state_json = (g as any).spellStateToJSON()
-      } else if ((g as any).getAtomicState) {
-        updateFields.spell_state_json = JSON.stringify((g as any).getAtomicState())
-      }
+        const requestorColor = req.from_id === fresh.white_player_id ? 'w' : 'b'
+        const plies = requestorColor === g.turn() ? 2 : 1
+        for (let i = 0; i < plies && g.history().length > 0; i++) g.undo()
 
-      await runTransaction(db, async (transaction) => {
-        const gameRef2 = doc(db, 'games', gameDocId)
-        const freshDoc = await transaction.get(gameRef2)
-        if (!freshDoc.exists()) return
-        transaction.update(gameRef2, updateFields)
+        const updateFields: Record<string, unknown> = {
+          fen: g.fen(),
+          turn: g.turn(),
+          pgn: g.pgn(),
+          last_move_time: Date.now(),
+          undo_request: null,
+        }
+        const atomic = g as unknown as { getAtomicState?: () => unknown }
+        if (atomic.getAtomicState) {
+          updateFields.spell_state_json = JSON.stringify(atomic.getAtomicState())
+        }
+
+        transaction.update(gameRef, updateFields)
+        return 'ok'
       })
+
+      if (outcome === 'finished') addToast('Партия уже завершена', 'error')
+      else if (outcome === 'stale') addToast('Запрос на отмену устарел', 'error')
+      else if (outcome === 'missing') addToast('Партия не найдена', 'error')
+      else if (outcome === 'unsupported') addToast('Отмена хода недоступна в этом режиме', 'error')
+      else if (outcome === 'noop') addToast('Отменять нечего', 'warning')
     } catch {
       addToast('Ошибка при отмене хода', 'error')
     }
@@ -77,17 +97,31 @@ export function useGameRequest(gameDocId: string | null) {
   const handleAcceptDraw = useCallback(async () => {
     if (!gameDocId || !drawRequest) return
     try {
-      await runTransaction(db, async (transaction) => {
-        const gameRef2 = doc(db, 'games', gameDocId)
-        const freshDoc = await transaction.get(gameRef2)
-        if (!freshDoc.exists()) return
-        transaction.update(gameRef2, {
+      const outcome = await runTransaction(db, async (transaction): Promise<DrawOutcome> => {
+        const gameRef = doc(db, 'games', gameDocId)
+        const freshDoc = await transaction.get(gameRef)
+        const fresh = freshDoc.data()
+        if (!fresh) return 'missing'
+        // A draw accepted after the opponent delivered mate would overwrite a
+        // decided result for both players.
+        if (fresh.game_state === 'game_over') return 'finished'
+        const req = fresh.draw_request
+        if (!req || req.from_id !== drawRequest.from_id || req.created_at !== drawRequest.created_at) {
+          return 'stale'
+        }
+        transaction.update(gameRef, {
           game_state: 'game_over',
           winner: null,
           message: 'draw',
           draw_request: null,
+          undo_request: null,
         })
+        return 'ok'
       })
+
+      if (outcome === 'finished') addToast('Партия уже завершена', 'error')
+      else if (outcome === 'stale') addToast('Предложение ничьей устарело', 'error')
+      else if (outcome === 'missing') addToast('Партия не найдена', 'error')
     } catch {
       addToast('Ошибка при согласии на ничью', 'error')
     }

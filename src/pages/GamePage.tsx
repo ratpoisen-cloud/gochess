@@ -959,7 +959,7 @@ export default function GamePage() {
       )}
 
       <RequestModal
-        isOpen={!!(undoRequest && user && undoRequest.from_id !== user.uid)}
+        isOpen={!gameOver && !!(undoRequest && user && undoRequest.from_id !== user.uid)}
         title="Запрос отмены"
         description="Соперник просит отменить последний ход"
         onAccept={handleAcceptUndo}
@@ -967,7 +967,7 @@ export default function GamePage() {
       />
 
       <RequestModal
-        isOpen={!!(drawRequest && user && drawRequest.from_id !== user.uid)}
+        isOpen={!gameOver && !!(drawRequest && user && drawRequest.from_id !== user.uid)}
         title="Предложение ничьей"
         description="Соперник предлагает ничью"
         onAccept={handleAcceptDraw}

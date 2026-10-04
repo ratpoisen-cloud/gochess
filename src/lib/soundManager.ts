@@ -1,26 +1,42 @@
-type SoundEvent = 
-  | 'move' 
-  | 'capture' 
-  | 'check' 
-  | 'checkmate' 
-  | 'promote' 
-  | 'gameStart' 
-  | 'gameEnd' 
-  | 'select' 
+type SoundEvent =
+  | 'move'
+  | 'capture'
+  | 'check'
+  | 'checkmate'
+  | 'promote'
+  | 'gameStart'
+  | 'gameEnd'
+  | 'select'
   | 'blast'
   | 'modal';
 
 const BASE = import.meta.env.BASE_URL || '/';
 const SOUNDS_PATH = `${BASE}sounds/`;
+const PREFS_KEY = 'gochess-sound-settings';
 
 class SoundManager {
   private sounds: Map<string, HTMLAudioElement[]> = new Map();
   private enabled: boolean = true;
+  private volume: number = 1;
   private unlocked: boolean = false;
 
   constructor() {
+    this.loadPreferences();
     this.init();
     this.unlockOnInteraction();
+  }
+
+  private loadPreferences() {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      if (!raw) return;
+      const state = JSON.parse(raw)?.state;
+      if (!state) return;
+      if (typeof state.enabled === 'boolean') this.enabled = state.enabled;
+      if (typeof state.volume === 'number') {
+        this.volume = Math.min(1, Math.max(0, state.volume / 100));
+      }
+    } catch {}
   }
 
   private unlockOnInteraction() {
@@ -51,14 +67,15 @@ class SoundManager {
     const audioElements = files.map(file => {
       const audio = new Audio(`${SOUNDS_PATH}${file}`);
       audio.preload = 'auto';
+      audio.volume = this.volume;
       return audio;
     });
     this.sounds.set(event, audioElements);
   }
 
   public play(event: SoundEvent) {
-    if (!this.enabled) return;
-    
+    if (!this.enabled || this.volume <= 0) return;
+
     const variants = this.sounds.get(event);
     if (!variants || variants.length === 0) return;
 
@@ -69,6 +86,34 @@ class SoundManager {
 
   public setEnabled(enabled: boolean) {
     this.enabled = enabled;
+    if (!enabled) this.stopAll();
+  }
+
+  public setVolume(volume: number) {
+    this.volume = Math.min(1, Math.max(0, volume));
+    this.sounds.forEach(variants => {
+      variants.forEach(audio => { audio.volume = this.volume; });
+    });
+  }
+
+  public isEnabled(): boolean {
+    return this.enabled;
+  }
+
+  public getVolume(): number {
+    return this.volume;
+  }
+
+  private stopAll() {
+    this.sounds.forEach(variants => {
+      variants.forEach(audio => {
+        if (audio.paused) return;
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+        } catch {}
+      });
+    });
   }
 }
 

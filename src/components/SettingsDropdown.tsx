@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
+import { useSoundStore } from '@/stores/soundStore'
+import { soundManager } from '@/lib/soundManager'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -7,6 +9,7 @@ export default function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { selectedTheme, selectedPieceSet, setSelectedTheme, setSelectedPieceSet } = useBoardStore()
+  const { enabled: soundEnabled, volume: soundVolume, setEnabled: setSoundEnabled, setVolume: setSoundVolume } = useSoundStore()
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
@@ -112,6 +115,44 @@ export default function SettingsDropdown() {
                   </button>
                 )
               })}
+            </div>
+
+            <h3 className="text-[var(--font-size-sm)] font-semibold mt-[var(--space-16)] mb-[var(--space-12)] text-[var(--accent-brand)]">Звук</h3>
+            <div className="space-y-[var(--space-12)]">
+              <div className="flex items-center justify-between gap-[var(--space-8)]">
+                <span className="text-[var(--font-size-xs)] text-text">Звуковые эффекты</span>
+                <button
+                  type="button"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  aria-pressed={soundEnabled}
+                  className={`
+                    px-[var(--space-12)] py-[4px] rounded-[var(--btn-radius)] border
+                    text-[9px] font-bold uppercase tracking-widest transition-colors
+                    ${soundEnabled
+                      ? 'border-[var(--accent-brand)] text-[var(--accent-brand)] bg-[color-mix(in_srgb,var(--accent-brand)_12%,transparent)]'
+                      : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--accent-brand)_40%,var(--border))]'
+                    }
+                  `}
+                >
+                  {soundEnabled ? 'Вкл' : 'Выкл'}
+                </button>
+              </div>
+              <div className={`flex items-center gap-[var(--space-8)] transition-opacity ${soundEnabled ? '' : 'opacity-50'}`}>
+                <span className="text-[var(--font-size-xs)] text-text whitespace-nowrap">Громкость</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={soundVolume}
+                  onChange={(e) => setSoundVolume(Number(e.target.value))}
+                  onPointerUp={() => soundManager.play('select')}
+                  disabled={!soundEnabled}
+                  aria-label="Громкость"
+                  className="flex-1 min-w-0 accent-[var(--accent-brand)] cursor-pointer disabled:cursor-not-allowed"
+                />
+                <span className="text-[9px] text-text-secondary tabular-nums w-[32px] text-right">{soundVolume}%</span>
+              </div>
             </div>
           </div>
           </div>

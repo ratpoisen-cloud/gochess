@@ -12,6 +12,7 @@ import type { Challenge } from '@/types'
 import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
+import SettingsDropdown from '@/components/SettingsDropdown'
 import LoadingScreen from '@/components/LoadingScreen'
 import BoardPreview from '@/components/board/BoardPreview'
 import Modal from '@/components/Modal'
@@ -183,6 +184,7 @@ export default function LobbyPage() {
       <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
         <div className="max-w-[1200px] mx-auto flex items-center justify-center relative min-h-[32px]">
           <div className="absolute right-0 flex items-center gap-[var(--space-12)] md:gap-[var(--space-20)]">
+            <SettingsDropdown />
             {user ? (
               <UserMenu />
             ) : (

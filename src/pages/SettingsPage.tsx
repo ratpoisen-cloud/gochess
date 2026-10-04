@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
+import { useSoundStore } from '@/stores/soundStore'
+import { soundManager } from '@/lib/soundManager'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/Toast'
 import Button from '@/components/Button'
@@ -51,6 +53,7 @@ function PiecePreview({ pieceSetId }: { pieceSetId: string }) {
 
 export default function SettingsPage() {
   const { selectedTheme, selectedPieceSet, setSelectedTheme, setSelectedPieceSet } = useBoardStore()
+  const { enabled: soundEnabled, volume: soundVolume, setEnabled: setSoundEnabled, setVolume: setSoundVolume } = useSoundStore()
   const { user, updateProfile } = useAuth()
   const { addToast } = useToast()
   
@@ -120,6 +123,55 @@ export default function SettingsPage() {
             </form>
           </section>
         )}
+
+        <section className="mb-[var(--space-40)]">
+          <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">
+            Звук
+          </h2>
+          <div className="max-w-[400px] bg-[var(--bg)] p-[var(--space-24)] rounded-[var(--radius-8)] border border-[var(--border)] space-y-[var(--space-20)]">
+            <div className="flex items-center justify-between gap-[var(--space-16)]">
+              <span className="text-[var(--font-size-sm)] text-text">Звуковые эффекты</span>
+              <button
+                type="button"
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                aria-pressed={soundEnabled}
+                className={`
+                  px-[var(--space-16)] py-[6px] rounded-[var(--btn-radius)] border
+                  text-[var(--font-size-xs)] font-bold uppercase tracking-widest transition-colors
+                  ${soundEnabled
+                    ? 'border-[var(--accent-brand)] text-[var(--accent-brand)] bg-[color-mix(in_srgb,var(--accent-brand)_12%,transparent)]'
+                    : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-[color-mix(in_srgb,var(--accent-brand)_40%,var(--border))]'
+                  }
+                `}
+              >
+                {soundEnabled ? 'Вкл' : 'Выкл'}
+              </button>
+            </div>
+
+            <div className={`space-y-[var(--space-8)] transition-opacity ${soundEnabled ? '' : 'opacity-50'}`}>
+              <div className="flex items-center justify-between">
+                <label htmlFor="sound-volume" className="text-[var(--font-size-sm)] text-text">
+                  Громкость
+                </label>
+                <span className="text-[var(--font-size-xs)] text-[var(--text-secondary)] tabular-nums">
+                  {soundVolume}%
+                </span>
+              </div>
+              <input
+                id="sound-volume"
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={soundVolume}
+                onChange={(e) => setSoundVolume(Number(e.target.value))}
+                onPointerUp={() => soundManager.play('select')}
+                disabled={!soundEnabled}
+                className="w-full accent-[var(--accent-brand)] cursor-pointer disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </section>
 
         <section className="mb-[var(--space-40)]">
           <h2 className="text-[var(--font-size-lg)] font-semibold mb-[var(--space-20)] text-text tracking-[0.02em]">

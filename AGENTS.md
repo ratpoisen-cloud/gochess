@@ -204,6 +204,7 @@ src/
 | ✅ React #310 (conditional hooks) | `GamePage.tsx` | 4 хука (`initialLoadComplete`, `handleOpponentTimeout`, `handlePlayerTimeout`) перенесены перед ранними return'ами (строки 449/459) — ошибка "fewer hooks than previous render" при флуктуации auth состояния | |
 | ✅ Atomic: suicide-ходы видны в UI | `AtomicChessEngine.ts`, `src/lib/__tests__/atomicEngine.test.ts` | Переопределён `moves()`: захваты фильтруются, если свой король в радиусе взрыва (эпицентр ≤1) или король — бьющая фигура; `move()` и UI теперь консистентны (п.2 аудита). Тесты: 6 кейсов |
 | ✅ Atomic: результат/SAN/мат считаются после взрыва | `AtomicChessEngine.ts`, `PoisenChess.ts`, `AtomicLocalPage.tsx`, `useGameSync.ts` | п.4 аудита: атомные `isCheckmate()`/`isStalemate()` через отфильтрованные `moves()` (guard `genDepth` от рекурсии в `sanSuffix`), `move()` пересчитывает `_gameResult`/SAN/`after` пост-взрывно, `positionCount` хранит пост-взрывную позицию, winner/message в онлайн-атомных (мат/ничья), «Ничья» в UI. Тесты: 9 кейсов |
+| ✅ Atomic: undo не оставляет «призрачный» взрыв | `AtomicChessEngine.ts`, `src/lib/__tests__/atomicEngine.test.ts` | п.3 аудита: `undo()` сбрасывает `atomicState` — отмена хода после взрыва больше не шлёт ложный blast VFX/звук оппоненту; `loadPgn`-реплей атомных взрывов проверен тестами (доска и позиция после undo корректны) |
 
 ## 🧠 Извлечённые уроки
 

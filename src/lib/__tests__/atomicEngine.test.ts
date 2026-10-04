@@ -118,3 +118,32 @@ describe('AtomicChessEngine mate/stalemate on the post-blast position', () => {
     expect(e.isCheckmate()).toBe(false)
   })
 })
+
+describe('AtomicChessEngine PGN replay and undo', () => {
+  it('loadPgn replays captures with explosions', () => {
+    const e = new AtomicChessEngine()
+    e.loadPgn('1. e4 d5 2. exd5')
+    expect(e.get('d5')).toBeNull()
+    expect(e.get('d7')).toBeNull()
+    expect(e.getAtomicState().lastBlastSquare).toBe('d5')
+  })
+
+  it('undo restores the pre-move position and clears the blast state', () => {
+    const e = new AtomicChessEngine(WIN_FEN)
+    e.move({ from: 'e2', to: 'e7' })
+    expect(e.getAtomicState().lastBlastSquare).toBe('e7')
+    expect(e.undo()).not.toBeNull()
+    expect(e.getAtomicState().lastBlastSquare).toBeNull()
+    expect(e.fen()).toBe(WIN_FEN)
+    expect(e.gameResult()).toBe('*')
+  })
+
+  it('undo after a PGN replay pops the capture correctly', () => {
+    const e = new AtomicChessEngine()
+    e.loadPgn('1. e4 d5 2. exd5')
+    expect(e.undo()).not.toBeNull()
+    expect(e.get('d5')).toEqual({ type: 'p', color: 'b' })
+    expect(e.get('e4')).toEqual({ type: 'p', color: 'w' })
+    expect(e.getAtomicState().lastBlastSquare).toBeNull()
+  })
+})

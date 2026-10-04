@@ -81,6 +81,14 @@ export class AtomicChessEngine extends PoisenChessEngine {
     return resultMove;
   }
 
+  undo(): Move | null {
+    const undone = super.undo();
+    if (undone) {
+      this.atomicState = { lastBlastSquare: null, lastBlastTime: 0 };
+    }
+    return undone;
+  }
+
   moves(): string[]
   moves(options: { square?: string; verbose?: false }): string[]
   moves(options: { square?: string; verbose: true }): Move[]

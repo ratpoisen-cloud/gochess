@@ -202,6 +202,7 @@ src/
 | ✅ Навигация по принятому вызову (инвайты) | `useChallenges.ts` | Добавлен `onSnapshot` для `where('fromId', '==', user.uid) && where('status', '==', 'accepted')` с фильтром `expiresAt > Date.now()`; автопереход через `navigate()` |
 | ✅ SW 206 Partial Response крашит кэш | `public/sw.js` | Добавлен `\|\| res.status === 206` в guards на строках 26 и 38 — Cache API не поддерживает 206 |
 | ✅ React #310 (conditional hooks) | `GamePage.tsx` | 4 хука (`initialLoadComplete`, `handleOpponentTimeout`, `handlePlayerTimeout`) перенесены перед ранними return'ами (строки 449/459) — ошибка "fewer hooks than previous render" при флуктуации auth состояния | |
+| ✅ Atomic: suicide-ходы видны в UI | `AtomicChessEngine.ts`, `src/lib/__tests__/atomicEngine.test.ts` | Переопределён `moves()`: захваты фильтруются, если свой король в радиусе взрыва (эпицентр ≤1) или король — бьющая фигура; `move()` и UI теперь консистентны (п.2 аудита). Тесты: 6 кейсов |
 
 ## 🧠 Извлечённые уроки
 

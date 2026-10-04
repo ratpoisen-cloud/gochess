@@ -64,6 +64,25 @@ export class AtomicChessEngine extends PoisenChessEngine {
     return resultMove;
   }
 
+  moves(): string[]
+  moves(options: { square?: string; verbose?: false }): string[]
+  moves(options: { square?: string; verbose: true }): Move[]
+  moves(options?: { square?: string; verbose?: boolean }): string[] | Move[] {
+    const raw = super.moves({ square: options?.square, verbose: true });
+    const filtered = raw.filter((m) => !m.captured || this.survivesExplosion(m));
+    if (options?.verbose === true) return filtered;
+    return filtered.map((m) => m.san);
+  }
+
+  private survivesExplosion(m: Move): boolean {
+    if (m.piece === 'k') return false;
+    const kingSq = this.findKing(m.color);
+    if (!kingSq) return false;
+    const dx = Math.abs(kingSq.charCodeAt(0) - m.to.charCodeAt(0));
+    const dy = Math.abs(parseInt(kingSq[1], 10) - parseInt(m.to[1], 10));
+    return dx > 1 || dy > 1;
+  }
+
   private getAdjacentSquares(square: string): string[] {
     const col = square.charCodeAt(0) - 97;
     const row = parseInt(square[1]) - 1;

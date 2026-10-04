@@ -87,7 +87,10 @@ export default function AtomicLocalPage() {
 
     if (!wKing || !bKing || engine.isGameOver()) {
       setIsGameOver(true)
-      setWinner(!bKing ? 'w' : 'b')
+      if (!bKing) setWinner('w')
+      else if (!wKing) setWinner('b')
+      else if (engine.isCheckmate()) setWinner(engine.turn() === 'w' ? 'b' : 'w')
+      else setWinner(null)
     }
 
     return true
@@ -184,7 +187,7 @@ export default function AtomicLocalPage() {
             <div className="text-center flex justify-center">
               {isGameOver && (
                 <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse">
-                   Победа {winner === 'w' ? 'белых' : 'чёрных'}!
+                  {winner ? `Победа ${winner === 'w' ? 'белых' : 'чёрных'}!` : 'Ничья!'}
                 </h2>
               )}
             </div>

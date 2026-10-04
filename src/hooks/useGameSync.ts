@@ -511,8 +511,16 @@ export function useGameSync(roomCode: string | undefined, user: User | null, aut
 
       if (gameOverNow) {
         updateData.game_state = 'game_over'
-        updateData.winner = !bK ? 'white' : 'black'
-        updateData.message = 'atomic_blast'
+        if (!wK || !bK) {
+          updateData.winner = !bK ? 'white' : 'black'
+          updateData.message = 'atomic_blast'
+        } else if (g.isCheckmate()) {
+          updateData.winner = g.turn() === 'w' ? 'black' : 'white'
+          updateData.message = 'checkmate'
+        } else {
+          updateData.winner = null
+          updateData.message = 'draw'
+        }
       }
 
       try {

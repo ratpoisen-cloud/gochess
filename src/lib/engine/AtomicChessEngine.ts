@@ -12,53 +12,70 @@ export class AtomicChessEngine extends PoisenChessEngine {
     lastBlastTime: 0
   };
 
+  private genDepth = 0;
+
   move(moveData: { from: string; to: string; promotion?: string }): Move | null {
     const myColor = this.turn();
-    
-    // 1. Try standard move
+    const oppColor: Color = myColor === 'w' ? 'b' : 'w';
+
     const resultMove = super.move(moveData);
     if (!resultMove) return null;
 
-    // 2. If capture, trigger explosion
-    const isCapture = resultMove.captured !== undefined;
-    
-    if (isCapture) {
+    if (resultMove.captured !== undefined) {
       const epicenter = resultMove.to;
-      const adjacent = this.getAdjacentSquares(epicenter);
+      const preBlastKey = this.positionKey();
 
-      // Remove surrounding pieces (except pawns)
-      for (const sq of adjacent) {
+      for (const sq of this.getAdjacentSquares(epicenter)) {
         const p = this.get(sq);
         if (p && p.type !== 'p') {
           this.removePiece(sq);
         }
       }
-
-      // Remove the capturing piece itself
       this.removePiece(epicenter);
 
-      // Verify king survival
-      const myKing = this.findKing(myColor);
-      if (!myKing) {
+      if (!this.findKing(myColor)) {
         this.undo();
+        this.removePosition(preBlastKey);
         return null;
       }
-      const oppKing = this.findKing(myColor === 'w' ? 'b' : 'w');
-      if (!oppKing) {
-        (this as any)._gameResult = myColor === 'w' ? '1-0' : '0-1';
-      }
 
-      // Update blast state for VFX
+      this.removePosition(preBlastKey);
+      this.storePosition();
+
       this.atomicState = {
         lastBlastSquare: epicenter,
         lastBlastTime: Date.now()
       };
     } else {
-      // Reset blast state if no capture
       this.atomicState = {
         lastBlastSquare: null,
         lastBlastTime: 0
       };
+    }
+
+    let suffix = '';
+    if (this.findKing(oppColor)) {
+      const givesCheck = this.inCheck();
+      if (this.isCheckmate()) {
+        this._gameResult = this.turn() === 'w' ? '0-1' : '1-0';
+        suffix = '#';
+      } else if (this.isDraw()) {
+        this._gameResult = '1/2-1/2';
+        suffix = givesCheck ? '+' : '';
+      } else {
+        this._gameResult = '*';
+        suffix = givesCheck ? '+' : '';
+      }
+    } else {
+      this._gameResult = myColor === 'w' ? '1-0' : '0-1';
+    }
+
+    resultMove.san = resultMove.san.replace(/[+#]+$/, '') + suffix;
+    resultMove.after = this.fen();
+    const lastEntry = this._history[this._history.length - 1];
+    if (lastEntry) {
+      lastEntry.move.san = resultMove.san;
+      lastEntry.move.after = resultMove.after;
     }
 
     return resultMove;
@@ -68,10 +85,28 @@ export class AtomicChessEngine extends PoisenChessEngine {
   moves(options: { square?: string; verbose?: false }): string[]
   moves(options: { square?: string; verbose: true }): Move[]
   moves(options?: { square?: string; verbose?: boolean }): string[] | Move[] {
-    const raw = super.moves({ square: options?.square, verbose: true });
-    const filtered = raw.filter((m) => !m.captured || this.survivesExplosion(m));
-    if (options?.verbose === true) return filtered;
-    return filtered.map((m) => m.san);
+    this.genDepth++;
+    try {
+      const raw = super.moves({ square: options?.square, verbose: true });
+      const filtered = raw.filter((m) => !m.captured || this.survivesExplosion(m));
+      if (options?.verbose === true) return filtered;
+      return filtered.map((m) => m.san);
+    } finally {
+      this.genDepth--;
+    }
+  }
+
+  isCheckmate(): boolean {
+    if (this.genDepth > 0) return false;
+    if (!this.inCheck()) return false;
+    return this.moves().length === 0;
+  }
+
+  isStalemate(): boolean {
+    if (this.genDepth > 0) return false;
+    if (!this.findKing('w') || !this.findKing('b')) return false;
+    if (this.inCheck()) return false;
+    return this.moves().length === 0;
   }
 
   private survivesExplosion(m: Move): boolean {

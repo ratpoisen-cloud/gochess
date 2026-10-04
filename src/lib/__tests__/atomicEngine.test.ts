@@ -17,6 +17,12 @@ const WIN_FEN = '4k3/4rn2/6p1/8/8/8/4R3/4K3 w - - 0 1'
 // Same capture, but white king sits at chebyshev distance 2 from e7 — legal.
 const DISTANCE_2_FEN = '4k3/4r3/6K1/8/8/8/8/4R3 w - - 0 1'
 
+// Black is stalemated as soon as white plays Qc4-f7.
+const STALEMATE_SETUP_FEN = '7k/8/6K1/8/2Q5/8/8/8 w - - 0 1'
+
+// White plays Qg3-g7: black's only replies (Kxg7, Nxg7) explode black's own king.
+const MATE_SETUP_FEN = '7k/8/8/7n/8/6Q1/8/K7 w - - 0 1'
+
 describe('AtomicChessEngine suicide move filtering (moves vs move)', () => {
   it('start position: 20 moves, verbose entries are well-formed', () => {
     const e = new AtomicChessEngine(START_FEN)
@@ -55,6 +61,7 @@ describe('AtomicChessEngine suicide move filtering (moves vs move)', () => {
 
     const moved = e.move({ from: 'e2', to: 'e7' })
     expect(moved).not.toBeNull()
+    expect(moved?.san).toBe('Rxe7')
     expect(e.get('e7')).toBeNull()
     expect(e.get('e8')).toBeNull()
     expect(e.get('f7')).toBeNull()
@@ -75,5 +82,39 @@ describe('AtomicChessEngine suicide move filtering (moves vs move)', () => {
     const e = new AtomicChessEngine(SUICIDE_FEN)
     expect(e.moves()).toHaveLength(e.moves({ verbose: true }).length)
     expect(e.moves({ square: 'e2' })).toHaveLength(e.moves({ square: 'e2', verbose: true }).length)
+  })
+})
+
+describe('AtomicChessEngine mate/stalemate on the post-blast position', () => {
+  it('atomic mate: only suicide replies left, result and SAN recorded', () => {
+    const e = new AtomicChessEngine(MATE_SETUP_FEN)
+    const m = e.move({ from: 'g3', to: 'g7' })
+    expect(m?.san).toBe('Qg7#')
+    expect(e.history()).toContain('Qg7#')
+    expect(e.isCheckmate()).toBe(true)
+    expect(e.isGameOver()).toBe(true)
+    expect(e.gameResult()).toBe('1-0')
+
+    const mated = new AtomicChessEngine('7k/6Q1/8/7n/8/8/8/K7 b - - 0 1')
+    expect(mated.moves()).toHaveLength(0)
+    expect(mated.isCheckmate()).toBe(true)
+    expect(mated.isGameOver()).toBe(true)
+  })
+
+  it('detects stalemate after a move and records the draw', () => {
+    const e = new AtomicChessEngine(STALEMATE_SETUP_FEN)
+    const m = e.move({ from: 'c4', to: 'f7' })
+    expect(m?.san).toBe('Qf7')
+    expect(e.isStalemate()).toBe(true)
+    expect(e.isGameOver()).toBe(true)
+    expect(e.gameResult()).toBe('1/2-1/2')
+  })
+
+  it('stalemate position is detected on load too', () => {
+    const e = new AtomicChessEngine('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1')
+    expect(e.moves()).toHaveLength(0)
+    expect(e.isStalemate()).toBe(true)
+    expect(e.isGameOver()).toBe(true)
+    expect(e.isCheckmate()).toBe(false)
   })
 })

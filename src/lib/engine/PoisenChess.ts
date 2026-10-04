@@ -22,9 +22,9 @@ export class PoisenChessEngine implements EngineAPI {
   private epSquare: string | null = null
   private halfMoveClock = 0
   private fullMoveNumber = 1
-  private _history: HistoryEntry[] = []
+  protected _history: HistoryEntry[] = []
   private positionCount: Record<string, number> = {}
-  private _gameResult: string = '*'
+  protected _gameResult: string = '*'
 
   constructor(fen?: string) {
     this.load(fen || START_FEN)
@@ -82,20 +82,20 @@ export class PoisenChessEngine implements EngineAPI {
     return String.fromCharCode(97 + c) + (8 - r)
   }
 
-  private storePosition() {
+  protected storePosition() {
     const key = this.positionKey()
     this.positionCount[key] = (this.positionCount[key] || 0) + 1
   }
 
-  private removePosition() {
-    const key = this.positionKey()
+  protected removePosition(keyOverride?: string) {
+    const key = keyOverride ?? this.positionKey()
     if (this.positionCount[key]) {
       this.positionCount[key]--
       if (this.positionCount[key] <= 0) delete this.positionCount[key]
     }
   }
 
-  private positionKey(): string {
+  protected positionKey(): string {
     const boardStr = this._board.map(row =>
       row.map(p => p ? (p.color === 'w' ? p.type.toUpperCase() : p.type) : '1').join('')
     ).join('/')

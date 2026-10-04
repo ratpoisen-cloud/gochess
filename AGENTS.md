@@ -203,6 +203,7 @@ src/
 | ✅ SW 206 Partial Response крашит кэш | `public/sw.js` | Добавлен `\|\| res.status === 206` в guards на строках 26 и 38 — Cache API не поддерживает 206 |
 | ✅ React #310 (conditional hooks) | `GamePage.tsx` | 4 хука (`initialLoadComplete`, `handleOpponentTimeout`, `handlePlayerTimeout`) перенесены перед ранними return'ами (строки 449/459) — ошибка "fewer hooks than previous render" при флуктуации auth состояния | |
 | ✅ Atomic: suicide-ходы видны в UI | `AtomicChessEngine.ts`, `src/lib/__tests__/atomicEngine.test.ts` | Переопределён `moves()`: захваты фильтруются, если свой король в радиусе взрыва (эпицентр ≤1) или король — бьющая фигура; `move()` и UI теперь консистентны (п.2 аудита). Тесты: 6 кейсов |
+| ✅ Atomic: результат/SAN/мат считаются после взрыва | `AtomicChessEngine.ts`, `PoisenChess.ts`, `AtomicLocalPage.tsx`, `useGameSync.ts` | п.4 аудита: атомные `isCheckmate()`/`isStalemate()` через отфильтрованные `moves()` (guard `genDepth` от рекурсии в `sanSuffix`), `move()` пересчитывает `_gameResult`/SAN/`after` пост-взрывно, `positionCount` хранит пост-взрывную позицию, winner/message в онлайн-атомных (мат/ничья), «Ничья» в UI. Тесты: 9 кейсов |
 
 ## 🧠 Извлечённые уроки
 

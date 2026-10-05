@@ -43,13 +43,14 @@ export default function AtomicLocalPage() {
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
 
   const getSquareCenter = (square: string) => {
-    if (!stableWidth) return { x: 0, y: 0 }
+    if (!stableWidth) return { x: 0, y: 0, squareSize: 0 }
     const squareSize = stableWidth / 8
     const col = square.charCodeAt(0) - 97
     const row = 8 - parseInt(square[1])
     return {
       x: col * squareSize + squareSize / 2,
-      y: row * squareSize + squareSize / 2
+      y: row * squareSize + squareSize / 2,
+      squareSize
     }
   }
 
@@ -60,7 +61,7 @@ export default function AtomicLocalPage() {
     const state = engine.getAtomicState()
     if (state.lastBlastSquare) {
       const center = getSquareCenter(state.lastBlastSquare)
-      vfxRef.current?.trigger({ ...center, type: 'blast' })
+      vfxRef.current?.trigger({ ...center, type: 'atomic-blast' })
       soundManager.play('blast')
     } else {
       soundManager.play(move.captured ? 'capture' : 'move')

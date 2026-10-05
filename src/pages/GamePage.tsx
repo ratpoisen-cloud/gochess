@@ -65,6 +65,7 @@ export default function GamePage() {
   const [berserkTarget, setBerserkTarget] = useState<string | null>(null)
   const vfxRef = useRef<MagicVFXHandle>(null)
   const prevBombsRef = useRef<string[]>([])
+  const lastAtomicBlastRef = useRef<string | null>(null)
 
   const { pgnCopied, copyPgn } = usePgnCopy(() => sync.game.pgn())
 
@@ -137,15 +138,16 @@ export default function GamePage() {
 
   // Trigger explosions for Atomic Chess
   useEffect(() => {
-    if (isAtomicGame && spellStateJson) {
-      try {
-        const state = JSON.parse(spellStateJson)
-        if (state.lastBlastSquare) {
-          const center = getSquareCenter(state.lastBlastSquare)
-          vfxRef.current?.trigger({ ...center, type: 'blast' })
-        }
-      } catch {}
-    }
+    if (!isAtomicGame || !spellStateJson) return
+    if (lastAtomicBlastRef.current === spellStateJson) return
+    try {
+      const state = JSON.parse(spellStateJson)
+      if (state.lastBlastSquare) {
+        lastAtomicBlastRef.current = spellStateJson
+        const center = getSquareCenter(state.lastBlastSquare)
+        vfxRef.current?.trigger({ ...center, type: 'atomic-blast' })
+      }
+    } catch {}
   }, [spellStateJson, isAtomicGame])
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
@@ -173,16 +175,17 @@ export default function GamePage() {
 
   const isSpellMode = gameMode === 'spell_chess'
 
-  const getSquareCenter = (square: string) => {
-    if (!stableWidth) return { x: 0, y: 0 }
-    const squareSize = stableWidth / 8
-    const col = square.charCodeAt(0) - 97
-    const row = 8 - parseInt(square[1])
-    return {
-      x: col * squareSize + squareSize / 2,
-      y: row * squareSize + squareSize / 2,
+const getSquareCenter = (square: string) => {
+      if (!stableWidth) return { x: 0, y: 0, squareSize: 0 }
+      const squareSize = stableWidth / 8
+      const col = square.charCodeAt(0) - 97
+      const row = 8 - parseInt(square[1])
+      return {
+        x: col * squareSize + squareSize / 2,
+        y: row * squareSize + squareSize / 2,
+        squareSize,
+      }
     }
-  }
 
   const handleCastSpell = async (spell: SpellName, target?: string, target2?: string): Promise<boolean> => {
     const ok = castSpell ? await castSpell(spell, target, target2) : false

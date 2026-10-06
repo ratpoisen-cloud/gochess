@@ -134,6 +134,13 @@ export class SpellChessEngine {
   }
 
   load(fen: string) {
+    // Clear first: without this the FEN is overlaid onto whatever pieces were
+    // already on the board, so loading a sparse position over a full one left
+    // the old pieces standing. moveStack goes too — it describes the previous
+    // position, and pgn() would otherwise replay moves that never happened.
+    this._pieces = Array(8).fill(null).map(() => Array(8).fill(null));
+    this.moveStack = [];
+
     const parts = fen.split(' ');
     const position = parts[0];
     const turn = parts[1] || 'w';
@@ -320,7 +327,38 @@ export class SpellChessEngine {
       const jumpMoves = this.getJumpMoves(square, piece);
       jumpMoves.forEach(m => { if (!moves.includes(m)) moves.push(m); });
     }
-    return moves;
+
+    // `getLegalMoves` used to return pseudo-legal moves only, so the board
+    // highlighted — and `move()` accepted — squares that leave your own king
+    // attacked. Dropping them here also gives isCheckmate/isStalemate
+    // something meaningful to count.
+    return moves.filter((targetSq) => !this.leavesOwnKingInCheck(square, targetSq));
+  }
+
+  /**
+   * Plays a candidate move on the board without touching turn, halfMoveCount or
+   * spellState, then puts everything back. Cheaper than a real move/undo cycle,
+   * which would detonate mines and expire berserk transforms as a side effect.
+   */
+  private leavesOwnKingInCheck(fromSq: string, toSq: string): boolean {
+    const moving = this.getPiece(fromSq);
+    if (!moving) return false;
+
+    const from = this.sqToIdx(fromSq);
+    const to = this.sqToIdx(toSq);
+    const captured = this._pieces[to.r][to.c];
+
+    this._pieces[to.r][to.c] = moving;
+    this._pieces[from.r][from.c] = null;
+
+    const kingSquare = this.getKingSquare(moving.color);
+    const opponent: Color = moving.color === 'w' ? 'b' : 'w';
+    const unsafe = kingSquare ? this.isSquareAttacked(kingSquare, opponent) : false;
+
+    this._pieces[from.r][from.c] = moving;
+    this._pieces[to.r][to.c] = captured;
+
+    return unsafe;
   }
 
   private addSlidingMoves(r: number, c: number, dirs: number[][], moves: string[], color: Color) {
@@ -903,15 +941,63 @@ export class SpellChessEngine {
 
   loadPgn(_pgn: string): void { /* not supported */ }
 
-  inCheck(): boolean { return false }
+  /**
+   * These were hardcoded `false` stubs. Spell Chess is not a superclass of
+   * PoisenChess, so nothing filled them in — online games never highlighted a
+   * check and the status line could never show "Шах!" or "Мат!".
+   *
+   * King capture is what ends a Spell Chess game (see isGameOver), so checkmate
+   * here is a different event from a win: it is reported for display, and a
+   * missing king reports neither check nor mate.
+   */
+  inCheck(): boolean {
+    const kingSquare = this.getKingSquare(this._turn)
+    if (!kingSquare) return false
+    const opponent: Color = this._turn === 'w' ? 'b' : 'w'
+    return this.isSquareAttacked(kingSquare, opponent)
+  }
 
-  isCheckmate(): boolean { return false }
+  isCheckmate(): boolean {
+    if (!this.inCheck()) return false
+    return this.moves().length === 0
+  }
 
-  isStalemate(): boolean { return false }
+  isStalemate(): boolean {
+    if (this.inCheck()) return false
+    return this.moves().length === 0
+  }
 
-  isDraw(): boolean { return false }
+  isDraw(): boolean {
+    return this.isStalemate()
+  }
 
-  isInsufficientMaterial(): boolean { return false }
+  /**
+   * Reported but deliberately not folded into isDraw: this game only ends when
+   * a king is captured (isGameOver), so treating a bare-kings position as drawn
+   * would print "Ничья" on a game that is still being played.
+   */
+  isInsufficientMaterial(): boolean {
+    const counts: Record<string, number> = { q: 0, r: 0, b: 0, n: 0, p: 0 }
+    let kings = 0
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = this._pieces[r][c]
+        if (!p) continue
+        if (p.type === 'k') { kings++; continue }
+        counts[p.type]++
+      }
+    }
+
+    if (kings < 2) return false
+
+    const nonKing = counts.q + counts.r + counts.b + counts.n + counts.p
+    if (nonKing === 0) return true
+    if (counts.p > 0) return false
+    if (nonKing === 1 && (counts.b + counts.n) === 1) return true
+
+    return false
+  }
 
   isThreefoldRepetition(): boolean { return false }
 

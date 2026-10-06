@@ -432,7 +432,7 @@ export default function SpellLocalPage() {
                 const isAtTop = rank === 8
                 const piece = engine.getPiece(berserkTarget)
                 const currentType = piece?.type
-                const types = (['q', 'r', 'b', 'n', 'p'] as const).filter(t => t !== currentType)
+                const types = (['q', 'r', 'b', 'n'] as const).filter(t => t !== currentType)
                 return (
                   <div
                     className="absolute inset-0 z-[10001] cursor-default bg-black/10"

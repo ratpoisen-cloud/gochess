@@ -327,38 +327,7 @@ export class SpellChessEngine {
       const jumpMoves = this.getJumpMoves(square, piece);
       jumpMoves.forEach(m => { if (!moves.includes(m)) moves.push(m); });
     }
-
-    // `getLegalMoves` used to return pseudo-legal moves only, so the board
-    // highlighted — and `move()` accepted — squares that leave your own king
-    // attacked. Dropping them here also gives isCheckmate/isStalemate
-    // something meaningful to count.
-    return moves.filter((targetSq) => !this.leavesOwnKingInCheck(square, targetSq));
-  }
-
-  /**
-   * Plays a candidate move on the board without touching turn, halfMoveCount or
-   * spellState, then puts everything back. Cheaper than a real move/undo cycle,
-   * which would detonate mines and expire berserk transforms as a side effect.
-   */
-  private leavesOwnKingInCheck(fromSq: string, toSq: string): boolean {
-    const moving = this.getPiece(fromSq);
-    if (!moving) return false;
-
-    const from = this.sqToIdx(fromSq);
-    const to = this.sqToIdx(toSq);
-    const captured = this._pieces[to.r][to.c];
-
-    this._pieces[to.r][to.c] = moving;
-    this._pieces[from.r][from.c] = null;
-
-    const kingSquare = this.getKingSquare(moving.color);
-    const opponent: Color = moving.color === 'w' ? 'b' : 'w';
-    const unsafe = kingSquare ? this.isSquareAttacked(kingSquare, opponent) : false;
-
-    this._pieces[from.r][from.c] = moving;
-    this._pieces[to.r][to.c] = captured;
-
-    return unsafe;
+    return moves;
   }
 
   private addSlidingMoves(r: number, c: number, dirs: number[][], moves: string[], color: Color) {
@@ -619,7 +588,14 @@ export class SpellChessEngine {
       for (let dc = -1; dc <= 1; dc++) {
         const tr = r + dr, tc = c + dc;
         if (tr >= 0 && tr < 8 && tc >= 0 && tc < 8) {
-          this.spellState.frozenSquares[this.idxToSq(tr, tc)] = this.halfMoveCount + 4;
+          const sq = this.idxToSq(tr, tc);
+          // The codex says freeze does not touch kings, and it only affects
+          // figures standing in the area — an empty square must not be left
+          // frozen, or the first piece to step there would be stuck.
+          const occupant = this._pieces[tr][tc];
+          if (occupant && occupant.type !== 'k') {
+            this.spellState.frozenSquares[sq] = this.halfMoveCount + 6;
+          }
         }
       }
     }
@@ -942,62 +918,29 @@ export class SpellChessEngine {
   loadPgn(_pgn: string): void { /* not supported */ }
 
   /**
-   * These were hardcoded `false` stubs. Spell Chess is not a superclass of
-   * PoisenChess, so nothing filled them in — online games never highlighted a
-   * check and the status line could never show "Шах!" or "Мат!".
+   * Spell Chess plays by giveaway-chess rules, not standard chess:
    *
-   * King capture is what ends a Spell Chess game (see isGameOver), so checkmate
-   * here is a different event from a win: it is reported for display, and a
-   * missing king reports neither check nor mate.
+   > Взятие короля = победа (нет шаха/мата/пата)   — README.md
+   *
+   * There is no check to be in, so there is nothing for these to report. They
+   * exist only to satisfy the EngineAPI contract that the UI calls into, and they
+   * must keep returning false: implementing them makes the board highlight a king
+   * and the status line print "Шах!" and "Мат!" over a variant that has neither,
+   * and filtering moves so the king cannot be left attacked makes every king
+   * capture trivially safe, which is not how giveaway chess works.
+   *
+   * Winning is decided solely by isGameOver(), which reports a winner once a king
+   * is actually off the board. Moves that abandon the king are legal here.
    */
-  inCheck(): boolean {
-    const kingSquare = this.getKingSquare(this._turn)
-    if (!kingSquare) return false
-    const opponent: Color = this._turn === 'w' ? 'b' : 'w'
-    return this.isSquareAttacked(kingSquare, opponent)
-  }
+  inCheck(): boolean { return false }
 
-  isCheckmate(): boolean {
-    if (!this.inCheck()) return false
-    return this.moves().length === 0
-  }
+  isCheckmate(): boolean { return false }
 
-  isStalemate(): boolean {
-    if (this.inCheck()) return false
-    return this.moves().length === 0
-  }
+  isStalemate(): boolean { return false }
 
-  isDraw(): boolean {
-    return this.isStalemate()
-  }
+  isDraw(): boolean { return false }
 
-  /**
-   * Reported but deliberately not folded into isDraw: this game only ends when
-   * a king is captured (isGameOver), so treating a bare-kings position as drawn
-   * would print "Ничья" on a game that is still being played.
-   */
-  isInsufficientMaterial(): boolean {
-    const counts: Record<string, number> = { q: 0, r: 0, b: 0, n: 0, p: 0 }
-    let kings = 0
-
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const p = this._pieces[r][c]
-        if (!p) continue
-        if (p.type === 'k') { kings++; continue }
-        counts[p.type]++
-      }
-    }
-
-    if (kings < 2) return false
-
-    const nonKing = counts.q + counts.r + counts.b + counts.n + counts.p
-    if (nonKing === 0) return true
-    if (counts.p > 0) return false
-    if (nonKing === 1 && (counts.b + counts.n) === 1) return true
-
-    return false
-  }
+  isInsufficientMaterial(): boolean { return false }
 
   isThreefoldRepetition(): boolean { return false }
 

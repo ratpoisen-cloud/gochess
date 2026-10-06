@@ -32,7 +32,7 @@ interface SpellGameState {
   hasCastSpellThisTurn: boolean
   berserkTarget: string | null
 
-  makeMove: (from: string, to: string) => boolean
+  makeMove: (from: string, to: string, promotion?: PieceType) => boolean
   selectSquare: (square: string) => void
   castSpell: (spell: SpellName, square?: string) => void
   confirmBerserk: (square: string, type: PieceType) => void
@@ -58,9 +58,9 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
   hasCastSpellThisTurn: false,
   berserkTarget: null,
 
-  makeMove: (from, to) => {
+  makeMove: (from, to, promotion) => {
     const { engine } = get()
-    const success = engine.move({ from, to })
+    const success = engine.move({ from, to, promotion })
     if (success) {
       soundManager.play('move')
       const gameOver = engine.isGameOver()
@@ -159,7 +159,11 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
       return
     }
 
-    if (hasCastSpellThisTurn) return
+    // Only a spent free action closes the book for this turn. A terminal spell
+    // calls completeTurn, which hands the turn over, so by the time anything
+    // runs again it is the opponent's move — blocking every spell here meant a
+    // free action left jump, shield and portal unusable for the rest of the turn.
+    if (hasCastSpellThisTurn && FREE_ACTIONS.includes(spell)) return
 
     let success = false
     switch (spell) {

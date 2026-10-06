@@ -11,6 +11,8 @@ import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
 import SpellRulesModal from '@/components/SpellRulesModal'
+import PromotionPicker from '@/components/PromotionPicker'
+import { spellIconFile, SPELL_ORDER, isFreeSpell } from '@/lib/spellMeta'
 import { SPELL_UNLOCK, WHITE_CHARGES, BLACK_CHARGES, type SpellName } from '@/lib/spellChessEngine'
 import { useBoardStore } from '@/stores/boardStore'
 
@@ -28,7 +30,6 @@ const SPELL_META: Record<SpellName, { label: string; icon: string; desc: string;
   mirage:{ label: 'Мираж',   icon: 'mirage.png',  desc: 'Поменять местами две фигуры', type: 'terminal', target: 'pair' },
 }
 
-const ALL_SPELLS: SpellName[] = ['jump', 'shield', 'portal', 'freeze', 'blast', 'berserk', 'divineGrace', 'shadowGrave', 'mirage']
 const NO_CONFIRM_SPELLS: SpellName[] = ['portal', 'berserk', 'divineGrace', 'shadowGrave', 'mirage']
 const WHITE_ONLY: SpellName[] = ['berserk', 'divineGrace']
 const BLACK_ONLY: SpellName[] = ['shadowGrave', 'mirage']
@@ -44,12 +45,6 @@ export default function SpellLocalPage() {
   } = useSpellGameStore()
 
   const engine = useSpellGameStore.getState().engine
-  const kingSquare = turn ? engine.getKingSquare(turn) : null
-  const checkSquare = useMemo(() => {
-    if (!kingSquare) return null
-    const opponentColor = turn === 'w' ? 'b' : 'w'
-    return engine.isSquareAttacked(kingSquare, opponentColor) ? kingSquare : null
-  }, [fen, turn])
 
   const [initialized, setInitialized] = useState(false)
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
@@ -57,6 +52,7 @@ export default function SpellLocalPage() {
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const vfxRef = useRef<MagicVFXHandle>(null)
   const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
   const { getPieceUrl } = useBoardStore()
 
@@ -158,6 +154,15 @@ export default function SpellLocalPage() {
     setPendingTarget(null)
   }
 
+  const isPromotion = (from: string, to: string) => {
+    const currentEngine = useSpellGameStore.getState().engine
+    const piece = currentEngine.getPiece(from)
+    if (piece?.type !== 'p') return false
+    if (piece.color === 'w' && to[1] === '8') return true
+    if (piece.color === 'b' && to[1] === '1') return true
+    return false
+  }
+
   const onDrop = (sourceSquare: string, targetSquare: string) => {
     if (isGameOver) return false
 
@@ -171,6 +176,11 @@ export default function SpellLocalPage() {
     if (engine.spellState.jumpSquare === sourceSquare) {
       const center = getSquareCenter(targetSquare)
       vfxRef.current?.trigger({ ...center, type: 'jump' })
+    }
+
+    if (isPromotion(sourceSquare, targetSquare)) {
+      setPendingPromotion({ from: sourceSquare, to: targetSquare })
+      return true
     }
 
     return makeMove(sourceSquare, targetSquare)
@@ -190,6 +200,11 @@ export default function SpellLocalPage() {
       } else {
         setPendingTarget(square)
       }
+      return
+    }
+
+    if (selectedSquare && legalMoves.includes(square) && isPromotion(selectedSquare, square)) {
+      setPendingPromotion({ from: selectedSquare, to: square })
       return
     }
 
@@ -325,7 +340,7 @@ export default function SpellLocalPage() {
   }, [activeSpell, previewTarget, spellState, halfMoveCount, portalStart, mirageStart])
 
   const getStatusMessage = () => {
-    if (isGameOver) return `Победа ${winner === 'w' ? 'белых' : 'чёрных'}!`
+    if (isGameOver) return winner ? `Победа ${winner === 'w' ? 'белых' : 'чёрных'}!` : 'Ничья!'
     if (activeSpell) {
       const meta = SPELL_META[activeSpell]
       if (pendingTarget) return 'Нажмите ещё раз для подтверждения'
@@ -409,11 +424,28 @@ export default function SpellLocalPage() {
               <MagicVFX ref={vfxRef} boardWidth={stableWidth} />
 
       <SpellRulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} playerColor={turn} />
+
+      {pendingPromotion && stableWidth > 0 && (
+        <div className="absolute inset-0 z-[10001] flex items-center justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <PromotionPicker
+              to={pendingPromotion.to}
+              color={turn}
+              onSelect={(piece) => {
+                makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                setPendingPromotion(null)
+              }}
+              onCancel={() => setPendingPromotion(null)}
+            />
+          </div>
+        </div>
+      )}
               {stableWidth > 0 && (
                 <ChessBoard
                   position={fen}
+                  game={engine}
+                  checkSquare={null}
                   lastMove={lastMove}
-                  checkSquare={checkSquare}
                   selectedSquare={selectedSquare}
                   legalMoves={legalMoves}
                   onDrop={onDrop}
@@ -506,7 +538,7 @@ export default function SpellLocalPage() {
               <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Инвентарь</h3>
 
               <div className="grid grid-cols-3 gap-1.5">
-                {ALL_SPELLS.map(spell => {
+                {SPELL_ORDER.map(spell => {
                   const meta = SPELL_META[spell]
                   const charge = spellState.charges[turn][spell] || 0
                   const unlockTurn = SPELL_UNLOCK[spell]
@@ -514,7 +546,8 @@ export default function SpellLocalPage() {
                   const isColorRestricted = (WHITE_ONLY.includes(spell) && turn !== 'w') || (BLACK_ONLY.includes(spell) && turn !== 'b')
                   const noCharges = charge <= 0
                   const isActive = activeSpell === spell
-                  const isDisabled = isGameOver || hasCastSpellThisTurn || isLocked || isColorRestricted || noCharges
+                  const spentThisTurn = hasCastSpellThisTurn && isFreeSpell(spell)
+                  const isDisabled = isGameOver || spentThisTurn || isLocked || isColorRestricted || noCharges
 
                   return (
                     <button
@@ -529,7 +562,7 @@ export default function SpellLocalPage() {
                       title={`${meta.label} — ${meta.desc} (${meta.type === 'free' ? 'свободное' : 'завершающее'})`}
                     >
                       <img
-                        src={`${BASE}emojis/${meta.icon}`}
+                        src={spellIconFile(spell)}
                         alt={spell}
                         className="w-5 h-5 object-contain"
                         style={{ imageRendering: 'pixelated' }}
@@ -596,7 +629,7 @@ export default function SpellLocalPage() {
               </div>
 
               <div className="space-y-1.5">
-                {ALL_SPELLS.map(spell => {
+                {SPELL_ORDER.map(spell => {
                   const meta = SPELL_META[spell]
                   const unlockTurn = SPELL_UNLOCK[spell]
                   const isUnlocked = turnNumber >= unlockTurn
@@ -605,7 +638,7 @@ export default function SpellLocalPage() {
                   return (
                     <div key={spell} className="flex items-center gap-2 px-1">
                       <img
-                        src={`${BASE}emojis/${meta.icon}`}
+                        src={spellIconFile(spell)}
                         alt={spell}
                         className="w-3.5 h-3.5 object-contain"
                         style={{ imageRendering: 'pixelated', opacity: isUnlocked ? 1 : 0.35 }}

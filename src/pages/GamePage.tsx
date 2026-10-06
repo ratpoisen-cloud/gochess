@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { type Move } from '@/lib/engine'
 import { type SpellName, type SpellState, defaultCharges } from '@/lib/spellChessEngine'
+import { activeMineSquares, detonatedMineSquares } from '@/lib/spellMines'
 import { db } from '@/lib/firebase'
 import { doc, updateDoc, runTransaction } from 'firebase/firestore'
 import LoadingScreen from '@/components/LoadingScreen'
@@ -350,29 +351,28 @@ const getSquareCenter = (square: string) => {
     try { return JSON.parse(spellStateJson) as SpellState } catch { return null }
   }, [isSpellMode, spellStateJson])
 
+  // The engine never writes `bombs` — it is only initialised, copied and cleared.
+  // `pendingBlastMine` is the field that actually holds a mine, so reading `bombs`
+  // alone left every mine invisible online.
+  const activeBombs = useMemo(
+    () => (isSpellMode ? activeMineSquares(parsedSpellState) : []),
+    [isSpellMode, parsedSpellState]
+  )
+
   useEffect(() => {
-    if (!isSpellMode || !parsedSpellState || !stableWidth) return
-    const bombs: string[] = Object.keys(parsedSpellState.bombs || {})
-    const prevArray = prevBombsRef.current
-    if (bombs.length < prevArray.length) {
-      const lost = prevArray.filter((b) => !bombs.includes(b))
-      lost.forEach((sq) => {
-        const center = getSquareCenter(sq)
-        vfxRef.current?.trigger({ ...center, type: 'blast' })
-      })
-    }
-    prevBombsRef.current = bombs
-  }, [parsedSpellState, isSpellMode, stableWidth])
+    if (!isSpellMode || !stableWidth) return
+    const lost = detonatedMineSquares(prevBombsRef.current, activeBombs)
+    lost.forEach((sq) => {
+      const center = getSquareCenter(sq)
+      vfxRef.current?.trigger({ ...center, type: 'blast' })
+    })
+    prevBombsRef.current = activeBombs
+  }, [activeBombs, isSpellMode, stableWidth])
 
   const activeCharges = useMemo(() => {
     if (!isSpellMode || !parsedSpellState) return null
     return parsedSpellState.charges[playerColor === 'w' ? 'w' : 'b'] || {}
   }, [isSpellMode, parsedSpellState, playerColor])
-
-  const activeBombs = useMemo(() => {
-    if (!isSpellMode || !parsedSpellState) return []
-    return Object.keys(parsedSpellState.bombs || {})
-  }, [isSpellMode, parsedSpellState])
 
   // In Spell Chess the engine is rebuilt from FEN on every ply, so moveHistory
   // is always empty online — the ply counter must come from the spell state.

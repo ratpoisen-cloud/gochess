@@ -1,7 +1,6 @@
 import React, { useRef, useCallback } from 'react';
 import { type SpellName } from '@/lib/spellChessEngine';
-
-const BASE = (import.meta as any).env?.BASE_URL || '/'
+import { spellIconFile } from '@/lib/spellMeta';
 
 interface SpellTileProps {
   spell: SpellName;
@@ -16,21 +15,6 @@ interface SpellTileProps {
   onMouseLeave?: () => void;
   onLongPress?: (spell: SpellName, x: number, y: number) => void;
 }
-
-const spellIconFile = (spell: SpellName): string => {
-  const files: Record<SpellName, string> = {
-    jump: 'jump.png',
-    shield: 'shield.png',
-    freeze: 'freezing.png',
-    portal: 'portal.png',
-    blast: 'bomb.png',
-    berserk: 'berserk.png',
-    divineGrace: 'divineGrace.png',
-    shadowGrave: 'shadowGrave.png',
-    mirage: 'mirage.png',
-  };
-  return `${BASE}emojis/spells/${files[spell] || 'shield.png'}`.replace(/\/+/g, '/')
-};
 
 export const SpellTile: React.FC<SpellTileProps> = ({
   spell,

@@ -10,6 +10,7 @@ import UserMenu from '@/components/UserMenu'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
+import SpellRulesModal from '@/components/SpellRulesModal'
 import { SPELL_UNLOCK, WHITE_CHARGES, BLACK_CHARGES, type SpellName } from '@/lib/spellChessEngine'
 import { useBoardStore } from '@/stores/boardStore'
 
@@ -55,6 +56,7 @@ export default function SpellLocalPage() {
   const [pendingTarget, setPendingTarget] = useState<string | null>(null)
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const vfxRef = useRef<MagicVFXHandle>(null)
+  const [isRulesOpen, setIsRulesOpen] = useState(false)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
   const { getPieceUrl } = useBoardStore()
 
@@ -405,6 +407,8 @@ export default function SpellLocalPage() {
               className="board-container relative overflow-hidden"
             >
               <MagicVFX ref={vfxRef} boardWidth={stableWidth} />
+
+      <SpellRulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} playerColor={turn} />
               {stableWidth > 0 && (
                 <ChessBoard
                   position={fen}
@@ -560,10 +564,17 @@ export default function SpellLocalPage() {
             <Card padding="sm">
               <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Прогресс</h3>
 
-              <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="flex items-center justify-center gap-2 mb-2">
                 <span className="text-[11px] font-bold text-[var(--accent-brand)]">Ход</span>
                 <span className="text-[20px] font-bold text-text tracking-wider">{turnNumber}</span>
               </div>
+
+              <button
+                onClick={() => setIsRulesOpen(true)}
+                className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] hover:text-[var(--accent-brand)] transition-colors mb-4"
+              >
+                Правила
+              </button>
 
               <div className="relative h-1.5 bg-[rgba(255,255,255,0.06)] rounded-[2px] mb-4 mx-1">
                 <div

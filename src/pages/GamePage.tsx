@@ -21,6 +21,7 @@ import Card from '@/components/Card'
 import AuthModal from '@/components/AuthModal'
 import PixelConfetti from '@/components/PixelConfetti'
 import FogRulesModal from '@/components/FogRulesModal'
+import SpellRulesModal from '@/components/SpellRulesModal'
 import { useToast } from '@/components/Toast'
 import GameLayout from '@/components/GameLayout'
 import { usePgnCopy } from '@/hooks/usePgnCopy'
@@ -48,6 +49,7 @@ export default function GamePage() {
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null)
   const [legalMoves, setLegalMoves] = useState<string[]>([])
   const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [isSpellRulesOpen, setIsSpellRulesOpen] = useState(false)
   const [showReactionPicker, setShowReactionPicker] = useState(false)
   const [reactionSquare, setReactionSquare] = useState<string | null>(null)
   const [reactionPos, setReactionPos] = useState<{ x: number; y: number } | null>(null)
@@ -562,9 +564,9 @@ const getSquareCenter = (square: string) => {
                 Ход {turnNumber}
               </span>
 
-              {gameMode === 'fog_of_war' && !gameOver && (
+              {((gameMode === 'fog_of_war' && !gameOver) || isSpellMode) && (
                 <button
-                  onClick={() => setIsRulesOpen(true)}
+                  onClick={() => (isSpellMode ? setIsSpellRulesOpen(true) : setIsRulesOpen(true))}
                   className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] hover:text-[var(--accent-brand)] transition-colors"
                 >
                   Правила
@@ -1037,6 +1039,12 @@ const getSquareCenter = (square: string) => {
       <FogRulesModal
         isOpen={isRulesOpen}
         onClose={() => setIsRulesOpen(false)}
+      />
+
+      <SpellRulesModal
+        isOpen={isSpellRulesOpen}
+        onClose={() => setIsSpellRulesOpen(false)}
+        playerColor={playerColor}
       />
     </GameLayout>
   )

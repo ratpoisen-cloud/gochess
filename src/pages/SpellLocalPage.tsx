@@ -1,18 +1,19 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import ChessBoard from '@/components/board/ChessBoard'
 import { useSpellGameStore } from '@/stores/spellGameStore'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
-import SettingsDropdown from '@/components/SettingsDropdown'
-import UserMenu from '@/components/UserMenu'
-import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
 import SpellRulesModal from '@/components/SpellRulesModal'
+import GameLayout from '@/components/GameLayout'
+import { SpellBar } from '@/components/board/SpellBar'
+import { SpellInfoPanel } from '@/components/board/SpellInfoPanel'
+import PixelConfetti from '@/components/PixelConfetti'
 import PromotionPicker from '@/components/PromotionPicker'
-import { spellIconFile, SPELL_ORDER, isFreeSpell } from '@/lib/spellMeta'
+import { spellIconFile, SPELL_ORDER } from '@/lib/spellMeta'
 import { SPELL_UNLOCK, WHITE_CHARGES, BLACK_CHARGES, type SpellName } from '@/lib/spellChessEngine'
 import { useBoardStore } from '@/stores/boardStore'
 
@@ -31,8 +32,6 @@ const SPELL_META: Record<SpellName, { label: string; icon: string; desc: string;
 }
 
 const NO_CONFIRM_SPELLS: SpellName[] = ['portal', 'berserk', 'divineGrace', 'shadowGrave', 'mirage']
-const WHITE_ONLY: SpellName[] = ['berserk', 'divineGrace']
-const BLACK_ONLY: SpellName[] = ['shadowGrave', 'mirage']
 
 export default function SpellLocalPage() {
   const { user } = useAuth()
@@ -52,9 +51,10 @@ export default function SpellLocalPage() {
   const boardContainerRef = useRef<HTMLDivElement>(null)
   const vfxRef = useRef<MagicVFXHandle>(null)
   const [isRulesOpen, setIsRulesOpen] = useState(false)
+  const [hoveredSpell, setHoveredSpell] = useState<SpellName | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
-  const { getPieceUrl } = useBoardStore()
+  const { getPieceUrl, getTheme } = useBoardStore()
 
   useEffect(() => {
     if (!initialized) {
@@ -362,307 +362,259 @@ export default function SpellLocalPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-bg">
-      <header className="px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-32)] max-sm:py-[var(--space-16)] bg-bg">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-[var(--space-12)]">
-          <Link to="/">
-            <img
-              src={`${BASE}logo/gochess_wordmark_dark.svg`}
-              alt="GoChess"
-              className="h-[28px] w-auto"
-            />
-          </Link>
-          <div className="flex items-center gap-[var(--space-12)]">
-            <SettingsDropdown />
-            {user && <UserMenu />}
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-[1200px] mx-auto px-[var(--space-24)] max-sm:px-[var(--space-8)] py-[var(--space-48)] max-sm:py-[var(--space-24)] flex-1 w-full">
-        <div className="game-layout-container">
-          <div className="game-main-column">
-            <div
-              className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
-              style={{ width: stableWidth || '100%', maxWidth: '100%' }}
-            >
-              <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
-                <img
-                  src={`${BASE}emojis/online/magic.png`}
-                  alt="magic"
-                  className="w-5 h-5 object-contain opacity-90"
-                  style={{ imageRendering: 'pixelated' }}
-                />
-                <span className="text-[var(--accent-brand)] uppercase tracking-widest">Spell Chess</span>
-              </div>
-
-              <div className="text-center flex justify-center">
-                {isGameOver ? (
-                  <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse">
-                    {getStatusMessage()}
-                  </h2>
-                ) : getStatusMessage() ? (
-                  <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] text-center leading-tight ${hasCastSpellThisTurn && !activeSpell ? 'text-[var(--danger)]' : 'text-[var(--accent-brand)]'} ${activeSpell ? 'animate-pulse' : ''}`}>
-                    {getStatusMessage()}
-                  </h2>
-                ) : null}
-              </div>
-
-              <div className="text-right">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                  turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
-                }`}>
-                  {turn === 'w' ? 'Белые' : 'Чёрные'}
-                </span>
-              </div>
-            </div>
-
-            <div
-              ref={boardContainerRef}
-              className="board-container relative overflow-hidden"
-            >
-              <MagicVFX ref={vfxRef} boardWidth={stableWidth} />
-
-      <SpellRulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} playerColor={turn} />
-
-      {pendingPromotion && stableWidth > 0 && (
-        <div className="absolute inset-0 z-[10001] flex items-center justify-center pointer-events-none">
-          <div className="pointer-events-auto">
-            <PromotionPicker
-              to={pendingPromotion.to}
-              color={turn}
-              onSelect={(piece) => {
-                makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                setPendingPromotion(null)
-              }}
-              onCancel={() => setPendingPromotion(null)}
-            />
-          </div>
-        </div>
-      )}
-              {stableWidth > 0 && (
-                <ChessBoard
-                  position={fen}
-                  game={engine}
-                  checkSquare={null}
-                  lastMove={lastMove}
-                  selectedSquare={selectedSquare}
-                  legalMoves={legalMoves}
-                  onDrop={onDrop}
-                  onSquareClick={onSquareClick}
-                  onSquareMouseEnter={(square) => setHoveredSquare(square)}
-                  onSquareMouseLeave={() => setHoveredSquare(null)}
-                  boardWidth={stableWidth}
-                  boardOrientation="white"
-                  customSquareStyles={customSquareStyles}
-                  arePiecesDraggable={!isGameOver && !activeSpell}
-                  customCursor={activeSpell ? 'crosshair' : undefined}
-                  bombs={activeBombs}
-                />
-              )}
-
-              {berserkTarget && stableWidth && (() => {
-                const col = berserkTarget.charCodeAt(0) - 97
-                const rank = parseInt(berserkTarget[1])
-                const leftPct = col * 12.5
-                const isAtTop = rank === 8
-                const piece = engine.getPiece(berserkTarget)
-                const currentType = piece?.type
-                const types = (['q', 'r', 'b', 'n'] as const).filter(t => t !== currentType)
-                return (
+    <GameLayout user={user}>
+              <div className="game-layout-container">
+                <div className="game-main-column">
                   <div
-                    className="absolute inset-0 z-[10001] cursor-default bg-black/10"
-                    onClick={() => useSpellGameStore.setState({ berserkTarget: null })}
+                    className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
+                    style={{ width: stableWidth || '100%', maxWidth: '100%' }}
                   >
-                    <div
-                      className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
-                      style={{
-                        left: `${leftPct}%`,
-                        top: isAtTop ? 0 : 'auto',
-                        bottom: isAtTop ? 'auto' : 0,
-                        width: '12.5%',
-                        height: `${types.length * 12.5}%`,
-                        backgroundColor: 'rgba(18, 20, 18, 0.96)',
-                        border: '1px solid rgba(255, 255, 255, 0.12)',
-                        borderRadius: 'var(--radius-8)',
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {types.map((t) => {
-                        const code = `${turn}${t.toUpperCase()}`
-                        return (
-                          <button
-                            key={t}
-                            onClick={() => {
-                              const center = getSquareCenter(berserkTarget)
-                              vfxRef.current?.trigger({ ...center, type: 'sparkle' })
-                              confirmBerserk(berserkTarget, t)
-                            }}
-                            className="flex-1 flex items-center justify-center transition-colors group"
+                    <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
+                      <img
+                        src={`${BASE}emojis/online/magic.png`}
+                        alt="magic"
+                        className="w-5 h-5 object-contain opacity-90"
+                        style={{ imageRendering: 'pixelated' }}
+                      />
+                      <span className="text-[var(--accent-brand)] uppercase tracking-widest">Spell Chess</span>
+                    </div>
+
+                    <div className="text-center flex justify-center">
+                      {isGameOver ? (
+                        <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse">
+                          {getStatusMessage()}
+                        </h2>
+                      ) : getStatusMessage() ? (
+                        <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] text-center leading-tight ${hasCastSpellThisTurn && !activeSpell ? 'text-[var(--danger)]' : 'text-[var(--accent-brand)]'} ${activeSpell ? 'animate-pulse' : ''}`}>
+                          {getStatusMessage()}
+                        </h2>
+                      ) : null}
+                    </div>
+
+                    <div className="text-right">
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                        turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
+                      }`}>
+                        {turn === 'w' ? 'Белые' : 'Чёрные'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    ref={boardContainerRef}
+                    className="board-container relative overflow-hidden"
+                  >
+                    <MagicVFX ref={vfxRef} boardWidth={stableWidth} />
+                    {isGameOver && winner && (
+                      <PixelConfetti
+                        boardMode
+                        lightSquareColor={getTheme().whiteSquare}
+                        darkSquareColor={getTheme().blackSquare}
+                      />
+                    )}
+
+            <SpellRulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} playerColor={turn} />
+
+            {pendingPromotion && stableWidth > 0 && (
+              <div className="absolute inset-0 z-[10001] flex items-center justify-center pointer-events-none">
+                <div className="pointer-events-auto">
+                  <PromotionPicker
+                    to={pendingPromotion.to}
+                    color={turn}
+                    onSelect={(piece) => {
+                      makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                      setPendingPromotion(null)
+                    }}
+                    onCancel={() => setPendingPromotion(null)}
+                  />
+                </div>
+              </div>
+            )}
+                    {stableWidth > 0 && (
+                      <ChessBoard
+                        position={fen}
+                        game={engine}
+                        checkSquare={null}
+                        lastMove={lastMove}
+                        selectedSquare={selectedSquare}
+                        legalMoves={legalMoves}
+                        onDrop={onDrop}
+                        onSquareClick={onSquareClick}
+                        onSquareMouseEnter={(square) => setHoveredSquare(square)}
+                        onSquareMouseLeave={() => setHoveredSquare(null)}
+                        boardWidth={stableWidth}
+                        boardOrientation="white"
+                        customSquareStyles={customSquareStyles}
+                        arePiecesDraggable={!isGameOver && !activeSpell}
+                        customCursor={activeSpell ? 'crosshair' : undefined}
+                        bombs={activeBombs}
+                      />
+                    )}
+
+                    {berserkTarget && stableWidth && (() => {
+                      const col = berserkTarget.charCodeAt(0) - 97
+                      const rank = parseInt(berserkTarget[1])
+                      const leftPct = col * 12.5
+                      const isAtTop = rank === 8
+                      const piece = engine.getPiece(berserkTarget)
+                      const currentType = piece?.type
+                      const types = (['q', 'r', 'b', 'n'] as const).filter(t => t !== currentType)
+                      return (
+                        <div
+                          className="absolute inset-0 z-[10001] cursor-default bg-black/10"
+                          onClick={() => useSpellGameStore.setState({ berserkTarget: null })}
+                        >
+                          <div
+                            className="absolute flex flex-col shadow-2xl shadow-black/80 overflow-hidden animate-modal-pixel-in"
                             style={{
-                              backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                              borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                              left: `${leftPct}%`,
+                              top: isAtTop ? 0 : 'auto',
+                              bottom: isAtTop ? 'auto' : 0,
+                              width: '12.5%',
+                              height: `${types.length * 12.5}%`,
+                              backgroundColor: 'rgba(18, 20, 18, 0.96)',
+                              border: '1px solid rgba(255, 255, 255, 0.12)',
+                              borderRadius: 'var(--radius-8)',
                             }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
-                            }}
+                            onClick={(e) => e.stopPropagation()}
                           >
+                            {types.map((t) => {
+                              const code = `${turn}${t.toUpperCase()}`
+                              return (
+                                <button
+                                  key={t}
+                                  onClick={() => {
+                                    const center = getSquareCenter(berserkTarget)
+                                    vfxRef.current?.trigger({ ...center, type: 'sparkle' })
+                                    confirmBerserk(berserkTarget, t)
+                                  }}
+                                  className="flex-1 flex items-center justify-center transition-colors group"
+                                  style={{
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'rgba(232, 232, 216, 0.08)'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'
+                                  }}
+                                >
+                                  <img
+                                    src={getPieceUrl(code)}
+                                    alt={t}
+                                    className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                                    draggable={false}
+                                  />
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                {stableWidth > 0 && (
+                  <div
+                    className="mx-auto mt-4 flex justify-center"
+                    style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <SpellBar
+                      playerColor={turn}
+                      currentCharges={spellState.charges[turn] || {}}
+                      turnNumber={turnNumber}
+                      isMyTurn={true}
+                      hasCastSpellThisTurn={hasCastSpellThisTurn}
+                      activeSpell={activeSpell}
+                      gameOver={isGameOver}
+                      onSpellClick={(spell: SpellName) => castSpell(spell)}
+                      onSpellHover={setHoveredSpell}
+                    />
+                  </div>
+                )}
+
+                  <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
+                    {isGameOver && (
+                      <Button variant="primary" onClick={resetGame}>Новая игра</Button>
+                    )}
+                    <Button variant="outline" onClick={() => navigate('/offline')}>В лобби</Button>
+                  </div>
+                </div>
+
+                <div className="game-side-column space-y-[var(--space-16)]">
+                  <div className="h-[220px]">
+                    <SpellInfoPanel spell={hoveredSpell || activeSpell} turnNumber={turnNumber} />
+                  </div>
+
+
+                  <Card padding="sm">
+                    <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Прогресс</h3>
+
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <span className="text-[11px] font-bold text-[var(--accent-brand)]">Ход</span>
+                      <span className="text-[20px] font-bold text-text tracking-wider">{turnNumber}</span>
+                    </div>
+
+                    <button
+                      onClick={() => setIsRulesOpen(true)}
+                      className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] hover:text-[var(--accent-brand)] transition-colors mb-4"
+                    >
+                      Правила
+                    </button>
+
+                    <div className="relative h-1.5 bg-[rgba(255,255,255,0.06)] rounded-[2px] mb-4 mx-1">
+                      <div
+                        className="absolute h-full bg-[var(--accent-brand)] rounded-[2px] transition-all duration-300"
+                        style={{ width: `${Math.min(100, (turnNumber / 40) * 100)}%` }}
+                      />
+                      {[1, 7, 13, 19, 25, 31].map(t => (
+                        <div
+                          key={t}
+                          className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2"
+                          style={{
+                            left: `${(t / 40) * 100}%`,
+                            borderColor: 'var(--accent-brand)',
+                            backgroundColor: turnNumber >= t ? 'var(--accent-brand)' : 'var(--bg)',
+                            zIndex: 2
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {SPELL_ORDER.map(spell => {
+                        const meta = SPELL_META[spell]
+                        const unlockTurn = SPELL_UNLOCK[spell]
+                        const isUnlocked = turnNumber >= unlockTurn
+                        const charge = spellState.charges[turn][spell] || 0
+                        const maxCharge = turn === 'w' ? (WHITE_CHARGES[spell] || 0) : (BLACK_CHARGES[spell] || 0)
+                        return (
+                          <div key={spell} className="flex items-center gap-2 px-1">
                             <img
-                              src={getPieceUrl(code)}
-                              alt={t}
-                              className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
-                              draggable={false}
+                              src={spellIconFile(spell)}
+                              alt={spell}
+                              className="w-3.5 h-3.5 object-contain"
+                              style={{ imageRendering: 'pixelated', opacity: isUnlocked ? 1 : 0.35 }}
                             />
-                          </button>
+                            <span className={`text-[7px] font-bold uppercase tracking-wider flex-1 ${isUnlocked ? 'text-text' : 'text-text-secondary'}`}>
+                              {meta.label}
+                            </span>
+                            <span className={`text-[7px] font-bold ${charge > 0 ? 'text-[var(--accent-brand)]' : 'text-[var(--danger)]'}`}>
+                              {charge}/{maxCharge}
+                            </span>
+                            {!isUnlocked && (
+                              <span className="text-[7px] font-bold text-text-secondary">
+                                ход {unlockTurn}+
+                              </span>
+                            )}
+                          </div>
                         )
                       })}
                     </div>
-                  </div>
-                )
-              })()}
-            </div>
-
-            <div className="mt-[var(--space-16)] flex justify-center gap-[var(--space-12)]">
-              {isGameOver && (
-                <Button variant="primary" onClick={resetGame}>Новая игра</Button>
-              )}
-              <Button variant="outline" onClick={() => navigate('/offline')}>В лобби</Button>
-            </div>
-          </div>
-
-          <div className="game-side-column space-y-[var(--space-16)]">
-            <Card padding="sm">
-              <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Инвентарь</h3>
-
-              <div className="grid grid-cols-3 gap-1.5">
-                {SPELL_ORDER.map(spell => {
-                  const meta = SPELL_META[spell]
-                  const charge = spellState.charges[turn][spell] || 0
-                  const unlockTurn = SPELL_UNLOCK[spell]
-                  const isLocked = turnNumber < unlockTurn
-                  const isColorRestricted = (WHITE_ONLY.includes(spell) && turn !== 'w') || (BLACK_ONLY.includes(spell) && turn !== 'b')
-                  const noCharges = charge <= 0
-                  const isActive = activeSpell === spell
-                  const spentThisTurn = hasCastSpellThisTurn && isFreeSpell(spell)
-                  const isDisabled = isGameOver || spentThisTurn || isLocked || isColorRestricted || noCharges
-
-                  return (
-                    <button
-                      key={spell}
-                      onClick={() => castSpell(spell)}
-                      disabled={isDisabled}
-                      className={`relative p-1.5 rounded-[var(--radius-4)] border transition-all flex flex-col items-center justify-center gap-0.5 group ${
-                        isActive
-                          ? 'bg-[var(--accent-brand)] border-[var(--accent-brand)] text-bg shadow-[0_0_10px_rgba(126,184,126,0.3)]'
-                          : 'bg-[rgba(255,255,255,0.02)] border-[var(--border)] text-text-secondary hover:border-[var(--accent-brand)] disabled:opacity-20'
-                      }`}
-                      title={`${meta.label} — ${meta.desc} (${meta.type === 'free' ? 'свободное' : 'завершающее'})`}
-                    >
-                      <img
-                        src={spellIconFile(spell)}
-                        alt={spell}
-                        className="w-5 h-5 object-contain"
-                        style={{ imageRendering: 'pixelated' }}
-                      />
-                      <span className="text-[6px] font-bold drop-shadow-[0_0_3px_rgba(126,184,126,0.5)]">
-                        {noCharges ? '0' : charge}
-                      </span>
-                      {isLocked && (
-                        <div className="absolute inset-0 bg-bg/70 flex items-center justify-center rounded-[var(--radius-4)]">
-                          <span className="text-[5px] font-bold text-text-secondary text-center leading-tight px-0.5">
-                            🔒 ход {unlockTurn}+
-                          </span>
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
+                  </Card>
+                </div>
               </div>
-
-              <div className="mt-3 flex items-center justify-center gap-3 text-[7px] text-text-secondary">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-sm bg-[var(--accent-brand)]/40 border border-[var(--accent-brand)]" />
-                  Свободное
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-sm bg-[var(--danger)]/40 border border-[var(--danger)]" />
-                  Завершающее
-                </span>
-              </div>
-            </Card>
-
-            <Card padding="sm">
-              <h3 className="text-[10px] font-bold text-text-secondary uppercase tracking-[0.2em] mb-4 text-center">Прогресс</h3>
-
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-[11px] font-bold text-[var(--accent-brand)]">Ход</span>
-                <span className="text-[20px] font-bold text-text tracking-wider">{turnNumber}</span>
-              </div>
-
-              <button
-                onClick={() => setIsRulesOpen(true)}
-                className="text-[9px] font-bold text-text-secondary uppercase tracking-[0.2em] hover:text-[var(--accent-brand)] transition-colors mb-4"
-              >
-                Правила
-              </button>
-
-              <div className="relative h-1.5 bg-[rgba(255,255,255,0.06)] rounded-[2px] mb-4 mx-1">
-                <div
-                  className="absolute h-full bg-[var(--accent-brand)] rounded-[2px] transition-all duration-300"
-                  style={{ width: `${Math.min(100, (turnNumber / 40) * 100)}%` }}
-                />
-                {[1, 7, 13, 19, 25, 31].map(t => (
-                  <div
-                    key={t}
-                    className="absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full border-2"
-                    style={{
-                      left: `${(t / 40) * 100}%`,
-                      borderColor: 'var(--accent-brand)',
-                      backgroundColor: turnNumber >= t ? 'var(--accent-brand)' : 'var(--bg)',
-                      zIndex: 2
-                    }}
-                  />
-                ))}
-              </div>
-
-              <div className="space-y-1.5">
-                {SPELL_ORDER.map(spell => {
-                  const meta = SPELL_META[spell]
-                  const unlockTurn = SPELL_UNLOCK[spell]
-                  const isUnlocked = turnNumber >= unlockTurn
-                  const charge = spellState.charges[turn][spell] || 0
-                  const maxCharge = turn === 'w' ? (WHITE_CHARGES[spell] || 0) : (BLACK_CHARGES[spell] || 0)
-                  return (
-                    <div key={spell} className="flex items-center gap-2 px-1">
-                      <img
-                        src={spellIconFile(spell)}
-                        alt={spell}
-                        className="w-3.5 h-3.5 object-contain"
-                        style={{ imageRendering: 'pixelated', opacity: isUnlocked ? 1 : 0.35 }}
-                      />
-                      <span className={`text-[7px] font-bold uppercase tracking-wider flex-1 ${isUnlocked ? 'text-text' : 'text-text-secondary'}`}>
-                        {meta.label}
-                      </span>
-                      <span className={`text-[7px] font-bold ${charge > 0 ? 'text-[var(--accent-brand)]' : 'text-[var(--danger)]'}`}>
-                        {charge}/{maxCharge}
-                      </span>
-                      {!isUnlocked && (
-                        <span className="text-[7px] font-bold text-text-secondary">
-                          ход {unlockTurn}+
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </Card>
-          </div>
-        </div>
-      </main>
-      <Footer />
-    </div>
+    </GameLayout>
   )
 }

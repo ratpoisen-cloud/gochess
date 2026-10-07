@@ -24,6 +24,7 @@ import FogRulesModal from '@/components/FogRulesModal'
 import SpellRulesModal from '@/components/SpellRulesModal'
 import { useToast } from '@/components/Toast'
 import GameLayout from '@/components/GameLayout'
+import PromotionPicker from '@/components/PromotionPicker'
 import { usePgnCopy } from '@/hooks/usePgnCopy'
 import { MagicVFX, type MagicVFXHandle } from '@/components/MagicVFX'
 import { SpellBar } from '@/components/board/SpellBar'
@@ -662,25 +663,18 @@ const getSquareCenter = (square: string) => {
                   onSquareMouseLeave={isSpellMode && activeSpell ? () => setHoveredSquare(null) : undefined}
                 />
 
-                {pendingPromotion && (
-                  <div className="absolute inset-0 z-[100] bg-black/20 flex items-center justify-center">
-                    <div className="bg-[var(--surface-elevated)] max-sm:p-2 max-sm:gap-2 sm:p-4 sm:gap-4 rounded-[var(--radius-14)] shadow-2xl flex">
-                      {(['q', 'r', 'b', 'n'] as const).map((piece) => (
-                        <button
-                          key={piece}
-                          onClick={() => {
-                            makeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                            setPendingPromotion(null)
-                          }}
-                          className="max-sm:w-12 max-sm:h-12 sm:w-16 sm:h-16 hover:bg-white/10 rounded-lg transition-colors p-1"
-                        >
-                          <img
-                            src={getPieceUrl(`${playerColor}${piece.toUpperCase()}`)}
-                            alt={piece}
-                            className="w-full h-full object-contain"
-                          />
-                        </button>
-                      ))}
+                {pendingPromotion && stableWidth > 0 && (
+                  <div className="absolute inset-0 z-[10001] pointer-events-none">
+                    <div className="pointer-events-auto">
+                      <PromotionPicker
+                        to={pendingPromotion.to}
+                        color={playerColor || 'w'}
+                        onSelect={(piece: 'q' | 'r' | 'b' | 'n') => {
+                          makeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                          setPendingPromotion(null)
+                        }}
+                        onCancel={() => setPendingPromotion(null)}
+                      />
                     </div>
                   </div>
                 )}

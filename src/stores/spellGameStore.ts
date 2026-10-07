@@ -35,6 +35,7 @@ interface SpellGameState {
   makeMove: (from: string, to: string, promotion?: PieceType) => boolean
   selectSquare: (square: string) => void
   castSpell: (spell: SpellName, square?: string) => void
+  clearSpellSelection: () => void
   confirmBerserk: (square: string, type: PieceType) => void
   resetGame: () => void
 }
@@ -199,6 +200,10 @@ export const useSpellGameStore = create<SpellGameState>((set, get) => ({
     } else {
       set({ activeSpell: null, portalStart: null, mirageStart: null })
     }
+  },
+
+  clearSpellSelection: () => {
+    set({ activeSpell: null, portalStart: null, mirageStart: null, selectedSquare: null, legalMoves: [] })
   },
 
   confirmBerserk: (square, type) => {

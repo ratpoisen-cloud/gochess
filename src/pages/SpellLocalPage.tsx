@@ -39,7 +39,7 @@ export default function SpellLocalPage() {
   const {
     fen, turn, spellState, selectedSquare, legalMoves, lastMove,
     isGameOver, winner, activeSpell, portalStart, mirageStart, halfMoveCount,
-    makeMove, selectSquare, castSpell, resetGame, hasCastSpellThisTurn,
+    makeMove, selectSquare, castSpell, resetGame, hasCastSpellThisTurn, clearSpellSelection,
     berserkTarget, confirmBerserk
   } = useSpellGameStore()
 
@@ -211,6 +211,24 @@ export default function SpellLocalPage() {
     selectSquare(square)
   }
 
+  // Mirrors the king_capture branch in useGameSync: a captured king is already
+  // off the board, so only the survivor gets marked.
+  const { defeatedKingSquare, endGameEmojis } = useMemo(() => {
+    if (!isGameOver || !winner) return { defeatedKingSquare: null, endGameEmojis: [] }
+
+    const loser = winner === 'w' ? 'b' : 'w'
+    const loserSquare = engine.getKingSquare(loser)
+    const winnerSquare = engine.getKingSquare(winner)
+
+    return {
+      defeatedKingSquare: loserSquare,
+      endGameEmojis: [
+        ...(loserSquare ? [{ square: loserSquare, url: `${BASE}emojis/end game/chekmate.png` }] : []),
+        ...(winnerSquare ? [{ square: winnerSquare, url: `${BASE}emojis/end game/win.png` }] : []),
+      ],
+    }
+  }, [isGameOver, winner, fen, engine])
+
   const turnNumber = halfMoveCount + 1
   const previewTarget = pendingTarget || hoveredSquare
 
@@ -364,7 +382,7 @@ export default function SpellLocalPage() {
   return (
     <GameLayout user={user}>
               <div className="game-layout-container">
-                <div className="game-main-column">
+                <div className="game-main-column" onClick={() => { if (activeSpell) clearSpellSelection() }}>
                   <div
                     className="mx-auto mb-[var(--space-12)] grid grid-cols-3 items-center px-[var(--space-8)]"
                     style={{ width: stableWidth || '100%', maxWidth: '100%' }}
@@ -376,27 +394,40 @@ export default function SpellLocalPage() {
                         className="w-5 h-5 object-contain opacity-90"
                         style={{ imageRendering: 'pixelated' }}
                       />
-                      <span className="text-[var(--accent-brand)] uppercase tracking-widest">Spell Chess</span>
+                      <span className="text-[var(--accent-brand)] truncate">Spell Chess</span>
+                      <span className="text-[9px] font-bold text-text-secondary uppercase tracking-widest">
+                        Ход {turnNumber}
+                      </span>
                     </div>
 
-                    <div className="text-center flex justify-center">
+                    <div className="flex flex-col items-center gap-1 text-center">
                       {isGameOver ? (
-                        <h2 className="text-[10px] font-bold text-[var(--accent-brand)] uppercase tracking-[0.2em] animate-pulse">
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--accent-brand)] animate-pulse">
                           {getStatusMessage()}
-                        </h2>
-                      ) : getStatusMessage() ? (
-                        <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] text-center leading-tight ${hasCastSpellThisTurn && !activeSpell ? 'text-[var(--danger)]' : 'text-[var(--accent-brand)]'} ${activeSpell ? 'animate-pulse' : ''}`}>
+                        </span>
+                      ) : activeSpell ? (
+                        <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--accent-brand)] animate-pulse">
                           {getStatusMessage()}
-                        </h2>
+                        </span>
+                      ) : hasCastSpellThisTurn ? (
+                        <span className="text-[9px] text-text-secondary opacity-60 uppercase tracking-widest">
+                          Заклинание использовано
+                        </span>
                       ) : null}
                     </div>
 
                     <div className="text-right">
-                      <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                        turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
-                      }`}>
-                        {turn === 'w' ? 'Белые' : 'Чёрные'}
-                      </span>
+                      {isGameOver ? (
+                        <span className="text-[var(--font-size-sm)] font-bold text-text-secondary opacity-60 uppercase tracking-widest">
+                          Игра окончена
+                        </span>
+                      ) : (
+                        <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${
+                          turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'
+                        }`}>
+                          Ход {turn === 'w' ? 'белых' : 'чёрных'}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -448,6 +479,9 @@ export default function SpellLocalPage() {
                         arePiecesDraggable={!isGameOver && !activeSpell}
                         customCursor={activeSpell ? 'crosshair' : undefined}
                         bombs={activeBombs}
+                        defeatedKingSquare={defeatedKingSquare}
+                        endGameEmojis={endGameEmojis}
+                        gameOverGray={isGameOver && !!winner && winner !== turn}
                       />
                     )}
 

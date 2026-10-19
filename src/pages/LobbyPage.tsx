@@ -94,13 +94,11 @@ export default function LobbyPage() {
   const [displayedChars, setDisplayedChars] = useState(0)
   const [animationPhase, setAnimationPhase] = useState<'typing' | 'logo'>('typing')
   
-  const fullTextLine1 = "Играй в шахматы"
-  const fullTextLine2 = "с друзьями"
+  const fullText = "Играй в шахматы"
 
   useEffect(() => {
     if (initialLoading) return
-    const totalLen = fullTextLine1.length + fullTextLine2.length
-    if (displayedChars < totalLen) {
+    if (displayedChars < fullText.length) {
       const timer = setTimeout(() => {
         setDisplayedChars(prev => prev + 1)
       }, 60)
@@ -205,16 +203,10 @@ export default function LobbyPage() {
             {displayedChars > 0 ? (
               <>
                 <span className="text-[var(--accent-brand)]">
-                  {fullTextLine1.slice(0, Math.min(displayedChars, 5))}
+                  {fullText.slice(0, Math.min(displayedChars, 5))}
                 </span>
-                {displayedChars > 5 && fullTextLine1.slice(5, Math.min(displayedChars, fullTextLine1.length))}
-                {displayedChars > fullTextLine1.length && (
-                  <>
-                    <br />
-                    {fullTextLine2.slice(0, displayedChars - fullTextLine1.length)}
-                  </>
-                )}
-                {displayedChars < (fullTextLine1.length + fullTextLine2.length) ? (
+                {displayedChars > 5 && fullText.slice(5, Math.min(displayedChars, fullText.length))}
+                {displayedChars < fullText.length ? (
                   <span className="animate-pulse ml-1 inline-block w-2 h-[1em] bg-[var(--accent-brand)] align-middle" />
                 ) : (
                   <span className="ml-1 inline-block w-2 h-[1em] bg-transparent align-middle" />

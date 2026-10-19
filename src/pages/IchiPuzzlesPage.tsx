@@ -11,12 +11,14 @@ import PromotionPicker from '@/components/PromotionPicker'
 import { createEngine, type EngineAPI } from '@/lib/engine'
 import { PUZZLES, PUZZLE_THEMES, type Puzzle } from '@/lib/puzzlesData'
 import { usePuzzleStore } from '@/stores/puzzleStore'
+import { useBoardStore } from '@/stores/boardStore'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { soundManager } from '@/lib/soundManager'
 
 export default function IchiPuzzlesPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { getTheme } = useBoardStore()
 
   const {
     currentStreak,
@@ -58,7 +60,8 @@ export default function IchiPuzzlesPage() {
   const [isListModalOpen, setIsListModalOpen] = useState(false)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
-  const { stableWidth } = useBoardWidth(boardContainerRef, true)
+  const { stableWidth, immediateWidth } = useBoardWidth(boardContainerRef, true)
+  const currentBoardWidth = immediateWidth || stableWidth
 
   const loadPuzzle = useCallback((targetPuzzle: Puzzle) => {
     const newEngine = createEngine('standard', targetPuzzle.fen)
@@ -272,14 +275,12 @@ export default function IchiPuzzlesPage() {
 
   return (
     <GameLayout user={user}>
-      {showConfetti && <PixelConfetti />}
-
       <div className="game-layout-container">
         <div className="game-main-column">
           {/* Category Tabs */}
           <div 
             className="mx-auto mb-[var(--space-12)] flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar px-[var(--space-8)]"
-            style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+            style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
           >
             {PUZZLE_THEMES.map((theme) => {
               const isSelected = selectedCategory === theme.id
@@ -313,7 +314,7 @@ export default function IchiPuzzlesPage() {
           {/* Top Bar above Board */}
           <div 
             className="mx-auto mb-[var(--space-12)] flex items-center justify-between px-[var(--space-8)]"
-            style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+            style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
           >
             <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold min-w-0">
               <span className="text-[var(--accent-brand)] truncate">
@@ -351,39 +352,51 @@ export default function IchiPuzzlesPage() {
           {/* Board Container */}
           <div 
             ref={boardContainerRef}
-            className="relative flex justify-center items-center select-none"
-            style={{ width: '100%' }}
+            className="board-container relative"
           >
-            <ChessBoard
-              game={engine}
-              position={fen}
-              lastMove={lastMove}
-              checkSquare={checkSquare}
-              selectedSquare={selectedSquare}
-              legalMoves={legalMoves}
-              onDrop={(src, tgt) => {
-                if (checkPromotion(src, tgt)) {
-                  setPendingPromotion({ from: src, to: tgt })
-                  return true
-                }
-                return handlePlayerMove(src, tgt)
-              }}
-              onSquareClick={onSquareClick}
-              boardWidth={stableWidth}
-              boardOrientation={currentPuzzle.playerColor === 'w' ? 'white' : 'black'}
-              customSquareStyles={customSquareStyles}
-            />
+            {showConfetti && currentBoardWidth > 0 && (
+              <PixelConfetti boardMode lightSquareColor={getTheme().whiteSquare} darkSquareColor={getTheme().blackSquare} />
+            )}
+            {currentBoardWidth > 0 ? (
+              <>
+                <ChessBoard
+                  game={engine}
+                  position={fen}
+                  lastMove={lastMove}
+                  checkSquare={checkSquare}
+                  selectedSquare={selectedSquare}
+                  legalMoves={legalMoves}
+                  onDrop={(src, tgt) => {
+                    if (checkPromotion(src, tgt)) {
+                      setPendingPromotion({ from: src, to: tgt })
+                      return true
+                    }
+                    return handlePlayerMove(src, tgt)
+                  }}
+                  onSquareClick={onSquareClick}
+                  boardWidth={currentBoardWidth}
+                  boardOrientation={currentPuzzle.playerColor === 'w' ? 'white' : 'black'}
+                  customSquareStyles={customSquareStyles}
+                />
 
-            {pendingPromotion && (
-              <PromotionPicker
-                to={pendingPromotion.to}
-                color={currentPuzzle.playerColor}
-                onSelect={(piece) => {
-                  handlePlayerMove(pendingPromotion.from, pendingPromotion.to, piece)
-                  setPendingPromotion(null)
-                }}
-                onCancel={() => setPendingPromotion(null)}
-              />
+                {pendingPromotion && (
+                  <PromotionPicker
+                    to={pendingPromotion.to}
+                    color={currentPuzzle.playerColor}
+                    onSelect={(piece) => {
+                      handlePlayerMove(pendingPromotion.from, pendingPromotion.to, piece)
+                      setPendingPromotion(null)
+                    }}
+                    onCancel={() => setPendingPromotion(null)}
+                  />
+                )}
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
+                <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
+                  Загрузка шахматной доски...
+                </div>
+              </div>
             )}
           </div>
 
@@ -397,7 +410,7 @@ export default function IchiPuzzlesPage() {
                   ? 'border-[var(--danger)] bg-[var(--danger)]/15 text-[var(--danger)]'
                   : 'border-[var(--accent-brand)]/40 bg-[var(--accent-brand)]/10 text-[var(--accent-brand)]'
               }`}
-              style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+              style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
             >
               <p className="text-[11px] font-bold uppercase tracking-wider">
                 {feedback.message}

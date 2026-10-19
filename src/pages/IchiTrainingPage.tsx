@@ -29,7 +29,8 @@ export default function IchiTrainingPage() {
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
-  const { stableWidth } = useBoardWidth(boardContainerRef, true)
+  const { stableWidth, immediateWidth } = useBoardWidth(boardContainerRef, true)
+  const currentBoardWidth = immediateWidth || stableWidth
   const botEngineRef = useRef<ReturnType<typeof createBotEngine> | null>(null)
 
   const { pgnCopied, copyPgn } = usePgnCopy(() => engine.pgn())
@@ -220,7 +221,7 @@ export default function IchiTrainingPage() {
         <div className="game-main-column">
           <div 
             className="mx-auto mb-[var(--space-12)] flex items-center justify-between px-[var(--space-8)]"
-            style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+            style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
           >
             <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
               <img 
@@ -240,46 +241,55 @@ export default function IchiTrainingPage() {
 
           <div 
             ref={boardContainerRef}
-            className="relative flex justify-center items-center select-none"
-            style={{ width: '100%' }}
+            className="board-container relative"
           >
-            <ChessBoard
-              game={engine}
-              position={fen}
-              lastMove={lastMove}
-              checkSquare={checkSquare}
-              selectedSquare={selectedSquare}
-              legalMoves={legalMoves}
-              onDrop={(src, tgt) => {
-                if (checkPromotion(src, tgt)) {
-                  setPendingPromotion({ from: src, to: tgt })
-                  return true
-                }
-                return executeMove(src, tgt)
-              }}
-              onSquareClick={onSquareClick}
-              boardWidth={stableWidth}
-              boardOrientation={orientation}
-              customSquareStyles={customSquareStyles}
-            />
+            {currentBoardWidth > 0 ? (
+              <>
+                <ChessBoard
+                  game={engine}
+                  position={fen}
+                  lastMove={lastMove}
+                  checkSquare={checkSquare}
+                  selectedSquare={selectedSquare}
+                  legalMoves={legalMoves}
+                  onDrop={(src, tgt) => {
+                    if (checkPromotion(src, tgt)) {
+                      setPendingPromotion({ from: src, to: tgt })
+                      return true
+                    }
+                    return executeMove(src, tgt)
+                  }}
+                  onSquareClick={onSquareClick}
+                  boardWidth={currentBoardWidth}
+                  boardOrientation={orientation}
+                  customSquareStyles={customSquareStyles}
+                />
 
-            {pendingPromotion && (
-              <PromotionPicker
-                to={pendingPromotion.to}
-                color={currentTurn}
-                onSelect={(piece) => {
-                  executeMove(pendingPromotion.from, pendingPromotion.to, piece)
-                  setPendingPromotion(null)
-                }}
-                onCancel={() => setPendingPromotion(null)}
-              />
+                {pendingPromotion && (
+                  <PromotionPicker
+                    to={pendingPromotion.to}
+                    color={currentTurn}
+                    onSelect={(piece) => {
+                      executeMove(pendingPromotion.from, pendingPromotion.to, piece)
+                      setPendingPromotion(null)
+                    }}
+                    onCancel={() => setPendingPromotion(null)}
+                  />
+                )}
+              </>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
+                <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
+                  Загрузка шахматной доски...
+                </div>
+              </div>
             )}
           </div>
 
           {hint && (
             <div 
               className="mx-auto mt-[var(--space-12)] p-[var(--space-12)] rounded-[var(--radius-8)] border border-[var(--accent-brand)]/40 bg-[var(--accent-brand)]/10 text-center animate-fade-in"
-              style={{ width: stableWidth || '100%', maxWidth: '100%' }}
+              style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
             >
               <p className="text-[11px] font-bold text-[var(--accent-brand)] uppercase tracking-wider">
                 {hint.text}

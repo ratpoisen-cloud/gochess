@@ -105,4 +105,17 @@ describe('IchiPuzzlesPage', () => {
 
     expect(screen.getByText(/ходите фигурой с/i)).toBeTruthy()
   })
+
+  it('renders chessboard inside .board-container wrapper', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <IchiPuzzlesPage />
+      </MemoryRouter>
+    )
+
+    const boardContainer = container.querySelector('.board-container')
+    expect(boardContainer).toBeTruthy()
+    expect(screen.getByTestId('mock-chessboard')).toBeTruthy()
+  })
 })
+

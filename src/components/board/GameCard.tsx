@@ -49,7 +49,7 @@ export default function GameCard({ game: g, currentUserId, onClick }: GameCardPr
           playerColor={isUserWhite ? 'w' : 'b'}
         />
         {isActive && isMyTurn && (
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-[var(--accent-brand)] animate-pulse ring-2 ring-bg z-10" />
+          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[var(--accent-brand)] rounded-full animate-ping z-10" />
         )}
       </div>
 
@@ -82,7 +82,7 @@ export default function GameCard({ game: g, currentUserId, onClick }: GameCardPr
         <div className="flex items-center justify-between">
           <span className={`text-[10px] font-bold uppercase tracking-widest ${
             isActive 
-              ? (isMyTurn ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60') 
+              ? (isMyTurn ? 'text-[var(--accent-brand)]' : 'text-text-secondary opacity-60') 
               : 'text-text-secondary opacity-40'
           }`}>
             {isActive 

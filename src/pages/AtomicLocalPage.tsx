@@ -193,9 +193,15 @@ export default function AtomicLocalPage() {
               )}
             </div>
             <div className="text-right">
-              <span className={`text-[10px] font-bold uppercase tracking-widest ${turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'}`}>
-                {turn === 'w' ? 'Ход белых' : 'Ход чёрных'}
-              </span>
+              {isGameOver ? (
+                <span className="text-[var(--font-size-sm)] font-bold text-text-secondary opacity-60 uppercase tracking-widest">
+                  Игра окончена
+                </span>
+              ) : (
+                <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${turn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'}`}>
+                  {turn === 'w' ? 'Ход белых' : 'Ход чёрных'}
+                </span>
+              )}
             </div>
           </div>
 

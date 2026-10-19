@@ -5,6 +5,10 @@ import UserMenu from '@/components/UserMenu'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import Footer from '@/components/Footer'
 import { useAuth } from '@/hooks/useAuth'
+import { collection, query, where, limit, getDocs } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
+import GameCard from '@/components/board/GameCard'
+import { gameRoute } from '@/lib/gameRoutes'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
@@ -40,6 +44,7 @@ export default function OfflineHubPage() {
   // Typing animation state
   const [displayedChars, setDisplayedChars] = useState(0)
   const fullText = "ИГРАЙ ОФФЛАЙН!"
+  const [recentGames, setRecentGames] = useState<any[]>([])
 
   useEffect(() => {
     let timer: any
@@ -50,6 +55,46 @@ export default function OfflineHubPage() {
     }
     return () => clearTimeout(timer)
   }, [displayedChars])
+
+  useEffect(() => {
+    if (!user || !db) return
+
+    const fetchData = async () => {
+      try {
+        const q = query(
+          collection(db, 'games'),
+          where('white_player_id', '==', user.uid),
+          limit(30)
+        )
+
+        const snap = await getDocs(q)
+        const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+        const getMs = (doc: any): number => {
+          const val = doc.last_move_time ?? doc.created_at
+          if (!val) return 0
+          if (typeof val === 'number') return val
+          return val.seconds * 1000
+        }
+
+        const sorted = docs.sort((a: any, b: any) => getMs(b) - getMs(a))
+        const localGames = sorted.filter((g: any) => g.game_type === 'local')
+        setRecentGames(localGames)
+      } catch (err) {
+        console.error('[OfflineHub] Error fetching games:', err)
+      }
+    }
+
+    fetchData()
+  }, [user])
+
+  const handleGameClick = (game: any) => {
+    const route = gameRoute(game)
+    if (route) navigate(route)
+  }
+
+  const activeGames = recentGames.filter((g: any) => g.game_state !== 'game_over')
+  const displayedActiveGames = activeGames.slice(0, 6)
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
@@ -76,10 +121,12 @@ export default function OfflineHubPage() {
             <h2 className="text-[clamp(1.4rem,4vw,1.8rem)] font-bold text-text tracking-tight leading-[1.2] uppercase w-full">
               {displayedChars > 0 && (
                 <>
-                  <span className="text-[var(--accent-brand)]">
-                    {fullText.slice(0, Math.min(displayedChars, 5))}
+                  <span className="text-white">
+                    {fullText.slice(0, Math.min(displayedChars, 6))}
                   </span>
-                  {displayedChars > 5 && fullText.slice(5, displayedChars)}
+                  <span className="text-[var(--accent-brand)]">
+                    {displayedChars > 6 && fullText.slice(6, displayedChars)}
+                  </span>
                   {displayedChars < fullText.length ? (
                     <span className="animate-pulse ml-1 inline-block w-2 h-[1em] bg-[var(--accent-brand)] align-middle" />
                   ) : (
@@ -118,6 +165,48 @@ export default function OfflineHubPage() {
             />
           </div>
           
+          {/* Recent Offline Games */}
+          {user && recentGames.length > 0 && (
+            <section className="mb-[var(--space-48)]">
+              <h3 className="text-[var(--font-size-sm)] font-bold text-text mb-[var(--space-12)] uppercase tracking-widest text-center">
+                Последние локальные партии
+              </h3>
+
+              <div className="flex justify-center items-center gap-[var(--space-20)] mb-[var(--space-24)]">
+                <Link 
+                  to="/active"
+                  className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-80 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+                >
+                  Активные {activeGames.length > 0 && `(${activeGames.length})`}
+                </Link>
+                <div className="w-[1px] h-3 bg-[var(--border)] opacity-30" />
+                <Link 
+                  to="/completed" 
+                  className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-80 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+                >
+                  Архив
+                </Link>
+              </div>
+
+              {displayedActiveGames.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
+                  {displayedActiveGames.map((g) => (
+                    <GameCard
+                      key={g.id}
+                      game={g}
+                      currentUserId={user?.uid}
+                      onClick={() => handleGameClick(g)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 border border-dashed border-[var(--border)] rounded-xl opacity-50 uppercase tracking-widest text-[10px] max-w-[500px] mx-auto">
+                  Активных партий пока нет
+                </div>
+              )}
+            </section>
+          )}
+
           <div className="flex justify-center">
             <Button variant="outline" onClick={() => navigate('/')}>
               Вернуться в лобби

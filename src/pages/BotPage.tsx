@@ -240,11 +240,17 @@ export default function BotPage() {
 
               {/* Right: Turn Status */}
               <div className="text-right">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${
-                  !isBotThinking && currentTurn === playerColor ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
-                }`}>
-                  {isBotThinking ? 'Ход соперника' : currentTurn === playerColor ? 'Ваш ход' : 'Ход соперника'}
-                </span>
+                {isGameOver ? (
+                  <span className="text-[var(--font-size-sm)] font-bold text-text-secondary opacity-60 uppercase tracking-widest">
+                    Игра окончена
+                  </span>
+                ) : (
+                  <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${
+                    !isBotThinking && currentTurn === playerColor ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
+                  }`}>
+                    {isBotThinking ? 'Ход соперника' : currentTurn === playerColor ? 'Ваш ход' : 'Ход соперника'}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -355,7 +361,7 @@ export default function BotPage() {
               <div className="space-y-2">
                 <Button fullWidth variant="primary" onClick={() => setTempColor('w')} className={`border-2 ${tempColor === 'w' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Белые</Button>
                 <Button fullWidth variant="primary" onClick={() => setTempColor('b')} className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Чёрные</Button>
-                <Button fullWidth variant="primary" onClick={() => setTempColor('random')} className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Случайно 🎲</Button>
+                <Button fullWidth variant="primary" onClick={() => setTempColor('random')} className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Случайно</Button>
               </div>
             </div>
             <div className="space-y-[var(--space-12)]">

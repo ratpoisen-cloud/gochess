@@ -358,9 +358,15 @@ export default function LocalPage() {
                 )}
               </div>
               <div className="text-right">
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${currentTurn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'}`}>
-                  {currentTurn === 'w' ? 'Ход белых' : 'Ход чёрных'}
-                </span>
+                {isActuallyGameOver || manualGameOver ? (
+                  <span className="text-[var(--font-size-sm)] font-bold text-text-secondary opacity-60 uppercase tracking-widest">
+                    Игра окончена
+                  </span>
+                ) : (
+                  <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${currentTurn === 'w' ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text opacity-60'}`}>
+                    {currentTurn === 'w' ? 'Ход белых' : 'Ход чёрных'}
+                  </span>
+                )}
               </div>
             </div>
 

@@ -206,7 +206,7 @@ export default function ColorPickerModal({
                   className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}
                   disabled={creating}
                 >
-                  Случайно 🎲
+                  Случайно
                 </Button>
               </div>
             </div>
@@ -284,16 +284,9 @@ export default function ColorPickerModal({
                         key={p.uid}
                         className="flex items-center justify-between p-3 rounded-[var(--radius-8)] bg-[rgba(255,255,255,0.02)] border border-[var(--border)] hover:border-[var(--accent-brand)] transition-colors group"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-[var(--radius-4)] bg-surface border border-[var(--border)] flex items-center justify-center font-bold text-[10px] text-[var(--accent-brand)] overflow-hidden">
-                            {p.photoURL ? (
-                              <img src={p.photoURL} alt={p.displayName} className="w-full h-full object-cover" />
-                            ) : p.displayName[0].toUpperCase()}
-                          </div>
-                          <span className="text-[11px] font-bold text-text-secondary group-hover:text-text transition-colors">
-                            {p.displayName}
-                          </span>
-                        </div>
+                        <span className="text-[11px] font-bold text-text-secondary group-hover:text-text transition-colors">
+                          {p.displayName}
+                        </span>
                         <Button 
                           size="sm" 
                           variant="outline"

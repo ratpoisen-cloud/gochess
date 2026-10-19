@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore'
+import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuth } from '@/hooks/useAuth'
 import { usePresence } from '@/hooks/usePresence'
@@ -13,7 +13,8 @@ import SettingsDropdown from '@/components/SettingsDropdown'
 import Footer from '@/components/Footer'
 import Modal from '@/components/Modal'
 import ColorPickerModal from '@/components/ColorPickerModal'
-import BoardPreview from '@/components/board/BoardPreview'
+import GameCard from '@/components/board/GameCard'
+import { gameRoute } from '@/lib/gameRoutes'
 import { isRematchChallenge } from '@/lib/challenges'
 import { formatTimeControl } from '@/lib/gameDoc'
 
@@ -37,7 +38,6 @@ export default function OnlineHubPage() {
   const [gameMode, setGameMode] = useState<GameMode>('classic')
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   const [recentGames, setRecentGames] = useState<any[]>([])
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'completed'>('all')
   const [recentPlayers, setRecentPlayers] = useState<AppUser[]>([])
 
   // Typing animation state
@@ -60,37 +60,41 @@ export default function OnlineHubPage() {
 
     const fetchData = async () => {
       try {
-        // Fetch all games for user (matching LobbyPage logic to use existing indexes)
         const q1 = query(
           collection(db, 'games'),
           where('white_player_id', '==', user.uid),
-          orderBy('created_at', 'desc'),
-          limit(20)
+          limit(30)
         )
         const q2 = query(
           collection(db, 'games'),
           where('black_player_id', '==', user.uid),
-          orderBy('created_at', 'desc'),
-          limit(20)
+          limit(30)
         )
 
         const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
-        const combined = [...snap1.docs, ...snap2.docs].map(d => ({ id: d.id, ...d.data() }))
+        const mapById = new Map<string, any>()
+        snap1.docs.forEach(d => mapById.set(d.id, { id: d.id, ...d.data() }))
+        snap2.docs.forEach(d => mapById.set(d.id, { id: d.id, ...d.data() }))
         
-        // Sort by last_move_time or created_at
-        const sorted = combined.sort((a: any, b: any) => {
-          const timeA = (a.last_move_time?.seconds || a.last_move_time) || (a.created_at?.seconds || a.created_at) || 0
-          const timeB = (b.last_move_time?.seconds || b.last_move_time) || (b.created_at?.seconds || b.created_at) || 0
-          return (timeB as number) - (timeA as number)
-        })
+        const getMs = (doc: any): number => {
+          const val = doc.last_move_time ?? doc.created_at
+          if (!val) return 0
+          if (typeof val === 'number') return val
+          return val.seconds * 1000
+        }
 
-        // Filter for ONLINE games ONLY on client side
-        const onlineGames = sorted.filter((g: any) => g.game_type === 'online')
-        setRecentGames(onlineGames.slice(0, 10))
+        const sorted = Array.from(mapById.values()).sort((a, b) => getMs(b) - getMs(a))
 
-        // Extract unique recent players from ALL games (classic or fow)
+        // Filter for ONLINE CLASSIC & RAPID games ONLY on client side
+        const isClassicOrRapid = (g: any) => 
+          g.game_type === 'online' && (g.game_mode === 'classic' || g.game_mode === 'rapid' || !g.game_mode)
+
+        const classicOnlineGames = sorted.filter(isClassicOrRapid)
+        setRecentGames(classicOnlineGames)
+
+        // Extract unique recent players from classic/rapid games
         const playerIds = new Set<string>()
-        onlineGames.forEach((g: any) => {
+        classicOnlineGames.forEach((g: any) => {
           if (g.white_player_id && g.white_player_id !== user.uid) playerIds.add(g.white_player_id)
           if (g.black_player_id && g.black_player_id !== user.uid) playerIds.add(g.black_player_id)
         })
@@ -128,8 +132,9 @@ export default function OnlineHubPage() {
     }
   }
 
-  const handleGameClick = (g: any) => {
-    navigate(`/game/${g.id}`)
+  const handleModeSelect = (mode: GameMode) => {
+    setGameMode(mode)
+    setIsColorPickerOpen(true)
   }
 
 // Hoisted to module scope: declaring this inside the component gives React a new
@@ -163,10 +168,13 @@ const ModeTile = ({ mode, title, icon, description, onSelect }: {
   </button>
 )
 
-  const handleModeSelect = (mode: GameMode) => {
-    setGameMode(mode)
-    setIsColorPickerOpen(true)
+  const handleGameClick = (game: any) => {
+    const route = gameRoute(game)
+    if (route) navigate(route)
   }
+
+  const activeGames = recentGames.filter((g: any) => g.game_state !== 'game_over')
+  const displayedActiveGames = activeGames.slice(0, 6)
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
@@ -193,7 +201,9 @@ const ModeTile = ({ mode, title, icon, description, onSelect }: {
             <h2 className="text-[clamp(1.4rem,4vw,1.8rem)] font-bold text-text tracking-tight leading-[1.2] uppercase w-full">
               {displayedChars > 0 && (
                 <>
-                  {fullText.slice(0, Math.min(displayedChars, 6))}
+                  <span className="text-white">
+                    {fullText.slice(0, Math.min(displayedChars, 6))}
+                  </span>
                   <span className="text-[var(--accent-brand)]">
                     {displayedChars > 6 && fullText.slice(6, displayedChars)}
                   </span>
@@ -208,7 +218,7 @@ const ModeTile = ({ mode, title, icon, description, onSelect }: {
           </div>
 
           {/* Mode Tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-[var(--space-20)] mb-[var(--space-48)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-[var(--space-20)] max-w-[640px] mx-auto mb-[var(--space-48)]">
             <ModeTile 
               mode="classic" 
               title="Классика" 
@@ -223,27 +233,6 @@ const ModeTile = ({ mode, title, icon, description, onSelect }: {
               description="Быстрая игра с контролем времени" 
               onSelect={handleModeSelect}
             />
-            <ModeTile 
-              mode="spell_chess" 
-              title="Магия" 
-              icon="magic.png" 
-              description="Заклинания и физическое взятие короля" 
-              onSelect={handleModeSelect}
-            />
-            <ModeTile 
-              mode="atomic_chess" 
-              title="Атомные" 
-              icon="bomb.png" 
-              description="Взятие вызывает взрыв 3x3 вокруг" 
-              onSelect={handleModeSelect}
-            />
-            <ModeTile 
-              mode="fog_of_war" 
-              title="Туман войны" 
-              icon="fog of war.png" 
-              description="Видны только свои фигуры и их удары" 
-              onSelect={handleModeSelect}
-            />
           </div>
 
           {/* Recent Games List */}
@@ -254,98 +243,45 @@ const ModeTile = ({ mode, title, icon, description, onSelect }: {
               </h3>
 
               <div className="flex justify-center items-center gap-[var(--space-20)] mb-[var(--space-24)]">
-                {(['all', 'active', 'completed'] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setStatusFilter(f)}
-                    className={`text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
-                      statusFilter === f 
-                        ? 'text-[var(--accent-brand)] scale-110' 
-                        : 'text-text-secondary opacity-60 hover:opacity-100'
-                    }`}
-                  >
-                    {f === 'all' ? 'Все' : f === 'active' ? 'Активные' : 'Завершенные'}
-                  </button>
-                ))}
+                <Link 
+                  to="/active"
+                  className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-80 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+                >
+                  Активные {activeGames.length > 0 && `(${activeGames.length})`}
+                </Link>
                 <div className="w-[1px] h-3 bg-[var(--border)] opacity-30" />
                 <Link 
                   to="/completed" 
-                  className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-60 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+                  className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-80 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
                 >
                   Архив
                 </Link>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
-                {recentGames
-                  .filter(g => {
-                    if (statusFilter === 'all') return true
-                    const isActive = g.game_state !== 'game_over'
-                    return statusFilter === 'active' ? isActive : !isActive
-                  })
-                  .map((g) => {
-                  const isActive = g.game_state !== 'game_over'
-                  const isUserWhite = g.white_player_id === user.uid
-                  const isUserBlack = g.black_player_id === user.uid
-                  const isMyTurn = isActive && (
-                    (g.turn === 'w' && isUserWhite) || 
-                    (g.turn === 'b' && isUserBlack)
-                  )
-
-                  return (
-                    <div 
-                      key={g.id} 
+              {displayedActiveGames.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
+                  {displayedActiveGames.map((g) => (
+                    <GameCard
+                      key={g.id}
+                      game={g}
+                      currentUserId={user?.uid}
                       onClick={() => handleGameClick(g)}
-                      className="p-[var(--space-12)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 flex gap-[var(--space-16)] items-center cursor-pointer active:scale-[0.98]"
-                    >
-                      <div className="shrink-0">
-                        <BoardPreview 
-                          fen={g.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'} 
-                          size={100} 
-                          orientation={g.black_player_id === user.uid ? 'black' : 'white'}
-                          gameMode={g.game_mode}
-                          playerColor={g.white_player_id === user.uid ? 'w' : 'b'}
-                        />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-[var(--space-4)]">
-                          <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
-                            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" />}
-                            {g.white_name || '...'} vs {g.black_name || '...'}
-                            {g.game_mode === 'fog_of_war' && (
-                              <span className="text-[8px] bg-[rgba(126,184,126,0.1)] text-[var(--accent-brand)] px-1.5 py-0.5 rounded border border-[var(--accent-brand)] border-opacity-30 uppercase tracking-tighter">FoW</span>
-                            )}
-                          </span>
-                          {!isActive && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider shrink-0 opacity-60">
-                              {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? (isMyTurn ? 'text-[var(--accent-brand)]' : 'text-text-secondary opacity-60') : 'text-text-secondary opacity-40'}`}>
-                            {isActive 
-                              ? (isMyTurn ? 'Ваш ход' : 'Ход соперника')
-                              : 'Завершена'}
-                          </span>
-                          <span className="text-[10px] text-text-secondary opacity-50">
-                            {g.created_at
-                              ? new Date(
-                                  typeof g.created_at === 'string'
-                                    ? g.created_at
-                                    : g.created_at.seconds * 1000
-                                ).toLocaleDateString()
-                              : ''}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-10 border border-dashed border-[var(--border)] rounded-xl opacity-50 uppercase tracking-widest text-[10px] max-w-[500px] mx-auto">
+                  Активных партий пока нет
+                </div>
+              )}
             </section>
           )}
+
+          <div className="flex justify-center mt-[var(--space-32)]">
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Вернуться в лобби
+            </Button>
+          </div>
         </div>
       </main>
 

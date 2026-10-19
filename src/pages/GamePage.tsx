@@ -554,7 +554,6 @@ const getSquareCenter = (square: string) => {
               <span className="text-[var(--accent-brand)] truncate">
                 {opponentJoined ? (opponentName || 'Соперник') : 'Ожидание...'}
               </span>
-              {opponentJoined && <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />}
               {gameMode === 'fog_of_war' && (
                 <span className="text-[12px]">☁️</span>
               )}
@@ -607,9 +606,11 @@ const getSquareCenter = (square: string) => {
                   Игра окончена
                 </span>
               )}
-              {isMyTurn && !gameOver && (
-                <span className="text-[var(--font-size-sm)] font-bold text-[var(--accent-brand)] animate-pulse uppercase tracking-widest">
-                  Ваш ход
+              {!gameOver && (
+                <span className={`text-[var(--font-size-sm)] font-bold uppercase tracking-widest ${
+                  isMyTurn ? 'text-[var(--accent-brand)] animate-pulse' : 'text-text-secondary opacity-60'
+                }`}>
+                  {isMyTurn ? 'Ваш ход' : 'Ход соперника'}
                 </span>
               )}
             </div>

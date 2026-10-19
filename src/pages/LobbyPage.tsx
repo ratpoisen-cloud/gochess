@@ -14,7 +14,7 @@ import AuthModal from '@/components/AuthModal'
 import UserMenu from '@/components/UserMenu'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import LoadingScreen from '@/components/LoadingScreen'
-import BoardPreview from '@/components/board/BoardPreview'
+import GameCard from '@/components/board/GameCard'
 import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import Footer from '@/components/Footer'
@@ -91,7 +91,6 @@ export default function LobbyPage() {
   }
   const [initialLoading, setInitialLoading] = useState(true)
   const [recentGames, setRecentGames] = useState<any[]>([])
-  const [gameFilter, setGameFilter] = useState<'all' | 'online' | 'bot' | 'local'>('all')
   const [displayedChars, setDisplayedChars] = useState(0)
   const [animationPhase, setAnimationPhase] = useState<'typing' | 'logo'>('typing')
   
@@ -127,12 +126,12 @@ export default function LobbyPage() {
         const qWhite = query(
           gamesRef, 
           where('white_player_id', '==', user.uid),
-          limit(20)
+          limit(30)
         )
         const qBlack = query(
           gamesRef, 
           where('black_player_id', '==', user.uid),
-          limit(20)
+          limit(30)
         )
 
         const [whiteSnap, blackSnap] = await Promise.all([
@@ -140,10 +139,9 @@ export default function LobbyPage() {
           getDocs(qBlack)
         ])
 
-        const combined = [
-          ...whiteSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-          ...blackSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-        ]
+        const mapById = new Map<string, any>()
+        whiteSnap.docs.forEach(doc => mapById.set(doc.id, { id: doc.id, ...doc.data() }))
+        blackSnap.docs.forEach(doc => mapById.set(doc.id, { id: doc.id, ...doc.data() }))
         
         // Sort by last_move_time client-side, fallback to created_at for old games
         const getMs = (doc: any): number => {
@@ -152,9 +150,7 @@ export default function LobbyPage() {
           if (typeof val === 'number') return val
           return val.seconds * 1000
         }
-        const sorted = combined
-          .sort((a: any, b: any) => getMs(b) - getMs(a))
-          .slice(0, 10)
+        const sorted = Array.from(mapById.values()).sort((a: any, b: any) => getMs(b) - getMs(a))
 
         setRecentGames(sorted)
       } catch (err) {
@@ -176,6 +172,9 @@ export default function LobbyPage() {
     }, 1200)
     return () => clearTimeout(timer)
   }, [])
+
+  const activeGames = recentGames.filter((g: any) => g.game_state !== 'game_over')
+  const displayedActiveGames = activeGames.slice(0, 6)
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-bg">
@@ -233,7 +232,7 @@ export default function LobbyPage() {
           />
         </section>
 
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[var(--space-24)] md:gap-[var(--space-32)]">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--space-20)] md:gap-[var(--space-24)]">
           <button
             onClick={() => {
               if (user) {
@@ -252,31 +251,38 @@ export default function LobbyPage() {
             <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
               <img 
                 src={`${BASE}emojis/multi_new.png`} 
-                alt="По сети"
+                alt="Классика онлайн"
                 className="w-[96px] h-[96px] object-contain"
                 style={{ imageRendering: 'pixelated' }}
               />
             </div>
             <h3 className="text-[var(--font-size-sm)] font-bold mb-[var(--space-10)] text-center transition-colors duration-200 group-hover:text-white">
-              По сети
+              Классика онлайн
             </h3>
             <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[170px] opacity-60 group-hover:opacity-100 transition-opacity">
-              Пригласи друга или брось вызов игрокам онлайн
+              Классические шахматы и рапид с контролем времени
             </p>
           </button>
 
           <HubTile
-            to="/bot"
+            to="/ichi"
             icon="bot_new"
-            title="Игра с Ичи"
-            description="Оттачивай мастерство на 3 уровнях сложности"
+            title="Ичи"
+            description="Игра с Ичи, интерактивное обучение и пазлы"
+            variant="secondary"
+          />
+          <HubTile
+            to="/arcade"
+            icon="online/bomb"
+            title="Аркады онлайн"
+            description="Туман войны, магия заклинаний и атомные взрывы"
             variant="secondary"
           />
           <HubTile
             to="/offline"
             icon="online/local"
             title="Оффлайн"
-            description="Игра на одном устройстве в разных режимах"
+            description="Игра на одном устройстве для двух игроков"
             variant="secondary"
           />
         </section>
@@ -288,102 +294,37 @@ export default function LobbyPage() {
             </h3>
 
             <div className="flex justify-center items-center gap-[var(--space-20)] mb-[var(--space-24)]">
-              {(['all', 'online', 'bot', 'local'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setGameFilter(f)}
-                  className={`text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
-                    gameFilter === f 
-                      ? 'text-[var(--accent-brand)] scale-110' 
-                      : 'text-text-secondary opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  {f === 'all' ? 'Все' : f === 'online' ? 'Онлайн' : f === 'bot' ? 'С ботом' : 'Локально'}
-                </button>
-              ))}
+              <Link 
+                to="/active"
+                className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-80 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+              >
+                Активные {activeGames.length > 0 && `(${activeGames.length})`}
+              </Link>
               <div className="w-[1px] h-3 bg-[var(--border)] opacity-30" />
               <Link 
                 to="/completed" 
-                className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-60 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
+                className="text-[10px] font-bold uppercase tracking-widest text-text-secondary opacity-80 hover:opacity-100 hover:text-[var(--accent-brand)] transition-all duration-200"
               >
                 Архив
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
-              {recentGames
-                .filter(g => gameFilter === 'all' || g.game_type === gameFilter)
-                .map((g) => {
-                const isOnline = g.game_type === 'online'
-                const isActive = g.game_state !== 'game_over'
-                
-                // Determine turn status
-                const isUserWhite = g.white_player_id === user.uid
-                const isUserBlack = g.black_player_id === user.uid
-                const isMyTurn = isActive && (
-                  (g.turn === 'w' && isUserWhite) || 
-                  (g.turn === 'b' && isUserBlack)
-                )
-
-                return (
-                  <div 
-                    key={g.id} 
+            {displayedActiveGames.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-[var(--space-16)] max-w-[900px] mx-auto">
+                {displayedActiveGames.map((g) => (
+                  <GameCard
+                    key={g.id}
+                    game={g}
+                    currentUserId={user?.uid}
                     onClick={() => handleGameClick(g)}
-                    className={`p-[var(--space-12)] rounded-[var(--radius-8)] pixel-tile transition-all duration-200 flex gap-[var(--space-16)] items-center ${
-                      (isOnline && isActive) || (g.game_type === 'bot' && isActive)
-                        ? 'cursor-pointer active:scale-[0.98]' 
-                        : ''
-                    }`}
-                  >
-                    <div className="shrink-0">
-                      <BoardPreview 
-                        fen={g.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'} 
-                        size={100} 
-                        orientation={g.black_player_id === user.uid ? 'black' : 'white'}
-                        gameMode={g.game_mode}
-                        playerColor={g.white_player_id === user.uid ? 'w' : 'b'}
-                      />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-[var(--space-4)]">
-                        <span className="text-[var(--font-size-xs)] text-text flex items-center gap-2 truncate font-bold">
-                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-brand)] animate-pulse" />}
-                          {g.white_name || '...'} vs {g.black_name || '...'}
-                        </span>
-                        {!isActive && (
-                          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                            g.winner === 'white' ? 'text-text' : g.winner === 'black' ? 'text-text-secondary' : 'text-[var(--text-secondary)]'
-                          }`}>
-                            {g.winner === 'white' ? '1-0' : g.winner === 'black' ? '0-1' : '½-½'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isActive ? (isMyTurn ? 'text-[var(--accent-brand)]' : 'text-text-secondary opacity-60') : 'text-text-secondary opacity-40'}`}>
-                          {isActive 
-                            ? (isMyTurn ? 'Ваш ход' : 'Ход соперника')
-                            : isOnline 
-                              ? 'Онлайн' 
-                              : g.game_type === 'bot' 
-                                ? 'Против Ичи' 
-                                : 'Локально'}
-                        </span>
-                        <span className="text-[10px] text-text-secondary opacity-50">
-                          {g.created_at
-                            ? new Date(
-                                typeof g.created_at === 'string'
-                                  ? g.created_at
-                                  : g.created_at.seconds * 1000
-                              ).toLocaleDateString()
-                            : ''}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10 border border-dashed border-[var(--border)] rounded-xl opacity-50 uppercase tracking-widest text-[10px] max-w-[500px] mx-auto">
+                Активных партий пока нет
+              </div>
+            )}
           </section>
         )}
       </main>

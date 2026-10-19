@@ -13,6 +13,10 @@ const OfflineHubPage = lazy(() => import('./pages/OfflineHubPage'))
 const SpellLocalPage = lazy(() => import('./pages/SpellLocalPage'))
 const AtomicLocalPage = lazy(() => import('./pages/AtomicLocalPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const ArcadeHubPage = lazy(() => import('./pages/ArcadeHubPage'))
+const IchiHubPage = lazy(() => import('./pages/IchiHubPage'))
+const IchiTrainingPage = lazy(() => import('./pages/IchiTrainingPage'))
+const IchiPuzzlesPage = lazy(() => import('./pages/IchiPuzzlesPage'))
 
 function App() {
   // The post-404 route restore lives in main.tsx: it must run before the first
@@ -26,8 +30,13 @@ function App() {
           <Route path="/game/:roomCode" element={<GamePage />} />
           <Route path="/online" element={<OnlineHubPage />} />
           <Route path="/offline" element={<OfflineHubPage />} />
-          <Route path="/completed" element={<CompletedGamesPage />} />
+          <Route path="/arcade" element={<ArcadeHubPage />} />
+          <Route path="/ichi" element={<IchiHubPage />} />
+          <Route path="/active" element={<CompletedGamesPage defaultTab="active" />} />
+          <Route path="/completed" element={<CompletedGamesPage defaultTab="completed" />} />
           <Route path="/bot" element={<BotPage />} />
+          <Route path="/bot/training" element={<IchiTrainingPage />} />
+          <Route path="/bot/puzzles" element={<IchiPuzzlesPage />} />
           <Route path="/local" element={<LocalPage />} />
           <Route path="/local/classic" element={<LocalPage />} />
           <Route path="/local/rapid" element={<LocalPage />} />

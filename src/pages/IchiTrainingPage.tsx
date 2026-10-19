@@ -204,11 +204,11 @@ export default function IchiTrainingPage() {
   const customSquareStyles: Record<string, React.CSSProperties> = {}
   if (hint) {
     customSquareStyles[hint.from] = {
-      boxShadow: 'inset 0 0 0 3px #a3c18f, 0 0 12px rgba(163, 193, 143, 0.6)',
+      boxShadow: 'inset 0 0 0 3px var(--accent-brand), 0 0 12px rgba(163, 193, 143, 0.6)',
       backgroundColor: 'rgba(163, 193, 143, 0.25)',
     }
     customSquareStyles[hint.to] = {
-      boxShadow: 'inset 0 0 0 3px #7eb87e, 0 0 12px rgba(126, 184, 126, 0.6)',
+      boxShadow: 'inset 0 0 0 3px var(--success), 0 0 12px rgba(126, 184, 126, 0.6)',
       backgroundColor: 'rgba(126, 184, 126, 0.35)',
     }
   }

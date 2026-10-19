@@ -37,6 +37,9 @@ describe('puzzlesData', () => {
         expect(moveResult).not.toBeNull()
       }
 
+      // Verify that the puzzle solution does not end in a draw (by insufficient material, stalemate, etc.)
+      expect(engine.isDraw()).toBe(false)
+
       // If mate in 1 or mate in 2, verify final position is checkmate!
       if (puzzle.theme === 'mate_in_1' || puzzle.theme === 'mate_in_2') {
         expect(engine.isCheckmate()).toBe(true)

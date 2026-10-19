@@ -44,6 +44,7 @@ export default function IchiPuzzlesPage() {
   const [fen, setFen] = useState(() => currentPuzzle.fen)
   const [stepIndex, setStepIndex] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [isThinking, setIsThinking] = useState(false)
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'hint'; message: string } | null>(null)
   
   // 2-level hint: 1 = source square, 2 = source + target square
@@ -60,15 +61,39 @@ export default function IchiPuzzlesPage() {
   const [isListModalOpen, setIsListModalOpen] = useState(false)
 
   const boardContainerRef = useRef<HTMLDivElement>(null)
+  const botTimerRef = useRef<NodeJS.Timeout | null>(null)
   const { stableWidth, immediateWidth } = useBoardWidth(boardContainerRef, true)
   const currentBoardWidth = immediateWidth || stableWidth
 
+  const updateCheckSquare = useCallback((eng: EngineAPI) => {
+    if (eng.inCheck()) {
+      const turn = eng.turn()
+      for (const file of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+        for (const rank of ['1', '2', '3', '4', '5', '6', '7', '8']) {
+          const sq = `${file}${rank}`
+          const piece = eng.get(sq as any)
+          if (piece && piece.type === 'k' && piece.color === turn) {
+            setCheckSquare(sq)
+            return
+          }
+        }
+      }
+    } else {
+      setCheckSquare(null)
+    }
+  }, [])
+
   const loadPuzzle = useCallback((targetPuzzle: Puzzle) => {
+    if (botTimerRef.current) {
+      clearTimeout(botTimerRef.current)
+      botTimerRef.current = null
+    }
     const newEngine = createEngine('standard', targetPuzzle.fen)
     setEngine(newEngine)
     setFen(targetPuzzle.fen)
     setStepIndex(0)
     setIsCompleted(false)
+    setIsThinking(false)
     setFeedback(null)
     setHintLevel(0)
     setHintSquare(null)
@@ -76,8 +101,18 @@ export default function IchiPuzzlesPage() {
     setSelectedSquare(null)
     setLegalMoves([])
     setLastMove(null)
-    setCheckSquare(null)
+    updateCheckSquare(newEngine)
     setShowConfetti(false)
+  }, [updateCheckSquare])
+
+  // Clean up bot timer on unmount
+  useEffect(() => {
+    return () => {
+      if (botTimerRef.current) {
+        clearTimeout(botTimerRef.current)
+        botTimerRef.current = null
+      }
+    }
   }, [])
 
   // Keep index within bounds when category changes
@@ -100,7 +135,7 @@ export default function IchiPuzzlesPage() {
   }
 
   const handlePlayerMove = useCallback((from: string, to: string, promotion?: string) => {
-    if (isCompleted) return false
+    if (isCompleted || isThinking) return false
 
     const expectedUci = currentPuzzle.solution[stepIndex]
     if (!expectedUci) return false
@@ -112,7 +147,6 @@ export default function IchiPuzzlesPage() {
     const isMatch = from === expectedFrom && to === expectedTo && (!expectedPromo || promotion === expectedPromo)
 
     if (!isMatch) {
-      soundManager.play('check')
       failPuzzle()
       setFeedback({
         type: 'error',
@@ -120,6 +154,8 @@ export default function IchiPuzzlesPage() {
       })
       setSelectedSquare(null)
       setLegalMoves([])
+      setHintSquare(null)
+      setHintTargetSquare(null)
       return false
     }
 
@@ -135,6 +171,7 @@ export default function IchiPuzzlesPage() {
     setHintLevel(0)
     setHintSquare(null)
     setHintTargetSquare(null)
+    updateCheckSquare(engine)
 
     const nextStep = stepIndex + 1
 
@@ -153,6 +190,7 @@ export default function IchiPuzzlesPage() {
     }
 
     // Multi-step puzzle: bot reply
+    setIsThinking(true)
     setStepIndex(nextStep)
     setFeedback({
       type: 'hint',
@@ -161,7 +199,8 @@ export default function IchiPuzzlesPage() {
 
     const botUci = currentPuzzle.solution[nextStep]
     if (botUci) {
-      setTimeout(() => {
+      if (botTimerRef.current) clearTimeout(botTimerRef.current)
+      botTimerRef.current = setTimeout(() => {
         const bFrom = botUci.slice(0, 2)
         const bTo = botUci.slice(2, 4)
         const bPromo = botUci.length > 4 ? botUci.slice(4, 5) : undefined
@@ -171,14 +210,17 @@ export default function IchiPuzzlesPage() {
         setLastMove({ from: bFrom, to: bTo })
         setStepIndex(nextStep + 1)
         setFeedback(null)
+        setIsThinking(false)
+        updateCheckSquare(engine)
+        botTimerRef.current = null
       }, 500)
     }
 
     return true
-  }, [engine, isCompleted, currentPuzzle, stepIndex, failPuzzle, markSolved])
+  }, [engine, isCompleted, isThinking, currentPuzzle, stepIndex, failPuzzle, markSolved, updateCheckSquare])
 
-  const onSquareClick = (square: string) => {
-    if (isCompleted) return
+  const onSquareClick = useCallback((square: string) => {
+    if (isCompleted || isThinking) return
 
     if (selectedSquare) {
       if (selectedSquare === square) {
@@ -207,7 +249,7 @@ export default function IchiPuzzlesPage() {
       setSelectedSquare(null)
       setLegalMoves([])
     }
-  }
+  }, [isCompleted, isThinking, selectedSquare, legalMoves, engine, currentPuzzle, handlePlayerMove])
 
   // Two-level hints
   const handleHint = () => {
@@ -262,13 +304,13 @@ export default function IchiPuzzlesPage() {
   const customSquareStyles: Record<string, React.CSSProperties> = {}
   if (hintSquare) {
     customSquareStyles[hintSquare] = {
-      boxShadow: 'inset 0 0 0 3px #a3c18f, 0 0 12px rgba(163, 193, 143, 0.7)',
+      boxShadow: 'inset 0 0 0 3px var(--accent-brand), 0 0 12px rgba(163, 193, 143, 0.7)',
       backgroundColor: 'rgba(163, 193, 143, 0.3)',
     }
   }
   if (hintTargetSquare) {
     customSquareStyles[hintTargetSquare] = {
-      boxShadow: 'inset 0 0 0 3px #7eb87e, 0 0 12px rgba(126, 184, 126, 0.8)',
+      boxShadow: 'inset 0 0 0 3px var(--success), 0 0 12px rgba(126, 184, 126, 0.8)',
       backgroundColor: 'rgba(126, 184, 126, 0.35)',
     }
   }
@@ -301,7 +343,6 @@ export default function IchiPuzzlesPage() {
                       : 'bg-transparent text-text-secondary border border-[var(--border)] hover:border-[var(--accent-brand)]/50 hover:text-text'
                   }`}
                 >
-                  <span>{theme.icon}</span>
                   <span>{theme.label}</span>
                   <span className={`text-[9px] opacity-75 ${isSelected ? 'text-bg font-extrabold' : 'text-text-secondary'}`}>
                     ({count}/{total})
@@ -330,7 +371,7 @@ export default function IchiPuzzlesPage() {
             <div className="text-right flex items-center gap-3 shrink-0">
               {/* Streak Badge */}
               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--accent-brand)]/10 border border-[var(--accent-brand)]/30 text-[10px] font-bold text-[var(--accent-brand)]">
-                <span>🔥</span>
+                <span className="text-[9px] uppercase tracking-wider text-text-secondary">СЕРИЯ:</span>
                 <span>{currentStreak}</span>
                 {maxStreak > 0 && (
                   <span className="text-[9px] text-text-secondary opacity-75">
@@ -367,6 +408,7 @@ export default function IchiPuzzlesPage() {
                   selectedSquare={selectedSquare}
                   legalMoves={legalMoves}
                   onDrop={(src, tgt) => {
+                    if (isCompleted || isThinking) return false
                     if (checkPromotion(src, tgt)) {
                       setPendingPromotion({ from: src, to: tgt })
                       return true
@@ -417,7 +459,7 @@ export default function IchiPuzzlesPage() {
               </p>
               {isCompleted && currentPuzzle.explanation && (
                 <p className="mt-2 text-[11px] text-text font-normal normal-case leading-relaxed opacity-90 border-t border-[var(--border)] pt-2">
-                  💡 <span className="font-semibold text-[var(--success)]">Разбор мотива:</span> {currentPuzzle.explanation}
+                  <span className="font-semibold text-[var(--success)]">Разбор мотива:</span> {currentPuzzle.explanation}
                 </p>
               )}
             </div>
@@ -456,7 +498,7 @@ export default function IchiPuzzlesPage() {
               {isCompleted ? (
                 <Button 
                   variant="primary" 
-                  size="sm"
+                  size="sm" 
                   fullWidth 
                   onClick={handleNextPuzzle}
                   className="border border-[var(--accent-brand)]/50 hover:border-[var(--accent-brand)]"
@@ -466,18 +508,18 @@ export default function IchiPuzzlesPage() {
               ) : (
                 <Button 
                   variant="primary" 
-                  size="sm"
+                  size="sm" 
                   fullWidth 
                   onClick={handleHint}
                   className="border border-[var(--accent-brand)]/50 hover:border-[var(--accent-brand)]"
                 >
-                  {hintLevel === 0 ? '💡 Подсказка' : hintLevel === 1 ? '🎯 Показать клетку' : '💡 Подсказка показана'}
+                  {hintLevel === 0 ? 'Подсказка' : hintLevel === 1 ? 'Показать клетку' : 'Подсказка показана'}
                 </Button>
               )}
 
               <Button 
                 variant="outline" 
-                size="sm"
+                size="sm" 
                 fullWidth 
                 onClick={() => loadPuzzle(currentPuzzle)}
               >
@@ -508,7 +550,7 @@ export default function IchiPuzzlesPage() {
                 onClick={() => setIsListModalOpen(true)}
                 className="mt-2 text-[10px]"
               >
-                ☰ Все задачи категории ({categoryTotal})
+                Все задачи категории ({categoryTotal})
               </Button>
             </div>
 

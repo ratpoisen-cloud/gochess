@@ -18,13 +18,13 @@ export interface Puzzle {
   explanation: string
 }
 
-export const PUZZLE_THEMES: { id: PuzzleTheme | 'all'; label: string; icon: string }[] = [
-  { id: 'all', label: 'Все задачи', icon: '🎯' },
-  { id: 'mate_in_1', label: 'Мат в 1 ход', icon: '⚡' },
-  { id: 'mate_in_2', label: 'Мат в 2 хода', icon: '⚔️' },
-  { id: 'fork', label: 'Вилки и удары', icon: '🔱' },
-  { id: 'pin', label: 'Связки', icon: '🪤' },
-  { id: 'endgame', label: 'Эндшпиль', icon: '👑' },
+export const PUZZLE_THEMES: { id: PuzzleTheme | 'all'; label: string; icon?: string }[] = [
+  { id: 'all', label: 'Все задачи' },
+  { id: 'mate_in_1', label: 'Мат в 1 ход' },
+  { id: 'mate_in_2', label: 'Мат в 2 хода' },
+  { id: 'fork', label: 'Вилки и удары' },
+  { id: 'pin', label: 'Связки' },
+  { id: 'endgame', label: 'Эндшпиль' },
 ]
 
 export const PUZZLES: Puzzle[] = [
@@ -229,11 +229,11 @@ export const PUZZLES: Puzzle[] = [
     theme: 'pin',
     difficulty: 'easy',
     description: 'Ферзь чёрных привязан к своему королю на вертикали «e». Заберите его!',
-    fen: '4k3/4q3/8/8/8/8/4R3/6K1 w - - 0 1',
+    fen: '4k3/4q3/8/5N2/8/8/4R3/6K1 w - - 0 1',
     playerColor: 'w',
     solution: ['e2e7'],
-    hint: 'Ладья забирает ферзя, который не может уйти от связки',
-    explanation: 'Ферзь на e7 находится под абсолютной связкой перед королём и белая ладья забирает его без риска.',
+    hint: 'Ладья забирает ферзя под защитой коня f5',
+    explanation: 'Ферзь на e7 связан по вертикали «e» перед королём. Белая ладья забирает ферзя под защитой коня f5, выигрывая сильнейшую фигуру.',
   },
   {
     id: 'pin-bishop-queen',

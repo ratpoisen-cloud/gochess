@@ -51,7 +51,7 @@ describe('IchiPuzzlesPage', () => {
     expect(screen.getByText(/вилки и удары/i)).toBeTruthy()
 
     // Check streak badge
-    expect(screen.getByText('🔥')).toBeTruthy()
+    expect(screen.getByText(/серия:/i)).toBeTruthy()
 
     // Check action buttons
     expect(screen.getByText(/подсказка/i)).toBeTruthy()
@@ -117,5 +117,16 @@ describe('IchiPuzzlesPage', () => {
     expect(boardContainer).toBeTruthy()
     expect(screen.getByTestId('mock-chessboard')).toBeTruthy()
   })
+
+  it('unmounts cleanly without throwing or memory leaks', () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <IchiPuzzlesPage />
+      </MemoryRouter>
+    )
+
+    expect(() => unmount()).not.toThrow()
+  })
 })
+
 

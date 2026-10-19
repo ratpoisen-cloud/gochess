@@ -34,5 +34,12 @@ describe('IchiHubPage', () => {
     expect(hrefs).toContain('/bot')
     expect(hrefs).toContain('/bot/training')
     expect(hrefs).toContain('/bot/puzzles')
+
+    // Images check
+    const trainingImg = screen.getByAltText(/обучение/i)
+    expect(trainingImg.getAttribute('src')).toContain('Emojis_48x48_130.png')
+
+    const puzzlesImg = screen.getByAltText(/пазлы/i)
+    expect(puzzlesImg.getAttribute('src')).toContain('Emojis_48x48_281.png')
   })
 })

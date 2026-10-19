@@ -156,13 +156,13 @@ export default function IchiHubPage() {
             <HubTile 
               to="/bot/training" 
               title="Обучение" 
-              icon="emojis/board/Emojis_48x48_273.png" 
+              icon="emojis/board/Emojis_48x48_130.png" 
               description="Интерактивная доска, подсказки от Ичи и разбор вариантов" 
             />
             <HubTile 
               to="/bot/puzzles" 
               title="Пазлы" 
-              icon="emojis/tournament_new.png" 
+              icon="emojis/board/Emojis_48x48_281.png" 
               description="Тактические шахматные задачи: маты, связки и вилки" 
             />
           </div>

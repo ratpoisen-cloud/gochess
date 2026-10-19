@@ -225,7 +225,7 @@ export default function IchiTrainingPage() {
           >
             <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
               <img 
-                src={`${import.meta.env.BASE_URL || '/'}emojis/board/Emojis_48x48_273.png`} 
+                src={`${import.meta.env.BASE_URL || '/'}emojis/board/Emojis_48x48_130.png`} 
                 alt="trainer" 
                 className="w-5 h-5 object-contain"
               />

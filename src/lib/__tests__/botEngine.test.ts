@@ -97,4 +97,15 @@ describe('botEngine timeout', () => {
 
     engine.destroy()
   })
+
+  it('answers from the opening book without starting the search', async () => {
+    const engine = createBotEngine('medium', 'italian-game')
+    const move = await engine.getBestMove(START_FEN)
+
+    expect(move).toBe('e2e4')
+    // Поиск не запускался — воркер даже не создавался.
+    expect(FakeWorker.instances.length).toBe(0)
+
+    engine.destroy()
+  })
 })

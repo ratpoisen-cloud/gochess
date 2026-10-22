@@ -56,7 +56,7 @@ describe('IchiPuzzlesPage', () => {
     // Check action buttons
     expect(screen.getByText(/подсказка/i)).toBeTruthy()
     expect(screen.getByText(/начать заново/i)).toBeTruthy()
-    expect(screen.getByText(/все задачи категории/i)).toBeTruthy()
+    expect(screen.getByText(/задача \d+\/\d+/i)).toBeTruthy()
   })
 
   it('filters puzzles when category tab is clicked', () => {
@@ -72,6 +72,16 @@ describe('IchiPuzzlesPage', () => {
     expect(usePuzzleStore.getState().selectedCategory).toBe('fork')
   })
 
+  it('применяет блок задач из адреса (хаб Ичи)', () => {
+    render(
+      <MemoryRouter initialEntries={['/bot/puzzles?category=fork']}>
+        <IchiPuzzlesPage />
+      </MemoryRouter>
+    )
+
+    expect(usePuzzleStore.getState().selectedCategory).toBe('fork')
+  })
+
   it('opens and closes puzzle catalogue modal', () => {
     render(
       <MemoryRouter>
@@ -79,7 +89,7 @@ describe('IchiPuzzlesPage', () => {
       </MemoryRouter>
     )
 
-    const catalogueBtn = screen.getByText(/все задачи категории/i)
+    const catalogueBtn = screen.getByText(/задача \d+\/\d+/i)
     fireEvent.click(catalogueBtn)
 
     expect(screen.getByText(/каталог задач/i)).toBeTruthy()

@@ -17,6 +17,7 @@ const ArcadeHubPage = lazy(() => import('./pages/ArcadeHubPage'))
 const IchiHubPage = lazy(() => import('./pages/IchiHubPage'))
 const IchiTrainingPage = lazy(() => import('./pages/IchiTrainingPage'))
 const IchiPuzzlesPage = lazy(() => import('./pages/IchiPuzzlesPage'))
+const IchiOpeningsPage = lazy(() => import('./pages/IchiOpeningsPage'))
 
 function App() {
   // The post-404 route restore lives in main.tsx: it must run before the first
@@ -37,6 +38,7 @@ function App() {
           <Route path="/bot" element={<BotPage />} />
           <Route path="/bot/training" element={<IchiTrainingPage />} />
           <Route path="/bot/puzzles" element={<IchiPuzzlesPage />} />
+          <Route path="/bot/openings" element={<IchiOpeningsPage />} />
           <Route path="/local" element={<LocalPage />} />
           <Route path="/local/classic" element={<LocalPage />} />
           <Route path="/local/rapid" element={<LocalPage />} />

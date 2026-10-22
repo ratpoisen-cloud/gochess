@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import GameLayout from '@/components/GameLayout'
 import ChessBoard from '@/components/board/ChessBoard'
@@ -9,7 +9,7 @@ import Modal from '@/components/Modal'
 import PixelConfetti from '@/components/PixelConfetti'
 import PromotionPicker from '@/components/PromotionPicker'
 import { createEngine, type EngineAPI } from '@/lib/engine'
-import { PUZZLES, PUZZLE_THEMES, type Puzzle } from '@/lib/puzzlesData'
+import { PUZZLES, PUZZLE_THEMES, type Puzzle, type PuzzleTheme } from '@/lib/puzzlesData'
 import { usePuzzleStore } from '@/stores/puzzleStore'
 import { useBoardStore } from '@/stores/boardStore'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
@@ -19,6 +19,7 @@ export default function IchiPuzzlesPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { getTheme } = useBoardStore()
+  const [searchParams] = useSearchParams()
 
   const {
     currentStreak,
@@ -42,6 +43,11 @@ export default function IchiPuzzlesPage() {
   // Engine state
   const [engine, setEngine] = useState<EngineAPI>(() => createEngine('standard', currentPuzzle.fen))
   const [fen, setFen] = useState(() => currentPuzzle.fen)
+  // Версия доски: растёт при загрузке новой задачи (или сбросе).
+  // Используется как key для react-chessboard — при смене задачи позиция
+  // меняется скачком, и без перемонтирования библиотека ждёт animationDuration
+  // и «перелетает» старые фигуры на клетки новой позиции.
+  const [boardVersion, setBoardVersion] = useState(0)
   const [stepIndex, setStepIndex] = useState(0)
   const [isCompleted, setIsCompleted] = useState(false)
   const [isThinking, setIsThinking] = useState(false)
@@ -91,6 +97,9 @@ export default function IchiPuzzlesPage() {
     const newEngine = createEngine('standard', targetPuzzle.fen)
     setEngine(newEngine)
     setFen(targetPuzzle.fen)
+    // Позиция меняется скачком → перемонтируем доску, чтобы новая позиция
+    // отрисовалась мгновенно (см. комментарий к boardVersion).
+    setBoardVersion((v) => v + 1)
     setStepIndex(0)
     setIsCompleted(false)
     setIsThinking(false)
@@ -119,6 +128,15 @@ export default function IchiPuzzlesPage() {
   useEffect(() => {
     setPuzzleIndex(0)
   }, [selectedCategory])
+
+  // Блок задач выбирается в хабе Ичи и приходит в адресе: ?category=<тема>
+  useEffect(() => {
+    const requested = searchParams.get('category')
+    if (!requested) return
+    const isKnown =
+      requested === 'all' || PUZZLE_THEMES.some((theme) => theme.id === requested)
+    if (isKnown) setCategory(requested as PuzzleTheme | 'all')
+  }, [searchParams, setCategory])
 
   useEffect(() => {
     if (currentPuzzle) {
@@ -340,7 +358,7 @@ export default function IchiPuzzlesPage() {
                   className={`text-[10px] uppercase tracking-wider font-bold px-2.5 py-1.5 rounded-[var(--radius-4)] transition-all whitespace-nowrap flex items-center gap-1.5 ${
                     isSelected 
                       ? 'bg-[var(--accent-brand)] text-bg shadow-sm' 
-                      : 'bg-transparent text-text-secondary border border-[var(--border)] hover:border-[var(--accent-brand)]/50 hover:text-text'
+                      : 'bg-transparent text-text-secondary border border-[var(--border)] hover:border-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] hover:text-text'
                   }`}
                 >
                   <span>{theme.label}</span>
@@ -353,24 +371,26 @@ export default function IchiPuzzlesPage() {
           </div>
 
           {/* Top Bar above Board */}
-          <div 
-            className="mx-auto mb-[var(--space-12)] flex items-center justify-between px-[var(--space-8)]"
+          <div
+            className="mx-auto mb-[var(--space-12)] flex flex-col gap-[var(--space-8)] px-[var(--space-8)]"
             style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
           >
-            <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold min-w-0">
-              <span className="text-[var(--accent-brand)] truncate">
+            {/* Row 1: название задачи + отметка о решении */}
+            <div className="flex items-center gap-[var(--space-8)] flex-wrap min-w-0">
+              <span className="text-[var(--accent-brand)] font-bold text-sm leading-tight">
                 {currentPuzzle.title}
               </span>
               {isCurrentSolved && (
-                <span className="text-[10px] font-bold text-[var(--success)] bg-[var(--success)]/15 border border-[var(--success)]/40 px-1.5 py-0.5 rounded shrink-0">
+                <span className="text-[10px] font-bold text-[var(--accent-brand)] bg-[color-mix(in_srgb,var(--accent-brand)_15%,transparent)] border border-[color-mix(in_srgb,var(--accent-brand)_40%,transparent)] px-1.5 py-0.5 rounded shrink-0">
                   ✓ РЕШЕНА
                 </span>
               )}
             </div>
 
-            <div className="text-right flex items-center gap-3 shrink-0">
+            {/* Row 2: серия решений и переключатель задач */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               {/* Streak Badge */}
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--accent-brand)]/10 border border-[var(--accent-brand)]/30 text-[10px] font-bold text-[var(--accent-brand)]">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)] border border-[color-mix(in_srgb,var(--accent-brand)_30%,transparent)] text-[10px] font-bold text-[var(--accent-brand)]">
                 <span className="text-[9px] uppercase tracking-wider text-text-secondary">СЕРИЯ:</span>
                 <span>{currentStreak}</span>
                 {maxStreak > 0 && (
@@ -383,7 +403,8 @@ export default function IchiPuzzlesPage() {
               {/* Quick List Button */}
               <button
                 onClick={() => setIsListModalOpen(true)}
-                className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] border border-[var(--border)] px-2 py-1 rounded transition-colors"
+                title="Каталог задач"
+                className="text-[10px] font-bold uppercase tracking-widest text-text-secondary hover:text-[var(--accent-brand)] border border-[var(--border)] px-2 py-1 rounded transition-colors shrink-0"
               >
                 Задача {puzzleIndex + 1}/{categoryTotal}
               </button>
@@ -403,6 +424,7 @@ export default function IchiPuzzlesPage() {
                 <ChessBoard
                   game={engine}
                   position={fen}
+                  positionKey={boardVersion}
                   lastMove={lastMove}
                   checkSquare={checkSquare}
                   selectedSquare={selectedSquare}
@@ -435,7 +457,7 @@ export default function IchiPuzzlesPage() {
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
-                <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
+                <div className="text-xs text-text-secondary opacity-50 text-center p-4">
                   Загрузка шахматной доски...
                 </div>
               </div>
@@ -447,10 +469,10 @@ export default function IchiPuzzlesPage() {
             <div 
               className={`mx-auto mt-[var(--space-12)] p-[var(--space-12)] rounded-[var(--radius-8)] border text-center animate-fade-in ${
                 feedback.type === 'success' 
-                  ? 'border-[var(--success)] bg-[var(--success)]/15 text-[var(--success)]' 
+                  ? 'border-[var(--accent-brand)] bg-[color-mix(in_srgb,var(--accent-brand)_15%,transparent)] text-[var(--accent-brand)]' 
                   : feedback.type === 'error'
-                  ? 'border-[var(--danger)] bg-[var(--danger)]/15 text-[var(--danger)]'
-                  : 'border-[var(--accent-brand)]/40 bg-[var(--accent-brand)]/10 text-[var(--accent-brand)]'
+                  ? 'border-[var(--danger)] bg-[color-mix(in_srgb,var(--danger)_15%,transparent)] text-[var(--danger)]'
+                  : 'border-[color-mix(in_srgb,var(--accent-brand)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)] text-[var(--accent-brand)]'
               }`}
               style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
             >
@@ -459,7 +481,7 @@ export default function IchiPuzzlesPage() {
               </p>
               {isCompleted && currentPuzzle.explanation && (
                 <p className="mt-2 text-[11px] text-text font-normal normal-case leading-relaxed opacity-90 border-t border-[var(--border)] pt-2">
-                  <span className="font-semibold text-[var(--success)]">Разбор мотива:</span> {currentPuzzle.explanation}
+                  <span className="font-semibold text-[var(--accent-brand)]">Разбор мотива:</span> {currentPuzzle.explanation}
                 </p>
               )}
             </div>
@@ -470,13 +492,13 @@ export default function IchiPuzzlesPage() {
         <div className="game-side-column">
           <Card padding="sm">
             <div className="flex items-center justify-between mb-[var(--space-12)]">
-              <h3 className="text-[var(--font-size-sm)] font-semibold text-text uppercase tracking-widest text-[11px]">
+              <h3 className="font-semibold text-text uppercase tracking-widest text-[11px]">
                 Тактическая задача
               </h3>
               <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
-                currentPuzzle.difficulty === 'easy' ? 'bg-[var(--success)]/20 text-[var(--success)]' :
-                currentPuzzle.difficulty === 'medium' ? 'bg-[var(--accent-brand)]/20 text-[var(--accent-brand)]' :
-                'bg-[var(--danger)]/20 text-[var(--danger)]'
+                currentPuzzle.difficulty === 'easy' ? 'bg-[color-mix(in_srgb,var(--accent-brand)_20%,transparent)] text-[var(--accent-brand)]' :
+                currentPuzzle.difficulty === 'medium' ? 'bg-[color-mix(in_srgb,var(--accent-brand)_12%,transparent)] text-[var(--text-secondary)]' :
+                'bg-[color-mix(in_srgb,var(--danger)_20%,transparent)] text-[var(--danger)]'
               }`}>
                 {currentPuzzle.difficulty === 'easy' ? 'Лёгкая' : currentPuzzle.difficulty === 'medium' ? 'Средняя' : 'Сложная'}
               </span>
@@ -501,7 +523,7 @@ export default function IchiPuzzlesPage() {
                   size="sm" 
                   fullWidth 
                   onClick={handleNextPuzzle}
-                  className="border border-[var(--accent-brand)]/50 hover:border-[var(--accent-brand)]"
+                  className="border border-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] hover:border-[var(--accent-brand)]"
                 >
                   Следующая задача →
                 </Button>
@@ -511,7 +533,7 @@ export default function IchiPuzzlesPage() {
                   size="sm" 
                   fullWidth 
                   onClick={handleHint}
-                  className="border border-[var(--accent-brand)]/50 hover:border-[var(--accent-brand)]"
+                  className="border border-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] hover:border-[var(--accent-brand)]"
                 >
                   {hintLevel === 0 ? 'Подсказка' : hintLevel === 1 ? 'Показать клетку' : 'Подсказка показана'}
                 </Button>
@@ -542,16 +564,6 @@ export default function IchiPuzzlesPage() {
                   Вперёд →
                 </Button>
               </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                fullWidth
-                onClick={() => setIsListModalOpen(true)}
-                className="mt-2 text-[10px]"
-              >
-                Все задачи категории ({categoryTotal})
-              </Button>
             </div>
 
             <div className="mt-[var(--space-16)] pt-[var(--space-8)] border-t border-[var(--border)]">
@@ -588,9 +600,9 @@ export default function IchiPuzzlesPage() {
                   }}
                   className={`p-2.5 rounded-[var(--radius-8)] border text-left flex items-center justify-between gap-2 transition-all ${
                     isCurrent 
-                      ? 'border-[var(--accent-brand)] bg-[var(--accent-brand)]/15 text-white' 
+                      ? 'border-[var(--accent-brand)] bg-[color-mix(in_srgb,var(--accent-brand)_15%,transparent)] text-[var(--accent-brand)]' 
                       : isItemSolved
-                      ? 'border-[var(--success)]/40 bg-[var(--success)]/5 hover:border-[var(--success)]'
+                      ? 'border-[color-mix(in_srgb,var(--accent-brand)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent-brand)_5%,transparent)] hover:border-[var(--accent-brand)]'
                       : 'border-[var(--border)] bg-bg/50 hover:border-white/40'
                   }`}
                 >
@@ -609,7 +621,7 @@ export default function IchiPuzzlesPage() {
                   </div>
 
                   {isItemSolved ? (
-                    <span className="text-[12px] font-bold text-[var(--success)] shrink-0">
+                    <span className="text-[12px] font-bold text-[var(--accent-brand)] shrink-0">
                       ✓
                     </span>
                   ) : (

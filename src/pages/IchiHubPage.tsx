@@ -4,24 +4,35 @@ import Button from '@/components/Button'
 import UserMenu from '@/components/UserMenu'
 import SettingsDropdown from '@/components/SettingsDropdown'
 import Footer from '@/components/Footer'
+import GameSetupModal from '@/components/ichi/GameSetupModal'
+import TrainingSetupModal from '@/components/ichi/TrainingSetupModal'
+import PuzzleBlocksModal from '@/components/ichi/PuzzleBlocksModal'
+import OpeningsMenuModal from '@/components/ichi/OpeningsMenuModal'
 import { useAuth } from '@/hooks/useAuth'
 import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import GameCard from '@/components/board/GameCard'
 import { gameRoute } from '@/lib/gameRoutes'
+import type { PuzzleTheme } from '@/lib/puzzlesData'
+import type { OpeningFamily } from '@/lib/openingsData'
 
 const BASE = import.meta.env.BASE_URL || '/'
 
+/** Разделы хаба: у каждого своё меню выбора. */
+type HubSection = 'game' | 'training' | 'puzzles' | 'openings'
+
 interface HubTileProps {
-  to: string
   title: string
-  icon: string
+  icon?: string
   description: string
+  /** Открывает меню раздела. */
+  onSelect: () => void
 }
 
-const HubTile = ({ to, title, icon, description }: HubTileProps) => (
-  <Link
-    to={to}
+const HubTile = ({ title, icon, description, onSelect }: HubTileProps) => (
+  <button
+    type="button"
+    onClick={onSelect}
     className="group relative flex flex-col items-center justify-center min-h-[230px] p-[28px_20px] rounded-[var(--radius-8)] pixel-tile cursor-pointer text-left w-full transition-all duration-300"
   >
     <div className="mb-[var(--space-20)] flex items-center justify-center transform transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-1">
@@ -38,7 +49,7 @@ const HubTile = ({ to, title, icon, description }: HubTileProps) => (
     <p className="text-text-secondary text-[11px] text-center leading-[1.6] max-w-[200px] opacity-60 group-hover:opacity-100 transition-opacity">
       {description}
     </p>
-  </Link>
+  </button>
 )
 
 export default function IchiHubPage() {
@@ -48,6 +59,8 @@ export default function IchiHubPage() {
   const [displayedChars, setDisplayedChars] = useState(0)
   const fullText = "ИЧИ — ОБУЧЕНИЕ И ИГРА"
   const [recentGames, setRecentGames] = useState<any[]>([])
+  /** Открытое меню раздела (null — все меню закрыты). */
+  const [section, setSection] = useState<HubSection | null>(null)
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -146,24 +159,30 @@ export default function IchiHubPage() {
           </div>
 
           {/* Mode Tiles */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--space-24)] mb-[var(--space-48)]">
-            <HubTile 
-              to="/bot" 
-              title="Игра" 
-              icon="emojis/bot_new.png" 
-              description="Партия с Ичи на 4 уровнях сложности с записью ходов" 
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-[var(--space-24)] mb-[var(--space-48)]">
+            <HubTile
+              title="Игра"
+              icon="emojis/bot_new.png"
+              description="Партия с Ичи: выберите цвет и сложность"
+              onSelect={() => setSection('game')}
             />
-            <HubTile 
-              to="/bot/training" 
-              title="Обучение" 
-              icon="emojis/board/Emojis_48x48_130.png" 
-              description="Интерактивная доска, подсказки от Ичи и разбор вариантов" 
+            <HubTile
+              title="Обучение"
+              icon="emojis/board/Emojis_48x48_130.png"
+              description="Тренировка на дебютах с подсказками Ичи"
+              onSelect={() => setSection('training')}
             />
-            <HubTile 
-              to="/bot/puzzles" 
-              title="Пазлы" 
-              icon="emojis/board/Emojis_48x48_281.png" 
-              description="Тактические шахматные задачи: маты, связки и вилки" 
+            <HubTile
+              title="Пазлы"
+              icon="emojis/board/Emojis_48x48_281.png"
+              description="Тактические задачи: выберите блок"
+              onSelect={() => setSection('puzzles')}
+            />
+            <HubTile
+              title="Дебюты"
+              icon="icons/book_03g.png"
+              description="Книга дебютов: тренажёр или блоки дебютов"
+              onSelect={() => setSection('openings')}
             />
           </div>
           
@@ -218,6 +237,55 @@ export default function IchiHubPage() {
       </main>
 
       <Footer />
+
+      {/* Меню разделов: у каждой плитки свой выбор вариантов */}
+      {section === 'game' && (
+        <GameSetupModal
+          isOpen
+          onClose={() => setSection(null)}
+          onStart={(level, color) => {
+            setSection(null)
+            navigate(`/bot?color=${color}&level=${level}`)
+          }}
+        />
+      )}
+
+      {section === 'training' && (
+        <TrainingSetupModal
+          isOpen
+          onClose={() => setSection(null)}
+          onStart={(openingId, level) => {
+            setSection(null)
+            const params = new URLSearchParams({ level })
+            if (openingId) params.set('opening', openingId)
+            navigate(`/bot/training?${params.toString()}`)
+          }}
+        />
+      )}
+
+      {section === 'puzzles' && (
+        <PuzzleBlocksModal
+          isOpen
+          onClose={() => setSection(null)}
+          onSelect={(category: PuzzleTheme | 'all') => {
+            setSection(null)
+            navigate(`/bot/puzzles?category=${category}`)
+          }}
+        />
+      )}
+
+      {section === 'openings' && (
+        <OpeningsMenuModal
+          isOpen
+          onClose={() => setSection(null)}
+          onSelect={(mode, family: OpeningFamily | 'all', color?: 'w' | 'b') => {
+            setSection(null)
+            const params = new URLSearchParams({ mode, family })
+            if (color) params.set('color', color)
+            navigate(`/bot/openings?${params.toString()}`)
+          }}
+        />
+      )}
     </div>
   )
 }

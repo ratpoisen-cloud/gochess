@@ -5,14 +5,15 @@ import { useGameStore } from '@/stores/gameStore'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import Card from '@/components/Card'
-import Modal from '@/components/Modal'
 import Button from '@/components/Button'
 import PixelConfetti from '@/components/PixelConfetti'
 import GameLayout from '@/components/GameLayout'
 import PromotionPicker from '@/components/PromotionPicker'
+import GameSetupModal from '@/components/ichi/GameSetupModal'
 import { usePgnCopy } from '@/hooks/usePgnCopy'
 import { useEndGameEffects } from '@/hooks/useEndGameEffects'
 import { createBotEngine } from '@/lib/botEngine'
+import { botLevelShort, parseBotLevel } from '@/lib/botLevels'
 import type { BotLevel } from '@/types'
 
 import { useBoardStore } from '@/stores/boardStore'
@@ -29,7 +30,6 @@ export default function BotPage() {
   } = useGameStore()
   
   const [isLevelModalOpen, setIsLevelModalOpen] = useState(true)
-  const [tempColor, setTempColor] = useState<'w' | 'b' | 'random'>('w')
   const [level, setLevel] = useState<BotLevel>('medium')
   const [isBotThinking, setIsBotThinking] = useState(false)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
@@ -184,11 +184,19 @@ export default function BotPage() {
     selectSquare(square)
   }
 
-  const handleStartGame = async (selectedLevel: BotLevel) => {
-    const finalColor = tempColor === 'random' 
-      ? (Math.random() > 0.5 ? 'w' : 'b') 
-      : tempColor
-    
+  /**
+   * Выход из настройки партии с Ичи.
+   *
+   * Раздел «Игра» живёт под хабом Ичи (`/ichi`), поэтому «Отмена» возвращает
+   * именно туда, а не в главное лобби: раньше раздел был на первом этаже.
+   * Один и тот же обработчик используется кнопкой «Отмена», кликом по фону
+   * модалки и клавишей Escape.
+   */
+  const handleCancelSetup = useCallback(() => {
+    navigate('/ichi')
+  }, [navigate])
+
+  const handleStartGame = async (selectedLevel: BotLevel, finalColor: 'w' | 'b') => {
     if (botEngineRef.current) {
       botEngineRef.current.destroy()
     }
@@ -200,6 +208,25 @@ export default function BotPage() {
 
     await createBotGameDoc(selectedLevel)
   }
+
+  /**
+   * Автостарт партии: хаб Ичи приходит с параметрами ?color=&level=,
+   * поэтому лишний клик по «Сложность» не нужен.
+   */
+  useEffect(() => {
+    if (searchParams.get('game')) return
+    const requestedLevel = parseBotLevel(searchParams.get('level'))
+    if (!requestedLevel) return
+
+    const requestedColor: 'w' | 'b' = searchParams.get('color') === 'b' ? 'b' : 'w'
+    setIsLevelModalOpen(false)
+    void handleStartGame(requestedLevel, requestedColor)
+
+    // Параметры нужны только один раз: убираем их из адреса,
+    // иначе перезагрузка страницы начнёт партию заново.
+    navigate('/bot', { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const statusClasses = {
     checkmate: 'text-[var(--danger)]',
@@ -225,7 +252,7 @@ export default function BotPage() {
                   className="w-5 h-5 object-contain opacity-90"
                 />
                 <span className="text-[var(--accent-brand)] truncate">
-                  Ичи {level === 'very-easy' ? 'очень легкий' : level === 'easy' ? 'легкий' : level === 'medium' ? 'средний' : 'сложный'}
+                  Ичи {botLevelShort(level)}
                 </span>
               </div>
 
@@ -346,38 +373,22 @@ export default function BotPage() {
                   Отмена хода
                 </Button>
               )}
+              <div className="mt-[var(--space-16)] pt-[var(--space-8)] border-t border-[var(--border)]">
+                <Button variant="outline" size="sm" fullWidth onClick={() => navigate('/ichi')}>
+                  Назад к Ичи
+                </Button>
+              </div>
             </Card>
           </div>
         </div>
 
-        <Modal
+        <GameSetupModal
           isOpen={isLevelModalOpen}
-          onClose={() => {}}
-          description="Настройка партии с Ичи"
-        >
-          <div className="space-y-[var(--space-24)] pt-[var(--space-8)]">
-            <div className="space-y-[var(--space-12)]">
-              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">Ваш цвет</label>
-              <div className="space-y-2">
-                <Button fullWidth variant="primary" onClick={() => setTempColor('w')} className={`border-2 ${tempColor === 'w' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Белые</Button>
-                <Button fullWidth variant="primary" onClick={() => setTempColor('b')} className={`border-2 ${tempColor === 'b' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Чёрные</Button>
-                <Button fullWidth variant="primary" onClick={() => setTempColor('random')} className={`border-2 ${tempColor === 'random' ? '!border-[var(--accent)]' : 'border-transparent opacity-60'}`}>Случайно</Button>
-              </div>
-            </div>
-            <div className="space-y-[var(--space-12)]">
-              <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block text-left px-1">Сложность</label>
-              <div className="space-y-2">
-                <Button fullWidth onClick={() => handleStartGame('very-easy')} variant="primary">Очень лёгкий</Button>
-                <Button fullWidth onClick={() => handleStartGame('easy')} variant="primary">Лёгкий</Button>
-                <Button fullWidth onClick={() => handleStartGame('medium')} variant="primary">Средний</Button>
-                <Button fullWidth onClick={() => handleStartGame('hard')} variant="primary">Сильный</Button>
-              </div>
-            </div>
-            <div className="pt-2 border-t border-[color-mix(in_srgb,var(--border)_40%,transparent)]">
-              <Button fullWidth onClick={() => navigate('/')} variant="primary" className="hover:!bg-[var(--danger-soft)] hover:!border-[var(--danger-border)]">Отмена</Button>
-            </div>
-          </div>
-        </Modal>
+          onClose={handleCancelSetup}
+          onStart={(selectedLevel, color) => {
+            void handleStartGame(selectedLevel, color)
+          }}
+        />
       </GameLayout>
     )
   }

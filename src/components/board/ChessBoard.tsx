@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useCallback } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
 import { useReactionStore } from '@/stores/reactionStore'
+import BoardCoordinates from './BoardCoordinates'
 import type { EngineAPI } from '@/lib/engine'
 
 interface ChessBoardProps {
@@ -17,6 +18,14 @@ interface ChessBoardProps {
   boardWidth?: number
   boardOrientation?: 'white' | 'black'
   animationDuration?: number
+  /**
+   * Ключ позиции доски. При изменении доска перемонтируется с новой позицией
+   * мгновенно. Нужен там, где позиция меняется скачком (смена задачи, сброс),
+   * а не одним ходом: react-chessboard v4 при внешней смене `position`
+   * ждёт `animationDuration` и сопоставляет фигуры по типу, из-за чего старые
+   * фигуры «перелетают» на клетки новой позиции.
+   */
+  positionKey?: string | number
   defeatedKingSquare?: string | null
   endGameEmojis?: { square: string; url: string }[]
   visibleSquares?: string[] | null
@@ -43,6 +52,7 @@ export default function ChessBoard({
   boardWidth,
   boardOrientation = 'white',
   animationDuration = 200,
+  positionKey,
   defeatedKingSquare,
   endGameEmojis = [],
   visibleSquares = null,
@@ -295,6 +305,7 @@ export default function ChessBoard({
       )}
       <Chessboard
         id="GoChessBoardMain"
+        key={positionKey ?? 'gochess-board'}
         position={position || game?.fen()}
         arePiecesDraggable={arePiecesDraggable}
         onPieceDrop={(source, target) => {
@@ -309,10 +320,18 @@ export default function ChessBoard({
         customLightSquareStyle={{ backgroundColor: theme.whiteSquare }}
         customPieces={customPieces}
         animationDuration={animationDuration}
-        customNotationStyle={{ fontSize: boardWidth ? Math.round(boardWidth / 64) : 12 }}
+        showBoardNotation={false}
         customSquareStyles={customSquareStyles}
         customSquare={customSquare}
       />
+      {boardWidth && (
+        <BoardCoordinates
+          boardWidth={boardWidth}
+          orientation={boardOrientation}
+          lightSquare={theme.whiteSquare}
+          darkSquare={theme.blackSquare}
+        />
+      )}
     </div>
   )
 }

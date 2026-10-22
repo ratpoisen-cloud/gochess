@@ -1,22 +1,46 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import GameLayout from '@/components/GameLayout'
 import ChessBoard from '@/components/board/ChessBoard'
 import Card from '@/components/Card'
 import Button from '@/components/Button'
 import PromotionPicker from '@/components/PromotionPicker'
+import TrainingSetupModal from '@/components/ichi/TrainingSetupModal'
 import { createEngine, type EngineAPI } from '@/lib/engine'
 import { createBotEngine } from '@/lib/botEngine'
+import { botLevelLabel, parseBotLevel } from '@/lib/botLevels'
+import { OPENINGS } from '@/lib/openingsData'
+import { openingPositionFen } from '@/lib/openings'
 import { useBoardWidth } from '@/hooks/useBoardWidth'
 import { usePgnCopy } from '@/hooks/usePgnCopy'
+import type { BotLevel } from '@/types'
 
 export default function IchiTrainingPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [engine, setEngine] = useState<EngineAPI>(() => createEngine('standard'))
-  const [fen, setFen] = useState(() => engine.fen())
+  // Параметры приходят из хаба Ичи: ?opening=<id>&level=<уровень>.
+  const initialOpeningId = searchParams.get('opening')
+  const initialLevel = parseBotLevel(searchParams.get('level')) ?? 'medium'
+
+  const [openingId, setOpeningId] = useState<string | null>(initialOpeningId)
+  const [level, setLevel] = useState<BotLevel>(initialLevel)
+  const [isSetupOpen, setIsSetupOpen] = useState(false)
+
+  const opening = useMemo(
+    () => (openingId ? OPENINGS.find((o) => o.id === openingId) ?? null : null),
+    [openingId]
+  )
+  /** Позиция, с которой начинается тренировка: конец линии выбранного дебюта. */
+  const trainingFen = useMemo(
+    () => (opening ? openingPositionFen(opening) : undefined),
+    [opening]
+  )
+
+  const [engine, setEngine] = useState<EngineAPI>(() => createEngine('standard', trainingFen))
+  const [fen, setFen] = useState(() => createEngine('standard', trainingFen).fen())
   const [orientation, setOrientation] = useState<'white' | 'black'>('white')
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null)
   const [legalMoves, setLegalMoves] = useState<string[]>([])
@@ -36,14 +60,44 @@ export default function IchiTrainingPage() {
   const { pgnCopied, copyPgn } = usePgnCopy(() => engine.pgn())
 
   useEffect(() => {
-    botEngineRef.current = createBotEngine('medium')
+    botEngineRef.current = createBotEngine(level, openingId)
     return () => {
       if (botEngineRef.current) {
         botEngineRef.current.destroy()
         botEngineRef.current = null
       }
     }
+  }, [level, openingId])
+
+  /** Полная перезагрузка позиции тренировки. */
+  const loadPosition = useCallback((nextFen?: string) => {
+    const newEngine = createEngine('standard', nextFen)
+    setEngine(newEngine)
+    setFen(newEngine.fen())
+    setMoveHistory([])
+    setSelectedSquare(null)
+    setLegalMoves([])
+    setLastMove(null)
+    setCheckSquare(null)
+    setHint(null)
   }, [])
+
+  /** Смена дебюта или сложности: новая позиция и новый Ичи. */
+  const applySetup = useCallback(
+    (nextOpeningId: string | null, nextLevel: BotLevel) => {
+      const nextOpening = nextOpeningId ? OPENINGS.find((o) => o.id === nextOpeningId) ?? null : null
+      const nextFen = nextOpening ? openingPositionFen(nextOpening) : undefined
+
+      loadPosition(nextFen)
+      setOpeningId(nextOpeningId)
+      setLevel(nextLevel)
+
+      const params = new URLSearchParams({ level: nextLevel })
+      if (nextOpeningId) params.set('opening', nextOpeningId)
+      setSearchParams(params, { replace: true })
+    },
+    [loadPosition, setSearchParams]
+  )
 
   const updateCheckSquare = useCallback((eng: EngineAPI) => {
     if (eng.inCheck()) {
@@ -190,15 +244,7 @@ export default function IchiTrainingPage() {
   }
 
   const handleReset = () => {
-    const newEngine = createEngine('standard')
-    setEngine(newEngine)
-    setFen(newEngine.fen())
-    setMoveHistory([])
-    setSelectedSquare(null)
-    setLegalMoves([])
-    setLastMove(null)
-    setCheckSquare(null)
-    setHint(null)
+    loadPosition(trainingFen)
   }
 
   const customSquareStyles: Record<string, React.CSSProperties> = {}
@@ -223,13 +269,18 @@ export default function IchiTrainingPage() {
             className="mx-auto mb-[var(--space-12)] flex items-center justify-between px-[var(--space-8)]"
             style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
           >
-            <div className="flex items-center gap-[var(--space-8)] text-[var(--font-size-sm)] font-bold">
-              <img 
-                src={`${import.meta.env.BASE_URL || '/'}emojis/board/Emojis_48x48_130.png`} 
-                alt="trainer" 
+            <div className="flex items-center gap-[var(--space-8)] text-sm font-bold min-w-0">
+              <img
+                src={`${import.meta.env.BASE_URL || '/'}emojis/board/Emojis_48x48_130.png`}
+                alt="trainer"
                 className="w-5 h-5 object-contain"
               />
-              <span className="text-[var(--accent-brand)]">Тренировка с Ичи</span>
+              <span className="text-[var(--accent-brand)] truncate">Тренировка с Ичи</span>
+              {opening && (
+                <span className="text-text-secondary opacity-70 truncate">
+                  · {opening.eco} {opening.name}
+                </span>
+              )}
             </div>
 
             <div className="text-right">
@@ -279,7 +330,7 @@ export default function IchiTrainingPage() {
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-[var(--surface-elevated)] rounded-xl animate-pulse">
-                <div className="text-[var(--font-size-xs)] text-text-secondary opacity-50 text-center p-4">
+                <div className="text-xs text-text-secondary opacity-50 text-center p-4">
                   Загрузка шахматной доски...
                 </div>
               </div>
@@ -288,7 +339,7 @@ export default function IchiTrainingPage() {
 
           {hint && (
             <div 
-              className="mx-auto mt-[var(--space-12)] p-[var(--space-12)] rounded-[var(--radius-8)] border border-[var(--accent-brand)]/40 bg-[var(--accent-brand)]/10 text-center animate-fade-in"
+              className="mx-auto mt-[var(--space-12)] p-[var(--space-12)] rounded-[var(--radius-8)] border border-[color-mix(in_srgb,var(--accent-brand)_40%,transparent)] bg-[color-mix(in_srgb,var(--accent-brand)_10%,transparent)] text-center animate-fade-in"
               style={{ width: currentBoardWidth || '100%', maxWidth: '100%' }}
             >
               <p className="text-[11px] font-bold text-[var(--accent-brand)] uppercase tracking-wider">
@@ -300,9 +351,21 @@ export default function IchiTrainingPage() {
 
         <div className="game-side-column">
           <Card padding="sm">
-            <h3 className="text-[var(--font-size-sm)] font-semibold text-text mb-[var(--space-12)]">
-              Инструменты тренера
-            </h3>
+            <div className="flex items-center justify-between gap-2 mb-[var(--space-12)]">
+              <h3 className="text-sm font-semibold text-text">
+                Инструменты тренера
+              </h3>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[color-mix(in_srgb,var(--accent-brand)_15%,transparent)] text-[var(--accent-brand)] shrink-0">
+                {botLevelLabel(level)}
+              </span>
+            </div>
+
+            {opening && (
+              <p className="mb-[var(--space-12)] text-[11px] text-text-secondary leading-relaxed">
+                Позиция после дебюта <span className="text-text font-semibold">{opening.eco} {opening.name}</span>.
+                Сброс возвращает доску в эту позицию.
+              </p>
+            )}
 
             <div className="space-y-2 mb-[var(--space-16)]">
               <Button 
@@ -311,7 +374,7 @@ export default function IchiTrainingPage() {
                 fullWidth 
                 onClick={handleAskHint}
                 disabled={isThinking || engine.isGameOver()}
-                className="border border-[var(--accent-brand)]/50 hover:border-[var(--accent-brand)]"
+                className="border border-[color-mix(in_srgb,var(--accent-brand)_50%,transparent)] hover:border-[var(--accent-brand)]"
               >
                 {isThinking ? 'Ичи думает...' : 'Подсказка Ичи'}
               </Button>
@@ -345,18 +408,27 @@ export default function IchiTrainingPage() {
                 </Button>
               </div>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
-                fullWidth 
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
                 onClick={handleReset}
               >
                 Сброс позиции
               </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
+                onClick={() => setIsSetupOpen(true)}
+              >
+                Сменить дебют
+              </Button>
             </div>
 
             <div className="flex items-center justify-between mb-[var(--space-8)] pt-[var(--space-8)] border-t border-[var(--border)]">
-              <span className="text-[var(--font-size-xs)] font-semibold text-text">История</span>
+              <span className="text-xs font-semibold text-text">История</span>
               <button 
                 onClick={copyPgn}
                 title="Копировать PGN"
@@ -370,7 +442,7 @@ export default function IchiTrainingPage() {
             </div>
 
             <div
-              className="max-h-[220px] overflow-y-auto space-y-1 text-[var(--font-size-xs)] bg-bg p-[var(--space-8)] rounded-[var(--radius-8)]"
+              className="max-h-[220px] overflow-y-auto space-y-1 text-xs bg-bg p-[var(--space-8)] rounded-[var(--radius-8)]"
             >
               {moveHistory.length === 0 ? (
                 <p className="text-text-secondary text-center py-4">Сделайте первый ход</p>
@@ -394,6 +466,17 @@ export default function IchiTrainingPage() {
           </Card>
         </div>
       </div>
+
+      <TrainingSetupModal
+        isOpen={isSetupOpen}
+        onClose={() => setIsSetupOpen(false)}
+        onStart={(nextOpeningId, nextLevel) => {
+          setIsSetupOpen(false)
+          applySetup(nextOpeningId, nextLevel)
+        }}
+        initialOpeningId={openingId}
+        initialLevel={level}
+      />
     </GameLayout>
   )
 }

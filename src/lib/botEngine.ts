@@ -1,5 +1,6 @@
 import type { BotLevel } from '@/types'
 import { createEngine } from '@/lib/engine'
+import { getBotBookMove } from '@/lib/bot/openingBook'
 
 interface BotProfile {
   depth: number
@@ -39,7 +40,7 @@ function randomLegalMove(fen: string): string | null {
   }
 }
 
-export function createBotEngine(level: BotLevel = 'medium') {
+export function createBotEngine(level: BotLevel = 'medium', openingId?: string | null) {
   const profile = LEVELS[level]
   let worker: Worker | null = null
   let activeResolver: ((move: string | null) => void) | null = null
@@ -102,6 +103,11 @@ export function createBotEngine(level: BotLevel = 'medium') {
     level,
     profile,
     async getBestMove(fen: string): Promise<string | null> {
+      // Открывающая книга: известная позиция — играем по теории и не тратим
+      // время на перебор.
+      const bookMove = getBotBookMove(fen, openingId)
+      if (bookMove) return bookMove.uci
+
       ensureInitialized()
       if (!fen || !worker) return null
 

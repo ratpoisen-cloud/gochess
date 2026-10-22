@@ -45,13 +45,16 @@ src/
 │   ├── OnlineHubPage.tsx       # Онлайн-лобби
 │   ├── LobbyPage.tsx           # Главный хаб
 │   ├── SettingsPage.tsx        # Настройки профиля, темы, фигур
+│   ├── IchiHubPage.tsx         # Хаб Ичи: игра / обучение / пазлы / дебюты
+│   ├── IchiOpeningsPage.tsx    # Модуль дебютов: тренажёр + справочник (/bot/openings)
 │   └── ...
 ├── stores/
 │   ├── authStore.ts            # Zustand user
 │   ├── boardStore.ts           # theme + pieceSet (persist)
 │   ├── gameStore.ts            # game state (persist)
 │   ├── reactionStore.ts        # reactions + rate limit
-│   └── spellGameStore.ts       # SpellChessEngine state
+│   ├── spellGameStore.ts       # SpellChessEngine state
+│   └── openingStore.ts         # Прогресс по дебютам: изучено / избранное / фильтр (persist)
 ├── hooks/
 │   ├── useAuth.ts              # Firebase auth (signInWithPopup, email/password)
 │   ├── useBoardWidth.ts        # ResizeObserver + debounce
@@ -71,7 +74,11 @@ src/
 │   │   └── index.ts            # barrel
 │   ├── bot/
 │   │   ├── ichiBot.ts          # Ichi AI (minimax+αβ+PST, 179 строк)
-│   │   └── ichi.worker.ts      # Web Worker для Ichi
+│   │   ├── ichi.worker.ts      # Web Worker для Iчи
+│   │   └── openingBook.ts      # Открывающая книга Ичи: позиция → теоретический ход
+│   ├── openingsData.ts         # Данные дебютов (SAN-линии, комментарии, отклонения)
+│   ├── openings.ts             # Мост SAN → UCI/FEN, positionKey, resolveOpeningSteps
+│   ├── botEngine.ts            # Обёртка над воркером Ичи (+ открывающая книга)
 │   ├── soundManager.ts         # Звуки ходов
 │   ├── firebase.ts             # Firebase client
 │   └── spells/                 # PNG иконки заклинаний (публичный путь)
@@ -139,12 +146,41 @@ src/
 13. **Spell Bar UI:** Минималистичные тайлы без фона/рамки, только иконка (70% от тайла). Long press (500ms) показывает тултип с описанием. Клик по тайлу выбирает заклинание, клик вне доски сбрасывает выбор. `SpellBar.tsx` прозрачный контейнер (gap-1), тултип встроенный (SPELL_DETAILS).
 14. **MagicVFX:** canvas + requestAnimationFrame для пиксельных эффектов заклинаний. 5 типов: ICE_SHATTER, BLAST, JUMP, PORTAL, CONFETTI.
 
+## 📚 Модуль дебютов (/bot/openings)
+
+Модуль состоит из трёх слоёв: данные → потребители. Данные лежат в одном месте и
+используются и тренажёром, и справочником, и открывающей книгой Ичи.
+
+**Слой данных — `src/lib/openingsData.ts`**
+- `OPENINGS: Opening[]` — дебюты: `id`, `name`, `eco`, `family`, `color`, `difficulty`, `summary`, `idea`, `steps[]`, `deviations[]`.
+- `steps[]` — главная линия в **SAN** с комментарием на русском: `{ san: 'e4', comment: '...' }`.
+- `deviations[]` — типичные ошибки новичков: `{ at: <индекс шага>, san: 'd4', comment: '...' }`. Индекс `at` всегда принадлежит ходу игрока (чётный — белые, нечётный — чёрные).
+- Линии пишутся **посимвольно как в SAN движка**: `Nge2`, `Nfxd2` (дискриминация обязательна, если ход неоднозначен).
+
+**Мост — `src/lib/openings.ts`**
+- `resolveOpeningSteps(opening)` → шаги с `uci`, `engineSan`, `fenBefore`, `fenAfter`; прогоняет линию через движок, поэтому опечатка всплывает сразу.
+- `positionKey(fen)` → первые 4 поля FEN (ключ позиции для книги).
+- `normalizeSan`, `sanitizeSan`, `findMoveBySan`, `stepColor`, `formatOpeningLine`.
+
+**Потребители**
+- `src/pages/IchiOpeningsPage.tsx` — тренажёр + справочник на одной странице.
+- `src/stores/openingStore.ts` — прогресс (persist, ключ `gochess-openings-storage`).
+- `src/lib/bot/openingBook.ts` → `src/lib/botEngine.ts` — открывающая книга Ичи: `createBotEngine(level, openingId)`, книга отвечает раньше поиска.
+
+**Правила работы с модулем**
+1. Данные дебютов меняются только в `openingsData.ts`; страница и книга их не дублируют.
+2. Новый дебют = новый объект в `OPENINGS` + тест в `src/lib/__tests__/openingsData.test.ts` (легальность линии, совпадение SAN с движком, легальность отклонений).
+3. Ошибку в данных не «лечим» на UI: сначала правим SAN/линию, чтобы проходила тест.
+4. Тренажёр: игрок играет за `opening.color`, соперник отвечает по теории автоматически; неверный ход не применяется к движку, а показывается карточкой с объяснением (комментарием из `deviations`).
+5. Книга: `getBotBookMove(fen, openingId)` — при выбранном дебюте отдаёт его линию, без выбора отвечает только при единственном известном варианте.
+
 ## 🐛 Известные баги (приоритет исправления)
 
 | Приоритет | Файл | Описание |
 |-----------|------|----------|
 | 🟡 Сред | `SpellChessEngine` | `moves()` verbose mode возвращает не-verbose формат |
 | 🟡 Сред | `MagicVFX.tsx` | Звуки заклинаний не реализованы — используют `'move'` звук |
+| 🟡 Сред | 20 файлов в `src/` (78 мест) | `text-[var(--font-size-*)]` Tailwind генерирует как `color: var(--font-size-*)` (невалидное значение) → перебивает заданный цвет текста и НЕ задаёт размер шрифта. **Решение:** `text-xs` / `text-sm` (алиасы в `tailwind.config.js` → `fontSize`), а не arbitrary-значение |
 | 🟢 Низ | `PixelConfetti.tsx` | `canvas.scale()` при resize накапливается (без сброса transform) |
 | 🟢 Низ | `spellChessEngine.ts` | Отсутствует promotion для Spell Chess |
 | 🟢 Низ | `firestore.indexes.json` | Нужен индекс для challenges (status, toId, createdAt) |
@@ -206,6 +242,33 @@ src/
 | ✅ Atomic: результат/SAN/мат считаются после взрыва | `AtomicChessEngine.ts`, `PoisenChess.ts`, `AtomicLocalPage.tsx`, `useGameSync.ts` | п.4 аудита: атомные `isCheckmate()`/`isStalemate()` через отфильтрованные `moves()` (guard `genDepth` от рекурсии в `sanSuffix`), `move()` пересчитывает `_gameResult`/SAN/`after` пост-взрывно, `positionCount` хранит пост-взрывную позицию, winner/message в онлайн-атомных (мат/ничья), «Ничья» в UI. Тесты: 9 кейсов |
 | ✅ Atomic: undo не оставляет «призрачный» взрыв | `AtomicChessEngine.ts`, `src/lib/__tests__/atomicEngine.test.ts` | п.3 аудита: `undo()` сбрасывает `atomicState` — отмена хода после взрыва больше не шлёт ложный blast VFX/звук оппоненту; `loadPgn`-реплей атомных взрывов проверен тестами (доска и позиция после undo корректны) |
 | ✅ Atomic: пиксельный взрыв в стиле магии | `src/lib/pixelBlast.ts`, `MagicVFX.tsx`, `AtomicLocalPage.tsx`, `GamePage.tsx` | Новый VFX-тип `atomic-blast` (старый `'blast'` не тронут — он у 6 заклинаний): белое ядро, два ударных кольца из пикселей, искры с мерцанием по температурной рампе, дым, обломки. Механики взяты из `PixelConfetti`: delta-time, размеры кратные 4px, очистка в identity-трансформе, кап pixelRatio 2. Попутно: весь `MagicVFX` переведён на delta-time (на 120 Гц эффекты шли вдвое быстрее), починен `ctx.scale()`-накопление, добавлена перерисовка при смене ширины доски |
+| ✅ Пазлы: фигуры «перелетали» при смене задачи | `src/components/board/ChessBoard.tsx`, `src/pages/IchiPuzzlesPage.tsx` | react-chessboard v4 при внешней смене `position` ждёт `animationDuration` (200 мс) и сопоставляет фигуры по типу+цвету → старые фигуры улетали на клетки новой позиции. Решение: новый проп `positionKey` в `ChessBoard` (ставится `key` на внутренний `<Chessboard>`) + счётчик `boardVersion`, растущий в `loadPuzzle`. Ключ меняется вместе с `fen` (одним батчем), поэтому позиция рендерится сразу, без задержки и перелёта |
+| ✅ Пазлы: нечитаемый статус-бар | `src/pages/IchiPuzzlesPage.tsx`, `src/pages/IchiTrainingPage.tsx` | Статус-бар перестроен в 2 строки (строка 1 — название задачи + «✓ РЕШЕНА», строка 2 — серия + «ЗАДАЧА N/M»): раньше правая группа `shrink-0` занимала 340 px из 428 px и заголовок обрезался, а бейдж «✓ РЕШЕНА» получал width 0. Битые классы `bg-[var(--x)]/N` заменены на `color-mix(in srgb, var(--x) N%, transparent)` (Tailwind не генерирует opacity-модификаторы для `var()`-цветов), `--success` заменён на зелёный `--accent-brand`, `text-[var(--font-size-*)]` → `text-xs`/`text-sm` |
+| ✅ Навигация: «Отмена» в настройке партии с Ичи вела в главное лобби | `src/pages/BotPage.tsx`, `src/pages/__tests__/BotPage.test.tsx` | Раздел «Игра» переехал под хаб Ичи (`/ichi`), но кнопка «Отмена» в модалке настройки партии осталась с хардкодом `navigate('/')` → игрок возвращался на первый этаж вместо хаба Ичи. Исправлено: единый обработчик `handleCancelSetup` (`navigate('/ichi')`) используется кнопкой «Отмена», кликом по фону модалки и клавишей Escape (раньше `onClose={() => {}}` глушил и клик, и Escape). Добавлена кнопка «Назад к Ичи» в боковую колонку — после партии не остаётся пути наверх, кроме логотипа |
+
+| ✅ Координаты доски обрезались/были нечитаемы | `src/components/board/BoardCoordinates.tsx`, `src/components/board/ChessBoard.tsx`, `src/index.css` | Встроенные `react-chessboard` координаты отключены (`showBoardNotation={false}`), добавлен собственный слой `BoardCoordinates` с размерами/отступами от `boardWidth`, цветом контрастным клетке и `pointer-events: none`. У `.board-container` убран `border: 2px solid transparent` (исправлял смещение доски относительно контейнера). |
+
+| ✅ Хаб Ичи: меню выбора вместо прямых ссылок; тренировка из дебютной позиции | `src/pages/IchiHubPage.tsx`, `src/pages/BotPage.tsx`, `src/pages/IchiTrainingPage.tsx`, `src/pages/IchiPuzzlesPage.tsx`, `src/pages/IchiOpeningsPage.tsx`, `src/components/ichi/*`, `src/lib/botLevels.ts`, `src/lib/openings.ts` | Плитки хаба стали кнопками с модалками в едином стиле: «Игра» (цвет+сложность) → `/bot?color=&level=` с автостартом, «Обучение» (дебют+сложность) → `/bot/training?opening=&level=` с позицией конца главной линии дебюта, «Пазлы» (блоки задач) → `/bot/puzzles?category=`, «Дебюты» (тренажёр/блоки) → `/bot/openings?mode=&family=`. Выбор дебюта убран из настройки партии Ичи; в тренировке добавлена кнопка «Сменить дебют». |
+
+## 🗺️ Иерархия маршрутов (кнопки «назад» ведут на родительский хаб)
+
+```
+/                главное лобби (LobbyPage)
+├── /online      онлайн-лобби      → «Вернуться в лобби» → /
+├── /offline     офлайн-лобби      → «Вернуться в лобби» → /
+├── /arcade      аркадное лобби    → «Вернуться в лобби» → /
+├── /ichi        хаб Ичи           → «Вернуться в лобби» → /
+│   ├── /bot         партия с Ичи  → «Отмена» / «Назад к Ичи» → /ichi  (?color=&level= автостарт)
+│   ├── /bot/training  обучение    → «Назад к Ичи» → /ichi  (?opening=&level=)
+│   ├── /bot/puzzles   пазлы       → «Назад к Ичи» → /ichi  (?category=)
+│   └── /bot/openings  дебюты      → «Назад к Ичи» → /ichi  (?mode=trainer|reference&family=)
+├── /local/*     локальные партии  → «В лобби» / «Отмена» → /offline
+├── /game/:code  онлайн-партия     → «Вернуться в лобби» → / (страница доступна по прямой ссылке)
+├── /active, /completed  архив     → «Назад в лобби» → /
+└── /settings    настройки         → /
+```
+
+**Правило:** страница возвращается на свой родительский хаб, а не на `/`. Хардкод `navigate('/')` допустим только на первом этаже и на страницах, доступных по прямой ссылке (`/game/:code`).
 
 ## 🧠 Извлечённые уроки
 
@@ -245,6 +308,9 @@ TypeScript 5.5+ сужает тип переменной после `===` про
 ### 12. createEngine(mode) для PGN/gameOver в нестандартных режимах
 PGN-ветка и game_over блок в `processSnapshotData` создавали `createEngine()` без mode, что для Atomic/Spell заменяло игровой движок стандартным. **Решение:** выводить mode из `newData.game_mode`.
 
+### 13. Перенос раздела в хаб = обновить все кнопки возврата
+Когда раздел переезжает глубже по маршрутам (`/` → `/ichi` → `/bot`), кнопки «Отмена»/«Назад» с хардкодом `navigate('/')` уводят на старый этаж. **Решение:** кнопка возврата ведёт на родительский хаб (см. карту маршрутов выше); `Modal.onClose` не оставлять пустым `() => {}` — клик по фону и Escape должны вести себя так же, как кнопка. Закрывать такой путь регрессионным тестом на `location.pathname`.
+
 ## 🚀 Запуск
 
 ```bash
@@ -258,4 +324,5 @@ npm run dev
 Открой `http://localhost:5173` в браузере.
 
 Для режима бота: `http://localhost:5173/bot`
+Для модуля дебютов (тренажёр + справочник): `http://localhost:5173/bot/openings`
 Для игры по ссылке: `http://localhost:5173/game/<roomId>`

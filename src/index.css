@@ -148,7 +148,12 @@
   }
 }
 
-/* Pure CSS Board Container */
+/* Pure CSS Board Container
+   ВАЖНО: у контейнера НЕТ рамки. Размер доски приходит из `boardWidth`
+   (useBoardWidth меряет внешнюю ширину контейнера), а `box-sizing: border-box`
+   + `overflow: hidden` обрезали бы правый/нижний край доски вместе с
+   координатами. Рамка в 2px делала контентную область на 4px меньше
+   доски — правый столбец и нижний ряд обрезались. */
 .board-container {
   width: 100%;
   aspect-ratio: 1 / 1;
@@ -157,7 +162,7 @@
   position: relative;
   isolation: isolate;
   background: rgba(255, 255, 255, 0.02);
-  border: 2px solid transparent;
+  border: 0;
   border-radius: var(--radius-8);
   overflow: hidden;
   box-shadow: none;

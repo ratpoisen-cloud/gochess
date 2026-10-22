@@ -27,6 +27,7 @@ src/
 │   │   ├── SpellBar.tsx        # Панель заклинаний (минимал: иконки + long press tooltip)
 │   │   ├── SpellTile.tsx       # Тайл заклинания (без фона/рамки, long press)
 │   │   ├── SpellInfoPanel.tsx  # Боковая панель информации о заклинании
+│   │   ├── MoveDust.tsx        # Пыль из-под ноги: GIF на клетке, куда встала фигура
 │   │   └── ...
 │   ├── MagicVFX.tsx            # Пиксельные VFX для заклинаний
 │   ├── PixelConfetti.tsx       # Победные конфетти
@@ -293,6 +294,8 @@ src/
 | ✅ Координаты доски обрезались/были нечитаемы | `src/components/board/BoardCoordinates.tsx`, `src/components/board/ChessBoard.tsx`, `src/index.css` | Встроенные `react-chessboard` координаты отключены (`showBoardNotation={false}`), добавлен собственный слой `BoardCoordinates` с размерами/отступами от `boardWidth`, цветом контрастным клетке и `pointer-events: none`. У `.board-container` убран `border: 2px solid transparent` (исправлял смещение доски относительно контейнера). |
 
 | ✅ Хаб Ичи: меню выбора вместо прямых ссылок; тренировка из дебютной позиции | `src/pages/IchiHubPage.tsx`, `src/pages/BotPage.tsx`, `src/pages/IchiTrainingPage.tsx`, `src/pages/IchiPuzzlesPage.tsx`, `src/pages/IchiOpeningsPage.tsx`, `src/components/ichi/*`, `src/lib/botLevels.ts`, `src/lib/openings.ts` | Плитки хаба стали кнопками с модалками в едином стиле: «Игра» (цвет+сложность) → `/bot?color=&level=` с автостартом, «Обучение» (дебют+сложность) → `/bot/training?opening=&level=` с позицией конца главной линии дебюта, «Пазлы» (блоки задач) → `/bot/puzzles?category=`, «Дебюты» (тренажёр/блоки) → `/bot/openings?mode=&family=`. Выбор дебюта убран из настройки партии Ичи; в тренировке добавлена кнопка «Сменить дебют». |
+
+| ✅ Пыль из-под ноги при ходе фигуры | `src/components/board/MoveDust.tsx`, `src/components/board/ChessBoard.tsx`, `src/lib/boardMove.ts`, `public/effects/FootDust.gif` | GIF `FootDust.gif` (48×24, 8 кадров × 100 мс) проигрывается на клетке, куда встала фигура: появляется с задержкой `animationDuration` (200 мс — пока фигура переезжает), живёт 800 мс и убирает себя из DOM. Клетка назначения определяется по двум соседним позициям (`findLandedSquare`): ход меняет ровно 2 клетки, поэтому восстановление партии, отмена хода, смена задачи и взятие «епашта» пыли не дают. Низ пыли совмещается с базой фигур (`STANDARD_BOTTOM_GAP`), тёмный контур (`drop-shadow`) делает белую пыль читаемой на светлой клетке. Попутно: в `customSquare` всем детям заданы явные `key` — без них React сверяет соседей по индексу и при появлении подсветки перемонтирует эффект (таймеры стартуют заново). Тесты: 9 (утилита) + 4 (компонент) |
 
 ## 🗺️ Иерархия маршрутов (кнопки «назад» ведут на родительский хаб)
 

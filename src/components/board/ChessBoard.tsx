@@ -1,8 +1,10 @@
-import { useMemo, useState, useRef, useCallback } from 'react'
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import { Chessboard } from 'react-chessboard'
 import { useBoardStore } from '@/stores/boardStore'
 import { useReactionStore } from '@/stores/reactionStore'
+import { findLandedSquare } from '@/lib/boardMove'
 import BoardCoordinates from './BoardCoordinates'
+import MoveDust from './MoveDust'
 import type { EngineAPI } from '@/lib/engine'
 
 interface ChessBoardProps {
@@ -69,6 +71,23 @@ export default function ChessBoard({
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const reactionEmojis = useReactionStore((s) => s.reactions)
+
+  // Куда встала фигура: клетка, на которой поднимается пыль из-под ноги.
+  // Определяем по двум соседним позициям — так эффект срабатывает только на
+  // настоящем ходе: восстановление партии, отмена хода и смена задачи
+  // меняют позицию сразу на несколько клеток и пыли не дают.
+  const currentPosition = position || game?.fen() || null
+  const prevPositionRef = useRef<string | null>(null)
+  const [dust, setDust] = useState<{ square: string; seq: number } | null>(null)
+
+  useEffect(() => {
+    const prev = prevPositionRef.current
+    prevPositionRef.current = currentPosition
+    if (!prev || !currentPosition) return
+    const landed = findLandedSquare(prev, currentPosition)
+    if (!landed) return
+    setDust((current) => ({ square: landed, seq: (current?.seq ?? 0) + 1 }))
+  }, [currentPosition])
 
   const handleContextMenu = useCallback((square: string, e: React.MouseEvent) => {
     e.preventDefault()
@@ -209,6 +228,8 @@ export default function ChessBoard({
     const isSelected = selectedSquare === square && isSquareVisible
     const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square) && isSquareVisible
     const isCheck = checkSquare === square && isSquareVisible
+    // Клетка, куда встала фигура: на ней поднимается пыль из-под ноги.
+    const isDustTarget = dust?.square === square
 
     const endGameUrl = endGameEmojiMap.get(square)
     const reactionEmoji = reactionEmojiMap.get(square)
@@ -238,6 +259,7 @@ export default function ChessBoard({
         onTouchMove={handleTouchMove}
       >
         <div
+          key="piece"
           style={{
             width: '100%',
             height: '100%',
@@ -255,6 +277,7 @@ export default function ChessBoard({
         </div>
 
         <div
+          key="fog"
           className="absolute inset-0 z-10 pointer-events-none transition-opacity duration-700 ease-in-out"
           style={{
             backgroundColor: '#1a1c2c',
@@ -270,11 +293,18 @@ export default function ChessBoard({
           }}
         />
 
-        {isActiveMove && !isActiveCapture && <div className="highlight-possible" />}
-        {isActiveCapture && <div className="highlight-capture" />}
+        {/* Ключи обязательны: без них React сверяет соседей по индексу, и при
+            появлении/исчезновении подсветки эффект пыли перемонтируется —
+            его таймеры стартуют заново и пыль вспыхивает без хода. */}
+        {isActiveMove && !isActiveCapture && <div key="move-highlight" className="highlight-possible" />}
+        {isActiveCapture && <div key="capture-highlight" className="highlight-capture" />}
+
+        {isDustTarget && (
+          <MoveDust key={`dust-${dust?.seq}`} delay={animationDuration} />
+        )}
 
         {bombs.includes(square) && isSquareVisible && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+          <div key="bomb" className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
             <div className="animate-pulse flex items-center justify-center" style={{ width: '45%', height: '45%', filter: 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.75))' }}>
               <img src={`${BASE}emojis/spells/bomb.png`} alt="bomb" className="w-full h-full object-contain" style={{ imageRendering: 'pixelated' }} />
             </div>
@@ -282,7 +312,7 @@ export default function ChessBoard({
         )}
 
         {endGameUrl && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]">
+          <div key="endgame" className="absolute inset-0 flex items-center justify-center pointer-events-none z-[60]">
             <div className="animate-bounce-subtle flex items-center justify-center" style={{ width: '60%', height: '60%', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}>
               <img src={endGameUrl} alt="endgame-status" className="w-full h-full object-contain" />
             </div>
@@ -290,7 +320,7 @@ export default function ChessBoard({
         )}
 
         {reactionEmoji && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
+          <div key="reaction" className="absolute inset-0 flex items-center justify-center pointer-events-none z-50">
             <div className="animate-bounce flex items-center justify-center" style={{ width: '45%', height: '45%' }}>
               <img src={reactionEmoji.emojiUrl} alt="reaction" className="w-full h-full object-contain" />
             </div>
@@ -298,7 +328,7 @@ export default function ChessBoard({
         )}
       </div>
     )
-  }, [moveSet, captureSet, endGameEmojiMap, reactionEmojiMap, visibleSquares, boardOrientation, selectedSquare, lastMove, checkSquare, isGameOver, game, onSquareMouseEnter, onSquareMouseLeave, handleContextMenu, handleTouchStart, handleTouchEnd, handleTouchMove, defeatedKingSquare, isCheckmate, bombs])
+  }, [moveSet, captureSet, endGameEmojiMap, reactionEmojiMap, visibleSquares, boardOrientation, selectedSquare, lastMove, checkSquare, isGameOver, game, onSquareMouseEnter, onSquareMouseLeave, handleContextMenu, handleTouchStart, handleTouchEnd, handleTouchMove, defeatedKingSquare, isCheckmate, bombs, dust, animationDuration])
 
   return (
     <div

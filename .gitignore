@@ -14,9 +14,13 @@ dist-ssr/
 # Credentials — local token files must never be committed.
 # `token*` covers token, token.rtf, token.txt and any other extension, so a
 # credential renamed by mistake still cannot reach a public repository.
+# `tokken*` is the same file under the double-«к» spelling that is actually
+# used on this machine — it matched nothing and got committed once.
 token
 token.*
 *.token
+tokken
+tokken.*
 .firebase/
 # Firebase service-account keys and anything that looks like one
 *firebase-adminsdk*.json

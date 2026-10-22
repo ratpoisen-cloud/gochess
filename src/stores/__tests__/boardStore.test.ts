@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { useBoardStore, PIECE_SETS, getPieceSetUrl, getPieceSetInset } from '@/stores/boardStore'
+import { useBoardStore, PIECE_SETS, getPieceSetUrl, getPieceSetInset, getPieceSetHeight } from '@/stores/boardStore'
 
 /** Коды фигур, которые движок и UI запрашивают у набора. */
 const REQUIRED_CODES = [
@@ -52,6 +52,31 @@ describe('boardStore / наборы фигур', () => {
     // векторные наборы уже имеют поля в самой графике
     expect(getPieceSetInset('tatiana')).toBe(0)
     expect(getPieceSetInset('unknown-set')).toBe(0)
+  })
+
+  it('задаёт явные высоты фигур для набора с обрезанным холстом', () => {
+    const heights = ['K', 'Q', 'R', 'B', 'N', 'P'].map((type) =>
+      getPieceSetHeight('pixel3', `w${type}`)
+    )
+
+    // у каждой фигуры своя высота, все в пределах клетки
+    for (const height of heights) {
+      expect(height).not.toBeNull()
+      expect(height as number).toBeGreaterThan(0)
+      expect(height as number).toBeLessThanOrEqual(1)
+    }
+
+    const [king, queen, , , , pawn] = heights as number[]
+    expect(king).toBeGreaterThan(queen)
+    expect(queen).toBeGreaterThan(pawn)
+    // пешка заметно ниже короля, но не теряется на доске
+    expect(pawn / king).toBeGreaterThan(0.6)
+
+    // белые и чёрные одной высоты
+    expect(getPieceSetHeight('pixel3', 'bK')).toBe(king)
+    // наборы без явных высот заполняют клетку целиком
+    expect(getPieceSetHeight('tatiana', 'wK')).toBeNull()
+    expect(getPieceSetHeight('pixel2', 'wK')).toBeNull()
   })
 
   it('для каждого набора есть все 12 файлов фигур', () => {

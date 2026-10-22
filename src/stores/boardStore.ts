@@ -23,11 +23,16 @@ interface PieceSet {
   /** Пиксель-арт (PNG): рендерим без сглаживания. */
   pixelated?: boolean
   /**
-   * Отступ фигуры от края клетки, доля от размера клетки (0…0.2).
-   * Нужен наборам, у которых картинка обрезана вплотную к фигуре:
-   * без отступа король/ферзь упираются в границу поля.
+   * Отступ фигуры от низа клетки, доля от размера клетки (0…0.2).
+   * Нужен наборам, у которых картинка обрезана вплотную к фигуре.
    */
   inset?: number
+  /**
+   * Явные высоты фигур в долях клетки, по типу фигуры (K, Q, R, B, N, P).
+   * Нужны наборам с обрезанным холстом: у них относительный рост фигур
+   * больше не зашит в прозрачные строки картинки, а задан здесь.
+   */
+  heights?: Record<string, number>
 }
 
 export const BOARD_THEMES: Record<string, BoardTheme> = {
@@ -126,8 +131,10 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     label: 'Pixel 3',
     path: `${BASE}pieces/pixel3/{piece}.png`,
     pixelated: true,
-    // Самая высокая фигура (король) занимает 90% клетки; остальные — пропорционально ниже.
-    inset: 0.05,
+    // Картинки обрезаны по контуру, поэтому рост фигур задан явно (доли клетки):
+    // король 94% … пешка 68%. Низ фигур стоит на общей базе — 2% над краем клетки.
+    inset: 0.02,
+    heights: { K: 0.94, Q: 0.92, R: 0.82, B: 0.84, N: 0.84, P: 0.68 },
   },
   tatiana: {
     id: 'tatiana',
@@ -162,6 +169,17 @@ export function getPieceSetInset(pieceSetId: string): number {
   return typeof inset === 'number' ? inset : 0
 }
 
+/**
+ * Высота фигуры в долях клетки, если набор задаёт её явно.
+ * `null` — набор не задаёт высоты, картинка заполняет клетку целиком.
+ */
+export function getPieceSetHeight(pieceSetId: string, code: string): number | null {
+  const heights = PIECE_SETS[pieceSetId]?.heights
+  if (!heights) return null
+  const height = heights[code[1]]
+  return typeof height === 'number' ? height : null
+}
+
 interface BoardState {
   selectedTheme: string
   selectedPieceSet: string
@@ -171,6 +189,7 @@ interface BoardState {
   getPieceUrl: (code: string) => string
   isPixelArt: () => boolean
   pieceInset: () => number
+  pieceHeight: (code: string) => number | null
 }
 
 export const useBoardStore = create<BoardState>()(
@@ -194,6 +213,7 @@ export const useBoardStore = create<BoardState>()(
 
       isPixelArt: () => isPixelArtPieceSet(get().selectedPieceSet),
       pieceInset: () => getPieceSetInset(get().selectedPieceSet),
+      pieceHeight: (code) => getPieceSetHeight(get().selectedPieceSet, code),
     }),
     {
       name: 'gochess-board-settings',

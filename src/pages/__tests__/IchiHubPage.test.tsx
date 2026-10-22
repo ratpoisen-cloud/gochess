@@ -112,8 +112,8 @@ describe('IchiHubPage', () => {
     clickTile('Дебюты')
     expect(screen.getByRole('dialog')).toBeTruthy()
     expect(screen.getByText('Тренажёр')).toBeTruthy()
-    expect(screen.getByText('Дебюты за белыми')).toBeTruthy()
-    expect(screen.getByText('Дебюты за чёрными')).toBeTruthy()
+    expect(screen.getByText('Дебюты за белых')).toBeTruthy()
+    expect(screen.getByText('Дебюты за чёрных')).toBeTruthy()
 
     fireEvent.click(screen.getByText('Тренажёр'))
     expect(screen.getByTestId('location').textContent).toBe('/bot/openings?mode=trainer&family=all')

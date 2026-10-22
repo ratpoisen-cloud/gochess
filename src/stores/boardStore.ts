@@ -18,7 +18,10 @@ interface BoardTheme {
 interface PieceSet {
   id: string
   label: string
+  /** Шаблон пути к фигуре: `{piece}` — код фигуры (wK, bQ, ...). */
   path: string
+  /** Пиксель-арт (PNG): рендерим без сглаживания. */
+  pixelated?: boolean
 }
 
 export const BOARD_THEMES: Record<string, BoardTheme> = {
@@ -106,11 +109,43 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     label: 'Pixel',
     path: `${BASE}pieces/pixel/{piece}.svg`,
   },
+  pixel2: {
+    id: 'pixel2',
+    label: 'Pixel 2',
+    path: `${BASE}pieces/pixel2/{piece}.png`,
+    pixelated: true,
+  },
+  pixel3: {
+    id: 'pixel3',
+    label: 'Pixel 3',
+    path: `${BASE}pieces/pixel3/{piece}.png`,
+    pixelated: true,
+  },
   tatiana: {
     id: 'tatiana',
     label: 'Tatiana',
     path: `${BASE}pieces/tatiana/{piece}.svg`,
   },
+  neutrall: {
+    id: 'neutrall',
+    label: 'Neutral',
+    path: `${BASE}pieces/neutrall/{piece}.png`,
+    pixelated: true,
+  },
+}
+
+/**
+ * Путь к картинке фигуры конкретного набора.
+ * Нужен превью наборов в настройках (там показываются все наборы сразу).
+ */
+export function getPieceSetUrl(pieceSetId: string, code: string): string {
+  const pieceSet = PIECE_SETS[pieceSetId] || PIECE_SETS.tatiana
+  return pieceSet.path.replace('{piece}', code)
+}
+
+/** Пиксель-арт (растр) рендерим без сглаживания, чтобы пиксели оставались чёткими. */
+export function isPixelArtPieceSet(pieceSetId: string): boolean {
+  return Boolean(PIECE_SETS[pieceSetId]?.pixelated)
 }
 
 interface BoardState {
@@ -120,6 +155,7 @@ interface BoardState {
   setSelectedPieceSet: (pieceSet: string) => void
   getTheme: () => BoardTheme
   getPieceUrl: (code: string) => string
+  isPixelArt: () => boolean
 }
 
 export const useBoardStore = create<BoardState>()(
@@ -138,9 +174,10 @@ export const useBoardStore = create<BoardState>()(
 
       getPieceUrl: (code) => {
         const { selectedPieceSet } = get()
-        const pieceSet = PIECE_SETS[selectedPieceSet] || PIECE_SETS.tatiana
-        return pieceSet.path.replace('{piece}', code)
+        return getPieceSetUrl(selectedPieceSet, code)
       },
+
+      isPixelArt: () => isPixelArtPieceSet(get().selectedPieceSet),
     }),
     {
       name: 'gochess-board-settings',

@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
+import { useBoardStore, BOARD_THEMES, PIECE_SETS, getPieceSetUrl, isPixelArtPieceSet } from '@/stores/boardStore'
 import { useSoundStore } from '@/stores/soundStore'
 import { soundManager } from '@/lib/soundManager'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/components/Toast'
 import Button from '@/components/Button'
 import Footer from '@/components/Footer'
-
-const BASE = import.meta.env.BASE_URL || '/'
 
 function ThemePreview({ white, black }: { white: string; black: string }) {
   return (
@@ -40,9 +38,10 @@ function PiecePreview({ pieceSetId }: { pieceSetId: string }) {
           }}
         >
           <img
-            src={`${BASE}pieces/${pieceSetId}/${color}${type}.svg`}
+            src={getPieceSetUrl(pieceSetId, `${color}${type}`)}
             alt={`${color}${type}`}
-            className="w-[28px] h-[28px]"
+            className="w-[28px] h-[28px] object-contain"
+            style={{ imageRendering: isPixelArtPieceSet(pieceSetId) ? 'pixelated' : 'auto' }}
             draggable={false}
           />
         </div>

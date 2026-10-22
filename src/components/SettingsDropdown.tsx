@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { useBoardStore, BOARD_THEMES, PIECE_SETS } from '@/stores/boardStore'
+import { useBoardStore, BOARD_THEMES, PIECE_SETS, getPieceSetUrl, isPixelArtPieceSet } from '@/stores/boardStore'
 import { useSoundStore } from '@/stores/soundStore'
 import { soundManager } from '@/lib/soundManager'
-
-const BASE = import.meta.env.BASE_URL || '/'
 
 export default function SettingsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
@@ -103,9 +101,10 @@ export default function SettingsDropdown() {
                           style={{ backgroundColor: code[0] === 'w' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.2)' }}
                         >
                           <img
-                            src={`${BASE}pieces/${pieceSet.id}/${code}.svg`}
+                            src={getPieceSetUrl(pieceSet.id, code)}
                             alt={code}
-                            className="w-[20px] h-[20px]"
+                            className="w-[20px] h-[20px] object-contain"
+                            style={{ imageRendering: isPixelArtPieceSet(pieceSet.id) ? 'pixelated' : 'auto' }}
                             draggable={false}
                           />
                         </div>

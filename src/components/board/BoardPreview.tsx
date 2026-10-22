@@ -21,7 +21,7 @@ export default function BoardPreview({
   gameMode = 'classic',
   playerColor
 }: BoardPreviewProps) {
-  const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
+  const { getTheme, getPieceUrl, selectedPieceSet, isPixelArt } = useBoardStore()
   const theme = getTheme()
 
   // Calculate visible squares for Fog of War
@@ -36,11 +36,11 @@ export default function BoardPreview({
   }, [fen, gameMode, playerColor])
 
   const customPieces = useMemo(() => {
-    const pieces: Record<string, () => React.ReactElement> = {}
+    const pieces: Record<string, (args: { squareWidth: number }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
     codes.forEach((code) => {
-      pieces[code] = () => (
-        <div style={{ width: '100%', height: '100%' }}>
+      pieces[code] = ({ squareWidth }) => (
+        <div style={{ width: squareWidth, height: squareWidth }}>
           <img
             src={getPieceUrl(code)}
             alt={code}
@@ -48,6 +48,7 @@ export default function BoardPreview({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
+              imageRendering: isPixelArt() ? 'pixelated' : 'auto',
             }}
             draggable={false}
           />
@@ -55,7 +56,7 @@ export default function BoardPreview({
       )
     })
     return pieces
-  }, [getPieceUrl, selectedPieceSet])
+  }, [getPieceUrl, selectedPieceSet, isPixelArt])
 
   return (
     <div 

@@ -9,7 +9,7 @@ interface PromotionPickerProps {
 }
 
 export default function PromotionPicker({ to, color, onSelect, onCancel }: PromotionPickerProps) {
-  const { getPieceUrl } = useBoardStore()
+  const { getPieceUrl, isPixelArt } = useBoardStore()
   const col = to[0].charCodeAt(0) - 97
   const rank = parseInt(to[1])
   let leftIdx = col
@@ -53,6 +53,7 @@ export default function PromotionPicker({ to, color, onSelect, onCancel }: Promo
                 src={getPieceUrl(code)}
                 alt={piece}
                 className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform"
+                style={{ imageRendering: isPixelArt() ? 'pixelated' : 'auto' }}
                 draggable={false}
               />
             </button>

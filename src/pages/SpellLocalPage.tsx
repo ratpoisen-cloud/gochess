@@ -54,7 +54,7 @@ export default function SpellLocalPage() {
   const [hoveredSpell, setHoveredSpell] = useState<SpellName | null>(null)
   const [pendingPromotion, setPendingPromotion] = useState<{ from: string; to: string } | null>(null)
   const { stableWidth } = useBoardWidth(boardContainerRef, true)
-  const { getPieceUrl, getTheme } = useBoardStore()
+  const { getPieceUrl, getTheme, isPixelArt } = useBoardStore()
 
   useEffect(() => {
     if (!initialized) {
@@ -538,6 +538,7 @@ export default function SpellLocalPage() {
                                     src={getPieceUrl(code)}
                                     alt={t}
                                     className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                                    style={{ imageRendering: isPixelArt() ? 'pixelated' : 'auto' }}
                                     draggable={false}
                                   />
                                 </button>

@@ -41,7 +41,7 @@ const modeNames: Record<string, string> = {
 export default function GamePage() {
   const { user, isLoading: authLoading } = useAuth()
   const navigate = useNavigate()
-  const { getTheme, getPieceUrl } = useBoardStore()
+  const { getTheme, getPieceUrl, isPixelArt } = useBoardStore()
   const { roomCode } = useParams<{ roomCode: string }>()
 
   const sync = useGameSync(roomCode, user, authLoading, navigate)
@@ -735,6 +735,7 @@ const getSquareCenter = (square: string) => {
                           src={getPieceUrl(`${playerColor}${t.toUpperCase()}`)}
                           alt={t}
                           className="w-[85%] h-[85%] object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                          style={{ imageRendering: isPixelArt() ? 'pixelated' : 'auto' }}
                           draggable={false}
                         />
                       </button>

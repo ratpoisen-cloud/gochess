@@ -43,7 +43,7 @@ export default function OpeningsMenuModal({ isOpen, onClose, onSelect }: Opening
 
         <div className="space-y-2">
           <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block px-1">
-            За цветом
+            Цвет
           </label>
           <Button
             variant="primary"
@@ -53,7 +53,7 @@ export default function OpeningsMenuModal({ isOpen, onClose, onSelect }: Opening
             className="border-2 border-transparent opacity-90 justify-start text-left"
           >
             <div className="flex items-center justify-between gap-2 w-full">
-              <span className="text-[11px] font-bold">Дебюты за белыми</span>
+              <span className="text-[11px] font-bold">Дебюты за белых</span>
               <span className="text-[9px] font-bold uppercase tracking-wider opacity-70 shrink-0">
                 {whiteOpenings.length}
               </span>
@@ -67,7 +67,7 @@ export default function OpeningsMenuModal({ isOpen, onClose, onSelect }: Opening
             className="border-2 border-transparent opacity-90 justify-start text-left"
           >
             <div className="flex items-center justify-between gap-2 w-full">
-              <span className="text-[11px] font-bold">Дебюты за чёрными</span>
+              <span className="text-[11px] font-bold">Дебюты за чёрных</span>
               <span className="text-[9px] font-bold uppercase tracking-wider opacity-70 shrink-0">
                 {blackOpenings.length}
               </span>
@@ -77,7 +77,7 @@ export default function OpeningsMenuModal({ isOpen, onClose, onSelect }: Opening
 
         <div className="space-y-2">
           <label className="text-[10px] font-bold text-text-secondary uppercase tracking-widest block px-1">
-            По семейству
+            Стратегия
           </label>
           {OPENING_FAMILIES.filter((family) => family.id !== 'all').map((family) => {
             const familyOpenings = OPENINGS.filter((opening) => opening.family === family.id)

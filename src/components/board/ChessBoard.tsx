@@ -64,7 +64,7 @@ export default function ChessBoard({
   onSquareMouseLeave,
   bombs = [],
 }: ChessBoardProps) {
-  const { getTheme, getPieceUrl, selectedPieceSet } = useBoardStore()
+  const { getTheme, getPieceUrl, selectedPieceSet, isPixelArt } = useBoardStore()
   const theme = getTheme()
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -149,11 +149,14 @@ export default function ChessBoard({
   }, [reactionEmojis])
 
   const customPieces = useMemo(() => {
-    const pieces: Record<string, (args: { isDragging: boolean }) => React.ReactElement> = {}
+    const pieces: Record<string, (args: { isDragging: boolean; squareWidth: number }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
     codes.forEach((code) => {
-      pieces[code] = ({ isDragging }) => (
-        <div style={{ width: '100%', height: '100%' }}>
+      pieces[code] = ({ isDragging, squareWidth }) => (
+        // react-chessboard вешает фигуру на div без размеров (width/height: auto),
+        // поэтому «100%/100%» внутри не даёт картинке растянуться. Считаем размер
+        // от squareWidth — он равен восьмой части доски.
+        <div style={{ width: squareWidth, height: squareWidth, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <img
             src={getPieceUrl(code)}
             alt={code}
@@ -161,6 +164,7 @@ export default function ChessBoard({
               width: '100%',
               height: '100%',
               objectFit: 'contain',
+              imageRendering: isPixelArt() ? 'pixelated' : 'auto',
               filter: isDragging
                 ? 'drop-shadow(0 8px 16px rgba(0,0,0,0.5))'
                 : 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
@@ -173,7 +177,7 @@ export default function ChessBoard({
       )
     })
     return pieces
-  }, [getPieceUrl, selectedPieceSet])
+  }, [getPieceUrl, selectedPieceSet, isPixelArt])
 
   const customSquare = useCallback(({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
     const isSquareVisible = !visibleSquares || visibleSquares.includes(square)

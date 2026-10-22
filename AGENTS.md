@@ -114,6 +114,20 @@ src/
 - `--game-side-column-width: 400px` — ширина боковой колонки
 - `--board-min-size: 320px` — минимальный размер доски
 
+**Наборы фигур (`src/stores/boardStore.ts`):**
+- `PIECE_SETS` — `alpha`, `chessnut`, `pixel`, `pixel2`, `pixel3`, `tatiana`, `neutrall`.
+  Путь к фигуре — шаблон `${BASE}pieces/<id>/{piece}.<ext>`, где `{piece}` = `wK`, `bQ`, ...
+- SVG-наборы — векторные; PNG-наборы (`pixel2`, `pixel3`, `neutrall`) — пиксель-арт,
+  у них `pixelated: true` → картинки рендерятся без сглаживания.
+- В наборе `neutrall` чёрные фигуры нарисованы нейтральным (сине-лавандовым) цветом:
+  файл `bK.png` — это нейтральная фигура, отдельных «нейтральных» кодов в движке нет.
+- В `pixel2` кроме стандартных 12 фигур лежат сказочные: `bUnicorn.png`, `nPrincess.png`
+  и нейтральный цветовой вариант `n*.png` (в партии не используются).
+- Размер фигуры в `ChessBoard`/`BoardPreview` считается от `squareWidth` (react-chessboard
+  не задаёт размер контейнеру фигуры), поэтому картинка любого набора заполняет клетку.
+- Новый набор = папка `public/pieces/<id>/` с 12 файлами (`wK,wQ,wR,wB,wN,wP,bK,bQ,bR,bB,bN,bP`)
+  + запись в `PIECE_SETS`; `src/stores/__tests__/boardStore.test.ts` проверяет наличие всех файлов.
+
 ## Порядок загрузки
 
 ```

@@ -126,7 +126,8 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     label: 'Pixel 3',
     path: `${BASE}pieces/pixel3/{piece}.png`,
     pixelated: true,
-    inset: 0.12,
+    // Самая высокая фигура (король) занимает 90% клетки; остальные — пропорционально ниже.
+    inset: 0.05,
   },
   tatiana: {
     id: 'tatiana',

@@ -21,7 +21,7 @@ export default function BoardPreview({
   gameMode = 'classic',
   playerColor
 }: BoardPreviewProps) {
-  const { getTheme, getPieceUrl, selectedPieceSet, isPixelArt } = useBoardStore()
+  const { getTheme, getPieceUrl, selectedPieceSet, isPixelArt, pieceInset } = useBoardStore()
   const theme = getTheme()
 
   // Calculate visible squares for Fog of War
@@ -38,9 +38,20 @@ export default function BoardPreview({
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { squareWidth: number }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
+    const inset = pieceInset()
     codes.forEach((code) => {
       pieces[code] = ({ squareWidth }) => (
-        <div style={{ width: squareWidth, height: squareWidth }}>
+        <div
+          style={{
+            width: squareWidth,
+            height: squareWidth,
+            padding: squareWidth * inset,
+            boxSizing: 'border-box',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
           <img
             src={getPieceUrl(code)}
             alt={code}
@@ -56,7 +67,7 @@ export default function BoardPreview({
       )
     })
     return pieces
-  }, [getPieceUrl, selectedPieceSet, isPixelArt])
+  }, [getPieceUrl, selectedPieceSet, isPixelArt, pieceInset])
 
   return (
     <div 

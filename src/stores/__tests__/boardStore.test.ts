@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
-import { useBoardStore, PIECE_SETS, getPieceSetUrl } from '@/stores/boardStore'
+import { useBoardStore, PIECE_SETS, getPieceSetUrl, getPieceSetInset } from '@/stores/boardStore'
 
 /** Коды фигур, которые движок и UI запрашивают у набора. */
 const REQUIRED_CODES = [
@@ -45,6 +45,13 @@ describe('boardStore / наборы фигур', () => {
 
   it('падает на набор по умолчанию для неизвестного id', () => {
     expect(getPieceSetUrl('unknown-set', 'wK')).toContain('/pieces/tatiana/wK.svg')
+  })
+
+  it('задаёт отступ от края клетки для обрезанных наборов', () => {
+    expect(getPieceSetInset('pixel3')).toBeGreaterThan(0)
+    // векторные наборы уже имеют поля в самой графике
+    expect(getPieceSetInset('tatiana')).toBe(0)
+    expect(getPieceSetInset('unknown-set')).toBe(0)
   })
 
   it('для каждого набора есть все 12 файлов фигур', () => {

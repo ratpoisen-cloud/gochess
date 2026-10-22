@@ -22,6 +22,12 @@ interface PieceSet {
   path: string
   /** Пиксель-арт (PNG): рендерим без сглаживания. */
   pixelated?: boolean
+  /**
+   * Отступ фигуры от края клетки, доля от размера клетки (0…0.2).
+   * Нужен наборам, у которых картинка обрезана вплотную к фигуре:
+   * без отступа король/ферзь упираются в границу поля.
+   */
+  inset?: number
 }
 
 export const BOARD_THEMES: Record<string, BoardTheme> = {
@@ -120,6 +126,7 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     label: 'Pixel 3',
     path: `${BASE}pieces/pixel3/{piece}.png`,
     pixelated: true,
+    inset: 0.12,
   },
   tatiana: {
     id: 'tatiana',
@@ -148,6 +155,12 @@ export function isPixelArtPieceSet(pieceSetId: string): boolean {
   return Boolean(PIECE_SETS[pieceSetId]?.pixelated)
 }
 
+/** Отступ фигуры от края клетки в долях клетки (0 — вплотную). */
+export function getPieceSetInset(pieceSetId: string): number {
+  const inset = PIECE_SETS[pieceSetId]?.inset
+  return typeof inset === 'number' ? inset : 0
+}
+
 interface BoardState {
   selectedTheme: string
   selectedPieceSet: string
@@ -156,6 +169,7 @@ interface BoardState {
   getTheme: () => BoardTheme
   getPieceUrl: (code: string) => string
   isPixelArt: () => boolean
+  pieceInset: () => number
 }
 
 export const useBoardStore = create<BoardState>()(
@@ -178,6 +192,7 @@ export const useBoardStore = create<BoardState>()(
       },
 
       isPixelArt: () => isPixelArtPieceSet(get().selectedPieceSet),
+      pieceInset: () => getPieceSetInset(get().selectedPieceSet),
     }),
     {
       name: 'gochess-board-settings',

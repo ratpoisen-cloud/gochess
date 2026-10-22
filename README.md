@@ -76,7 +76,7 @@ npm run dev
 
 На странице **Settings** (`/settings`) доступны:
 - **6 тем доски:** Forest, Ocean, Dark, Marble, Middle Earth, Chess.com
-- **4 набора фигур:** Alpha, Chessnut, Pixel, Tatiana
+- **5 наборов фигур:** Alpha, Pixel, Pixel 2, Pixel 3, Tatiana
 
 Настройки сохраняются в `localStorage`.
 

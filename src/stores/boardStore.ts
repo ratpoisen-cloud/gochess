@@ -23,17 +23,31 @@ interface PieceSet {
   /** Пиксель-арт (PNG): рендерим без сглаживания. */
   pixelated?: boolean
   /**
-   * Отступ фигуры от низа клетки, доля от размера клетки (0…0.2).
-   * Нужен наборам, у которых картинка обрезана вплотную к фигуре.
-   */
-  inset?: number
-  /**
    * Явные высоты фигур в долях клетки, по типу фигуры (K, Q, R, B, N, P).
-   * Нужны наборам с обрезанным холстом: у них относительный рост фигур
-   * больше не зашит в прозрачные строки картинки, а задан здесь.
+   * Это высота самой картинки; видимая часть фигуры — `heights × (1 - artTop - artBottom)`.
+   * Нужны наборам, у которых относительный рост фигур не зашит в картинку:
+   * у обрезанных наборов (pixel3) и у наборов с квадратным холстом (pixel2).
    */
   heights?: Record<string, number>
+  /**
+   * Прозрачный низ в самой картинке (доля от высоты картинки), по типу фигуры.
+   * Нужен, чтобы поставить все наборы на одну базу: отступ от низа клетки
+   * у всех одинаковый (`STANDARD_BOTTOM_GAP`), как у Tatiana.
+   * Значения сняты замером альфа-канала (см. AGENTS.md).
+   */
+  artBottom?: { default: number } & Record<string, number>
+  /**
+   * Прозрачный верх в самой картинке (доля от высоты картинки), по типу фигуры.
+   * Нужен, чтобы считать отступ фигуры от верхней границы клетки.
+   */
+  artTop?: { default: number } & Record<string, number>
 }
+
+/** Стандартный отступ от низа клетки — как у набора Tatiana. */
+export const STANDARD_BOTTOM_GAP = 0.1
+
+/** Стандартный отступ от верха клетки — как у набора Tatiana. */
+export const STANDARD_TOP_GAP = 0.1
 
 export const BOARD_THEMES: Record<string, BoardTheme> = {
   forest: {
@@ -109,43 +123,46 @@ export const PIECE_SETS: Record<string, PieceSet> = {
     id: 'alpha',
     label: 'Alpha',
     path: `${BASE}pieces/alpha/{piece}.svg`,
-  },
-  chessnut: {
-    id: 'chessnut',
-    label: 'Chessnut',
-    path: `${BASE}pieces/chessnut/{piece}.svg`,
+    artTop: { default: 0.0977, Q: 0.1387, R: 0.1719, B: 0.0762, N: 0.0859, P: 0.1758 },
+    artBottom: { default: 0.0996 },
   },
   pixel: {
     id: 'pixel',
     label: 'Pixel',
     path: `${BASE}pieces/pixel/{piece}.svg`,
+    artTop: { default: 0.0625, P: 0.125 },
+    artBottom: { default: 0.0625, P: 0.125 },
   },
   pixel2: {
     id: 'pixel2',
     label: 'Pixel 2',
     path: `${BASE}pieces/pixel2/{piece}.png`,
     pixelated: true,
+    // Холст 16×16, поля по 1px сверху и снизу → видимая часть занимает 87.5% картинки.
+    // Высота задана явно: у всех фигур, кроме пешки, видимая часть — 80% клетки
+    // (как у Tatiana), поэтому сверху остаётся отступ STANDARD_TOP_GAP.
+    // Пешка уменьшена на 30% против исходной картинки (была 87.5% клетки).
+    artTop: { default: 0.0625 },
+    artBottom: { default: 0.0625 },
+    heights: { K: 0.9143, Q: 0.9143, R: 0.9143, B: 0.9143, N: 0.9143, P: 0.7 },
   },
   pixel3: {
     id: 'pixel3',
     label: 'Pixel 3',
     path: `${BASE}pieces/pixel3/{piece}.png`,
     pixelated: true,
-    // Картинки обрезаны по контуру, поэтому рост фигур задан явно (доли клетки):
-    // король 94% … пешка 68%. Низ фигур стоит на общей базе — 2% над краем клетки.
-    inset: 0.02,
-    heights: { K: 0.94, Q: 0.92, R: 0.82, B: 0.84, N: 0.84, P: 0.68 },
+    // Картинки обрезаны по контуру (artBottom = 0), рост фигур задан явно:
+    // король 88% … пешка 68% клетки. База у всех общая — STANDARD_BOTTOM_GAP.
+    artTop: { default: 0 },
+    artBottom: { default: 0 },
+    heights: { K: 0.88, Q: 0.86, R: 0.82, B: 0.84, N: 0.84, P: 0.68 },
   },
   tatiana: {
     id: 'tatiana',
     label: 'Tatiana',
     path: `${BASE}pieces/tatiana/{piece}.svg`,
-  },
-  neutrall: {
-    id: 'neutrall',
-    label: 'Neutral',
-    path: `${BASE}pieces/neutrall/{piece}.png`,
-    pixelated: true,
+    artTop: { default: 0.0996, R: 0.1582, P: 0.2227 },
+    artBottom: { default: 0.0996, R: 0.1016 },
   },
 }
 
@@ -163,12 +180,6 @@ export function isPixelArtPieceSet(pieceSetId: string): boolean {
   return Boolean(PIECE_SETS[pieceSetId]?.pixelated)
 }
 
-/** Отступ фигуры от края клетки в долях клетки (0 — вплотную). */
-export function getPieceSetInset(pieceSetId: string): number {
-  const inset = PIECE_SETS[pieceSetId]?.inset
-  return typeof inset === 'number' ? inset : 0
-}
-
 /**
  * Высота фигуры в долях клетки, если набор задаёт её явно.
  * `null` — набор не задаёт высоты, картинка заполняет клетку целиком.
@@ -180,6 +191,55 @@ export function getPieceSetHeight(pieceSetId: string, code: string): number | nu
   return typeof height === 'number' ? height : null
 }
 
+/** Прозрачный низ самой картинки (доля её высоты). */
+export function getPieceSetArtBottom(pieceSetId: string, code: string): number {
+  const artBottom = PIECE_SETS[pieceSetId]?.artBottom
+  if (!artBottom) return 0
+  const value = artBottom[code[1]]
+  const fallback = typeof artBottom.default === 'number' ? artBottom.default : 0
+  return typeof value === 'number' ? value : fallback
+}
+
+/** Прозрачный верх самой картинки (доля её высоты). */
+export function getPieceSetArtTop(pieceSetId: string, code: string): number {
+  const artTop = PIECE_SETS[pieceSetId]?.artTop
+  if (!artTop) return 0
+  const value = artTop[code[1]]
+  const fallback = typeof artTop.default === 'number' ? artTop.default : 0
+  return typeof value === 'number' ? value : fallback
+}
+
+/**
+ * Сдвиг картинки вверх от низа клетки в долях клетки.
+ * Считается так, чтобы видимый низ фигуры у всех наборов стоял на одной базе —
+ * `STANDARD_BOTTOM_GAP` от низа клетки (стандарт — набор Tatiana).
+ *
+ * Формула одна для всех наборов: картинка сдвигается настолько, чтобы её
+ * прозрачный низ (artBottom) компенсировался. У наборов без явных высот
+ * картинка занимает всю клетку (height = 1), у наборов с `heights` — часть
+ * клетки, поэтому поле масштабируется вместе с картинкой.
+ */
+export function getPieceBottomMargin(pieceSetId: string, code: string): number {
+  const height = getPieceSetHeight(pieceSetId, code) ?? 1
+  return STANDARD_BOTTOM_GAP - getPieceSetArtBottom(pieceSetId, code) * height
+}
+
+/** Отступ видимого низа фигуры от нижней границы клетки (в долях клетки). */
+export function getPieceBottomGap(pieceSetId: string, code: string): number {
+  const height = getPieceSetHeight(pieceSetId, code) ?? 1
+  return getPieceBottomMargin(pieceSetId, code) + getPieceSetArtBottom(pieceSetId, code) * height
+}
+
+/**
+ * Отступ видимого верха фигуры от верхней границы клетки (в долях клетки).
+ * Определяется высотой картинки и её прозрачными полями.
+ */
+export function getPieceTopGap(pieceSetId: string, code: string): number {
+  const height = getPieceSetHeight(pieceSetId, code) ?? 1
+  const content = height * (1 - getPieceSetArtTop(pieceSetId, code) - getPieceSetArtBottom(pieceSetId, code))
+  return 1 - STANDARD_BOTTOM_GAP - content
+}
+
 interface BoardState {
   selectedTheme: string
   selectedPieceSet: string
@@ -188,8 +248,8 @@ interface BoardState {
   getTheme: () => BoardTheme
   getPieceUrl: (code: string) => string
   isPixelArt: () => boolean
-  pieceInset: () => number
   pieceHeight: (code: string) => number | null
+  pieceBottomMargin: (code: string) => number
 }
 
 export const useBoardStore = create<BoardState>()(
@@ -198,8 +258,8 @@ export const useBoardStore = create<BoardState>()(
       selectedTheme: 'chesscom',
       selectedPieceSet: 'tatiana',
 
-      setSelectedTheme: (theme) => set({ selectedTheme: theme }),
-      setSelectedPieceSet: (pieceSet) => set({ selectedPieceSet: pieceSet }),
+      setSelectedTheme: (theme) => set({ selectedTheme: BOARD_THEMES[theme] ? theme : 'chesscom' }),
+      setSelectedPieceSet: (pieceSet) => set({ selectedPieceSet: PIECE_SETS[pieceSet] ? pieceSet : 'tatiana' }),
 
       getTheme: () => {
         const { selectedTheme } = get()
@@ -212,11 +272,19 @@ export const useBoardStore = create<BoardState>()(
       },
 
       isPixelArt: () => isPixelArtPieceSet(get().selectedPieceSet),
-      pieceInset: () => getPieceSetInset(get().selectedPieceSet),
       pieceHeight: (code) => getPieceSetHeight(get().selectedPieceSet, code),
+      pieceBottomMargin: (code) => getPieceBottomMargin(get().selectedPieceSet, code),
     }),
     {
       name: 'gochess-board-settings',
+      // У пользователя в localStorage мог остаться удалённый набор фигур —
+      // откатываем на стандартный, иначе в настройках не выбрана ни одна плитка.
+      merge: (persisted, current) => {
+        const state = { ...current, ...(persisted as Partial<BoardState> | undefined) }
+        if (!BOARD_THEMES[state.selectedTheme]) state.selectedTheme = 'chesscom'
+        if (!PIECE_SETS[state.selectedPieceSet]) state.selectedPieceSet = 'tatiana'
+        return state
+      },
     }
   )
 )

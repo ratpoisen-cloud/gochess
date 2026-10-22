@@ -64,7 +64,7 @@ export default function ChessBoard({
   onSquareMouseLeave,
   bombs = [],
 }: ChessBoardProps) {
-  const { getTheme, getPieceUrl, selectedPieceSet, isPixelArt, pieceInset, pieceHeight } = useBoardStore()
+  const { getTheme, getPieceUrl, selectedPieceSet, isPixelArt, pieceHeight, pieceBottomMargin } = useBoardStore()
   const theme = getTheme()
   const [hoveredSquare, setHoveredSquare] = useState<string | null>(null)
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -151,22 +151,21 @@ export default function ChessBoard({
   const customPieces = useMemo(() => {
     const pieces: Record<string, (args: { isDragging: boolean; squareWidth: number }) => React.ReactElement> = {}
     const codes = ['wK', 'wQ', 'wR', 'wB', 'wN', 'wP', 'bK', 'bQ', 'bR', 'bB', 'bN', 'bP']
-    const inset = pieceInset()
     const pixelArt = isPixelArt()
     codes.forEach((code) => {
       const height = pieceHeight(code)
+      const bottomMargin = pieceBottomMargin(code)
       pieces[code] = ({ isDragging, squareWidth }) => (
         // react-chessboard вешает фигуру на div без размеров (width/height: auto),
         // поэтому «100%/100%» внутри не даёт картинке растянуться. Считаем размер
         // от squareWidth — он равен восьмой части доски.
-        // Низ фигуры прижат к общей базе: наборы с явными высотами (heights)
-        // рисуются от неё вверх, остальные заполняют клетку целиком.
+        // База у всех наборов общая: видимый низ фигуры — на STANDARD_BOTTOM_GAP
+        // от низа клетки. Прозрачное поле картинки компенсирует marginBottom,
+        // высота фигуры — `heights` набора (см. boardStore).
         <div
           style={{
             width: squareWidth,
             height: squareWidth,
-            paddingBottom: squareWidth * inset,
-            boxSizing: 'border-box',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
@@ -178,6 +177,7 @@ export default function ChessBoard({
             style={{
               width: height === null ? '100%' : 'auto',
               height: height === null ? '100%' : squareWidth * height,
+              marginBottom: squareWidth * bottomMargin,
               objectFit: 'contain',
               imageRendering: pixelArt ? 'pixelated' : 'auto',
               filter: isDragging
@@ -192,7 +192,7 @@ export default function ChessBoard({
       )
     })
     return pieces
-  }, [getPieceUrl, selectedPieceSet, isPixelArt, pieceInset, pieceHeight])
+  }, [getPieceUrl, selectedPieceSet, isPixelArt, pieceHeight, pieceBottomMargin])
 
   const customSquare = useCallback(({ square, children, style }: { square: string; children: React.ReactNode; style: Record<string, string | number> }) => {
     const isSquareVisible = !visibleSquares || visibleSquares.includes(square)

@@ -137,7 +137,9 @@ src/
   - `getPieceBottomGap = margin + artBottom × height` — всегда `STANDARD_BOTTOM_GAP`;
   - `getPieceTopGap = 1 - STANDARD_BOTTOM_GAP - height × (1 - artTop - artBottom)`.
 - **Измеренные поля картинок** (замер альфа-канала; PNG — nearest-neighbour, как при
-  `pixelated`-рендере, SVG — растеризация в браузере). Верхний отступ — от верхней границы клетки:
+  `pixelated`-рендере, SVG — растеризация в браузере). Подробности, скрипты и полные
+  замеры — в `docs/piece-sets/` (`measurements.json`, `scripts/measure-piece-sets-*.py|js`).
+  Верхний отступ — от верхней границы клетки:
 
   | набор | artTop | artBottom | верхний отступ |
   |---|---|---|---|

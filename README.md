@@ -97,6 +97,11 @@ src/
 ├── types/            # TypeScript типы (Color, GameMode, GameData, Challenge)
 ├── App.tsx           # Роутинг
 └── main.tsx          # Точка входа
+
+docs/
+└── piece-sets/       # Модель геометрии наборов фигур + замеры artTop/artBottom
+
+scripts/              # Служебные скрипты (замеры полей картинок фигур)
 ```
 
 ## 📱 PWA

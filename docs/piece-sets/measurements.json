@@ -1,0 +1,820 @@
+{
+  "description": "Замеры полей картинок фигур: artTop/artBottom — доли высоты картинки.",
+  "method": {
+    "png": "альфа-канал исходного PNG, nearest-neighbour (как при pixelated-рендере)",
+    "svg": "растеризация в браузере (canvas 512x512), альфа-канал"
+  },
+  "model": {
+    "standardBottomGap": 0.1,
+    "standardTopGap": 0.1,
+    "bottomMargin": "STANDARD_BOTTOM_GAP - artBottom * height",
+    "visibleHeight": "height * (1 - artTop - artBottom)",
+    "topGap": "1 - STANDARD_BOTTOM_GAP - visibleHeight"
+  },
+  "sets": {
+    "alpha": {
+      "type": "svg",
+      "heights": null,
+      "artTop": {
+        "default": 0.0977,
+        "Q": 0.1387,
+        "R": 0.1719,
+        "B": 0.0762,
+        "N": 0.0859,
+        "P": 0.1758
+      },
+      "artBottom": {
+        "default": 0.0996
+      },
+      "pieces": {
+        "wK": {
+          "measuredArtTop": 0.0977,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8027,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0977,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8027,
+          "topGap": 0.0973,
+          "bottomGap": 0.1
+        },
+        "wQ": {
+          "measuredArtTop": 0.1387,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.7617,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.1387,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.7617,
+          "topGap": 0.1383,
+          "bottomGap": 0.1
+        },
+        "wR": {
+          "measuredArtTop": 0.1719,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.7285,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.1719,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.7285,
+          "topGap": 0.1715,
+          "bottomGap": 0.1
+        },
+        "wB": {
+          "measuredArtTop": 0.0762,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8242,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0762,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8242,
+          "topGap": 0.0758,
+          "bottomGap": 0.1
+        },
+        "wN": {
+          "measuredArtTop": 0.0859,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8145,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0859,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8145,
+          "topGap": 0.0855,
+          "bottomGap": 0.1
+        },
+        "wP": {
+          "measuredArtTop": 0.1758,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.7246,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.1758,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.7246,
+          "topGap": 0.1754,
+          "bottomGap": 0.1
+        },
+        "bK": {
+          "measuredArtTop": 0.0977,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8027,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0977,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8027,
+          "topGap": 0.0973,
+          "bottomGap": 0.1
+        },
+        "bQ": {
+          "measuredArtTop": 0.1387,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.7617,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.1387,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.7617,
+          "topGap": 0.1383,
+          "bottomGap": 0.1
+        },
+        "bR": {
+          "measuredArtTop": 0.1719,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.7285,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.1719,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.7285,
+          "topGap": 0.1715,
+          "bottomGap": 0.1
+        },
+        "bB": {
+          "measuredArtTop": 0.0762,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8242,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0762,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8242,
+          "topGap": 0.0758,
+          "bottomGap": 0.1
+        },
+        "bN": {
+          "measuredArtTop": 0.0859,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8145,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0859,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8145,
+          "topGap": 0.0855,
+          "bottomGap": 0.1
+        },
+        "bP": {
+          "measuredArtTop": 0.1758,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.7246,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.1758,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.7246,
+          "topGap": 0.1754,
+          "bottomGap": 0.1
+        }
+      }
+    },
+    "pixel": {
+      "type": "svg",
+      "heights": null,
+      "artTop": {
+        "default": 0.0625,
+        "P": 0.125
+      },
+      "artBottom": {
+        "default": 0.0625,
+        "P": 0.125
+      },
+      "pieces": {
+        "wK": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "wQ": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "wR": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "wB": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "wN": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "wP": {
+          "measuredArtTop": 0.125,
+          "measuredArtBottom": 0.125,
+          "measuredContent": 0.75,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.125,
+          "artBottom": 0.125,
+          "visibleHeight": 0.75,
+          "topGap": 0.15,
+          "bottomGap": 0.1
+        },
+        "bK": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "bQ": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "bR": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "bB": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "bN": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.875,
+          "topGap": 0.025,
+          "bottomGap": 0.1
+        },
+        "bP": {
+          "measuredArtTop": 0.125,
+          "measuredArtBottom": 0.125,
+          "measuredContent": 0.75,
+          "canvas": "150x150",
+          "height": 1,
+          "artTop": 0.125,
+          "artBottom": 0.125,
+          "visibleHeight": 0.75,
+          "topGap": 0.15,
+          "bottomGap": 0.1
+        }
+      }
+    },
+    "pixel2": {
+      "type": "png",
+      "heights": {
+        "K": 0.9143,
+        "Q": 0.9143,
+        "R": 0.9143,
+        "B": 0.9143,
+        "N": 0.9143,
+        "P": 0.7
+      },
+      "artTop": {
+        "default": 0.0625
+      },
+      "artBottom": {
+        "default": 0.0625
+      },
+      "pieces": {
+        "wK": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "wQ": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "wR": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "wB": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "wN": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "wP": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.7,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.6125,
+          "topGap": 0.2875,
+          "bottomGap": 0.1
+        },
+        "bK": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "bQ": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "bR": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "bB": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "bN": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.9143,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.8,
+          "topGap": 0.1,
+          "bottomGap": 0.1
+        },
+        "bP": {
+          "measuredArtTop": 0.0625,
+          "measuredArtBottom": 0.0625,
+          "measuredContent": 0.875,
+          "canvas": "16x16",
+          "height": 0.7,
+          "artTop": 0.0625,
+          "artBottom": 0.0625,
+          "visibleHeight": 0.6125,
+          "topGap": 0.2875,
+          "bottomGap": 0.1
+        }
+      }
+    },
+    "pixel3": {
+      "type": "png",
+      "heights": {
+        "K": 0.88,
+        "Q": 0.86,
+        "R": 0.82,
+        "B": 0.84,
+        "N": 0.84,
+        "P": 0.68
+      },
+      "artTop": {
+        "default": 0
+      },
+      "artBottom": {
+        "default": 0
+      },
+      "pieces": {
+        "wK": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x26",
+          "height": 0.88,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.88,
+          "topGap": 0.02,
+          "bottomGap": 0.1
+        },
+        "wQ": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x24",
+          "height": 0.86,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.86,
+          "topGap": 0.04,
+          "bottomGap": 0.1
+        },
+        "wR": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x19",
+          "height": 0.82,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.82,
+          "topGap": 0.08,
+          "bottomGap": 0.1
+        },
+        "wB": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x21",
+          "height": 0.84,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.84,
+          "topGap": 0.06,
+          "bottomGap": 0.1
+        },
+        "wN": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x20",
+          "height": 0.84,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.84,
+          "topGap": 0.06,
+          "bottomGap": 0.1
+        },
+        "wP": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x16",
+          "height": 0.68,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.68,
+          "topGap": 0.22,
+          "bottomGap": 0.1
+        },
+        "bK": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x26",
+          "height": 0.88,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.88,
+          "topGap": 0.02,
+          "bottomGap": 0.1
+        },
+        "bQ": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x24",
+          "height": 0.86,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.86,
+          "topGap": 0.04,
+          "bottomGap": 0.1
+        },
+        "bR": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x19",
+          "height": 0.82,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.82,
+          "topGap": 0.08,
+          "bottomGap": 0.1
+        },
+        "bB": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x21",
+          "height": 0.84,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.84,
+          "topGap": 0.06,
+          "bottomGap": 0.1
+        },
+        "bN": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x20",
+          "height": 0.84,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.84,
+          "topGap": 0.06,
+          "bottomGap": 0.1
+        },
+        "bP": {
+          "measuredArtTop": 0,
+          "measuredArtBottom": 0,
+          "measuredContent": 1,
+          "canvas": "14x16",
+          "height": 0.68,
+          "artTop": 0,
+          "artBottom": 0,
+          "visibleHeight": 0.68,
+          "topGap": 0.22,
+          "bottomGap": 0.1
+        }
+      }
+    },
+    "tatiana": {
+      "type": "svg",
+      "heights": null,
+      "artTop": {
+        "default": 0.0996,
+        "R": 0.1582,
+        "P": 0.2227
+      },
+      "artBottom": {
+        "default": 0.0996,
+        "R": 0.1016
+      },
+      "pieces": {
+        "wK": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "wQ": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "wR": {
+          "measuredArtTop": 0.1582,
+          "measuredArtBottom": 0.1016,
+          "measuredContent": 0.7402,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.1582,
+          "artBottom": 0.1016,
+          "visibleHeight": 0.7402,
+          "topGap": 0.1598,
+          "bottomGap": 0.1
+        },
+        "wB": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "wN": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "wP": {
+          "measuredArtTop": 0.2227,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.6777,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.2227,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.6777,
+          "topGap": 0.2223,
+          "bottomGap": 0.1
+        },
+        "bK": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "bQ": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "bR": {
+          "measuredArtTop": 0.1582,
+          "measuredArtBottom": 0.1016,
+          "measuredContent": 0.7402,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.1582,
+          "artBottom": 0.1016,
+          "visibleHeight": 0.7402,
+          "topGap": 0.1598,
+          "bottomGap": 0.1
+        },
+        "bB": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "bN": {
+          "measuredArtTop": 0.0996,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.8008,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.0996,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.8008,
+          "topGap": 0.0992,
+          "bottomGap": 0.1
+        },
+        "bP": {
+          "measuredArtTop": 0.2227,
+          "measuredArtBottom": 0.0996,
+          "measuredContent": 0.6777,
+          "canvas": "189x189",
+          "height": 1,
+          "artTop": 0.2227,
+          "artBottom": 0.0996,
+          "visibleHeight": 0.6777,
+          "topGap": 0.2223,
+          "bottomGap": 0.1
+        }
+      }
+    }
+  }
+}
